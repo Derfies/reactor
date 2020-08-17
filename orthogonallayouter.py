@@ -1,11 +1,19 @@
 import copy
+import enum
 import itertools as it
 
 import networkx as nx
 
-from const import Direction, NodeState, ANGLE, LENGTH, SideState, Angle, DIRECTION
+from const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION
 from orthogonalgraph import OrthogonalGraph
 from orthogonalface import OrthogonalFace
+
+
+class NodeState(enum.IntEnum):
+
+    unknown = 0
+    free = 1
+    known = 2
 
 
 class OrthogonalLayouter(object):
@@ -35,19 +43,7 @@ class OrthogonalLayouter(object):
             state_idx = len(filter(lambda edge: node in edge, common_edges))
             state = NodeState(state_idx)
             if state == NodeState.known:
-                #try:
-
-                angles = []
-                try:
-                    angles.append(g.get_explementary_angle(node))
-                except ValueError:
-                    pass
-                poss_angles.append(angles)
-                # except:
-
-                #     print 'FAILED:', node#, nx.get_node_attributes(g, ANGLE).get(node)
-                #     self.debug = g
-                #     raise
+                poss_angles.append([g.get_explementary_angle(node)])
             elif state == NodeState.unknown:
                 poss_angles.append(g.get_possible_angles(node))
             elif state == NodeState.free:
@@ -69,10 +65,10 @@ class OrthogonalLayouter(object):
             oface = OrthogonalFace(face.edges, angles, lengths, walk_dir)
             ofaces.append(oface)
 
-            bar = zip(oface.nodes, oface.angles)
+            #bar = zip(oface.nodes, oface.angles)
             # print ' ' * (indent + 2), 'Angles:', bar
 
-            missing_lengths = {}
+            #missing_lengths = {}
             for dir_, opp_dir in (Direction.xs(), Direction.ys()):
 
                 # Define two sides - one with the shorter proposed length and
@@ -92,20 +88,14 @@ class OrthogonalLayouter(object):
                 # print ' ' * (indent + 8), 'max_length:', max_length
 
                 if min_side.state == SideState.unknown:
-                    min_side_edge = (
-                                                max_length - min_side.known_length) / float(
-                        min_side.num_unknown_edges)
+                    min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
                     for edge_idx in min_side.indices:
-                        oface.lengths[edge_idx] = oface.lengths[
-                                                      edge_idx] or min_side_edge
+                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or min_side_edge
 
                 if max_side.state == SideState.unknown:
-                    max_side_edge = (
-                                                max_length - max_side.known_length) / float(
-                        max_side.num_unknown_edges)
+                    max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
                     for edge_idx in max_side.indices:
-                        oface.lengths[edge_idx] = oface.lengths[
-                                                      edge_idx] or max_side_edge
+                        oface.lengths[edge_idx] = oface.lengths[edge_idx] or max_side_edge
 
                 # print ' ' * (indent + 8), 'max_side_edge:', [oface.lengths[edge_idx] for edge_idx in max_side.indices]
 

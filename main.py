@@ -5,7 +5,7 @@ from const import POSITION
 from mapgenerator import MapGenerator
 
 
-GRID_PATH = 'data/test.graphml'
+GRID_PATH = 'data/grid2.graphml'
 
 
 def init_pyplot(figsize):
@@ -37,8 +37,10 @@ if __name__ == '__main__':
     map_gen.run()
 
     # Draw output.
-    for layouter in map_gen.layouters:
-        for graph in layouter.graphs:
+    for i in range(len(map_gen.layouters)):
+        nx.draw_networkx(map_gen.biconns[i].g, map_gen.biconns[i].pos)
+        plt.show()
+        for graph in map_gen.layouters[i].graphs:
             pos = nx.get_node_attributes(graph, POSITION)
             nx.draw_networkx(graph, pos)
             plt.show()

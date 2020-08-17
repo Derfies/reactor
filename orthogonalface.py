@@ -1,9 +1,18 @@
+import copy
+
 from face import Face
 from const import Direction, Angle
 from side import Side
+from vector import Vector2
 
 
 class OrthogonalFace(Face):
+
+    """
+    TODO: Sometimes we store data by order, sometimes by dict. Seems confusing.
+
+    Directions should be easy to turn into a list.
+    """
 
     def __init__(self, edges, angles, lengths, direction=Direction.up):
         super(OrthogonalFace, self).__init__(edges)
@@ -13,19 +22,22 @@ class OrthogonalFace(Face):
 
         self.angles = tuple(angles)
         self.lengths = lengths
-        self.direction = direction
+        self.start_direction = direction
+        self.directions = list(zip(*list(self._edge_walk())))[2]    # Gross.
 
+        # Work out sides.
+        # TODO: This could do with more clean up.
+        indices = {}
+        lengths = {}
+        for edge_idx, edge, edge_dir in self._edge_walk():
+            indices.setdefault(edge_dir, []).append(edge_idx)
+            lengths.setdefault(edge_dir, []).append(self.lengths[edge_idx])
         self.sides = {}
         for dir_ in Direction:
-            indices = []
-            lengths = []
-            for index in self.get_direction_indices(dir_):
-                indices.append(index)
-                lengths.append(self.lengths[index])
-            self.sides[dir_] = Side(dir_, indices, lengths)
+            self.sides[dir_] = Side(dir_, indices[dir_], lengths[dir_])
 
-    def edge_walk(self):
-        direction = self.direction
+    def _edge_walk(self):
+        direction = self.start_direction
         for edge_idx, edge in enumerate(self.edges):
             yield edge_idx, edge, direction
             angle = self.angles[(edge_idx + 1) % len(self.angles)]
@@ -35,19 +47,12 @@ class OrthogonalFace(Face):
                 direction -= 1
             direction = Direction.normalise(direction)
 
-    def get_direction_indices(self, direction):
-        return [
-            edge_idx
-            for edge_idx, edge, edge_dir in self.edge_walk()
-            if edge_dir == direction
-        ]
-
     def get_node_positions(self):
         positions = {}
-        pos = [0, 0]
-        for edge_idx, edge, direction in self.edge_walk():
-            positions[edge[0]] = pos[:]
-            length = self.lengths[edge_idx]# or 1
+        pos = Vector2(0, 0)
+        for edge_idx, edge, direction in self._edge_walk():
+            positions[edge[0]] = copy.copy(pos)
+            length = self.lengths[edge_idx]
             if direction == Direction.up:
                 pos[1] += length
             elif direction == Direction.right:

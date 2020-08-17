@@ -5,6 +5,7 @@ class Face(object):
 
     @classmethod
     def from_nodes(cls, nodes):
+        # Each node is the head of the edge of the same index.
         return cls([
             (nodes[idx], nodes[(idx + 1) % len(nodes)])
             for idx in range(len(nodes))
@@ -34,7 +35,12 @@ class Face(object):
     def index(self, edge):
         return self.edges.index(edge)
 
-    def reverse(self):
+    def reversed(self):
+        """
+        Note this only reverses the direction of the face edges the edge indices
+        remain unchanged.
+
+        """
         return Face([tuple(reversed(edge)) for edge in self])
 
     def set_from_edge(self, edge):

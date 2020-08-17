@@ -10,6 +10,7 @@ class MapGenerator(object):
     def __init__(self, grid_path):
         self.g = nx.Graph(nx.read_graphml(grid_path))
 
+        self.biconns = []
         self.layouters = []
 
     @property
@@ -30,6 +31,7 @@ class MapGenerator(object):
             # Try to run the planar layout on the bicon component. If this fails
             # show the layout for debug.
             bg = EmbeddedBiconnGraph(biconn_graph)
+            self.biconns.append(bg)
             try:
                 bg.run()
             except nx.exception.NetworkXException:
@@ -39,7 +41,5 @@ class MapGenerator(object):
 
             ol = OrthogonalLayouter(bg.faces)
             ol.run()
-
-            #print ol.graphs
 
             self.layouters.append(ol)

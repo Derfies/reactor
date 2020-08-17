@@ -12,10 +12,7 @@ class Side(object):
 
     @property
     def state(self):
-        state = SideState.known
-        if None in self.lengths:
-            state = SideState.unknown
-        return state
+        return SideState.unknown if None in self.lengths else SideState.known
 
     @property
     def length(self):

@@ -38,13 +38,6 @@ class Direction(enum.IntEnum):
         return (Direction.up, Direction.down)
 
 
-class NodeState(enum.IntEnum):
-
-    unknown = 0
-    free = 1
-    known = 2
-
-
 class SideState(enum.IntEnum):
 
     unknown = 0
