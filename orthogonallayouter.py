@@ -4,7 +4,8 @@ import itertools as it
 
 import networkx as nx
 
-from const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION
+from vector import Vector2
+from const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION, POSITION
 from orthogonalgraph import OrthogonalGraph
 from orthogonalface import OrthogonalFace
 
@@ -20,17 +21,6 @@ class OrthogonalLayouter(object):
 
     def __init__(self, faces):
         self.faces = faces
-
-    def _get_next_walk_direction(self, g, face, indent):
-
-        # Pick an edge-walk direction. If there's a common edge we need to use
-        # that same edge's direction in order for the faces to join.
-        walk_dir = Direction.up
-        rev_edge = tuple(reversed(face[0]))
-        if rev_edge in g.edges:
-            rev_walk_dir = g.edges[rev_edge][DIRECTION]
-            walk_dir = Direction.opposite(rev_walk_dir)
-        return walk_dir
 
     def _permute_face_angles(self, g, face, indent):
 
@@ -55,20 +45,25 @@ class OrthogonalLayouter(object):
     def permute_layouts(self, g, face, indent):
 
         angle_perms = self._permute_face_angles(g, face, indent + 2)
-        walk_dir = self._get_next_walk_direction(g, face, indent + 2)
+
+        offset = Vector2(0, 0)
+        start_dir = Direction.up
+        common_edges = g.get_common_edges(face)
+        if common_edges:
+            edge = common_edges[0]
+            rev_dir = g.edges[edge][DIRECTION]
+            start_dir = Direction.opposite(rev_dir)
+            offset = g.nodes[edge[1]][POSITION]
 
         # Turn each set of
+        lengths = [g.edges.get(edge, {}).get(LENGTH) for edge in face]
         ofaces = []
         for angles in angle_perms:
 
-            lengths = [g.edges.get(edge, {}).get(LENGTH) for edge in face]
-            oface = OrthogonalFace(face.edges, angles, lengths, walk_dir)
+
+            oface = OrthogonalFace(face.edges, angles, lengths[:], start_dir, offset)
             ofaces.append(oface)
 
-            #bar = zip(oface.nodes, oface.angles)
-            # print ' ' * (indent + 2), 'Angles:', bar
-
-            #missing_lengths = {}
             for dir_, opp_dir in (Direction.xs(), Direction.ys()):
 
                 # Define two sides - one with the shorter proposed length and
@@ -79,19 +74,24 @@ class OrthogonalLayouter(object):
 
                 # print ' ' * (indent + 6), 'Axis:', dir_, opp_dir
 
+                # If one of the sides has a known length then we must use that
+                # length
                 max_length = max_side.proposed_length
-
                 if min_side.state == SideState.known:
                     max_length = min_side.length
                 elif max_side.state == SideState.known:
                     max_length = max_side.length
                 # print ' ' * (indent + 8), 'max_length:', max_length
 
+                # If the min side is unknown, split the remainder and divide it
+                # amongst the edges.
                 if min_side.state == SideState.unknown:
                     min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
                     for edge_idx in min_side.indices:
                         oface.lengths[edge_idx] = oface.lengths[edge_idx] or min_side_edge
 
+                # If the max side is unknown, split the remainder and divide it
+                # amongst the edges.
                 if max_side.state == SideState.unknown:
                     max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
                     for edge_idx in max_side.indices:

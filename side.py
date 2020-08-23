@@ -3,12 +3,17 @@ from const import SideState
 
 class Side(object):
 
-    def __init__(self, direction, indices, lengths):
+    def __init__(self, direction, face):
         self.direction = direction
 
-        assert len(indices) == len(lengths), 'Number of indices and lengths must be equal'
-        self.indices = tuple(indices)
-        self.lengths = tuple(lengths)
+        self.indices = [
+            idx
+            for idx, node in enumerate(face.nodes)
+            if face.directions[idx] == direction
+        ]
+        self.lengths = tuple(face.lengths[idx] for idx in self.indices)
+
+        self.face = face
 
     @property
     def state(self):

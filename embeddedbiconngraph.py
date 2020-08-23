@@ -122,6 +122,7 @@ class EmbeddedBiconnGraph(object):
             greatest.
 
         """
+        # TODO: Move this to layouter as a face sorter method.
         # Calculate inner faces by removing the face that contains the exterior
         # half edge. Obviously node order in the half edge is important here or
         # else we'll grab the wrong one. This should select the correct face

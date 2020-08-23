@@ -14,7 +14,7 @@ class OrthogonalFace(Face):
     Directions should be easy to turn into a list.
     """
 
-    def __init__(self, edges, angles, lengths, direction=Direction.up):
+    def __init__(self, edges, angles, lengths, direction=Direction.up, offset=None):
         super(OrthogonalFace, self).__init__(edges)
 
         assert len(edges) == len(angles) == len(angles), 'Number of edges, angles and lengths must be equal'
@@ -25,16 +25,22 @@ class OrthogonalFace(Face):
         self.start_direction = direction
         self.directions = list(zip(*list(self._edge_walk())))[2]    # Gross.
 
+        self.offset = offset or Vector2(0, 0)
+
+        self._pos = None
+
         # Work out sides.
         # TODO: This could do with more clean up.
-        indices = {}
-        lengths = {}
-        for edge_idx, edge, edge_dir in self._edge_walk():
-            indices.setdefault(edge_dir, []).append(edge_idx)
-            lengths.setdefault(edge_dir, []).append(self.lengths[edge_idx])
-        self.sides = {}
-        for dir_ in Direction:
-            self.sides[dir_] = Side(dir_, indices[dir_], lengths[dir_])
+        self.sides = {
+            dir_: Side(dir_, self)
+            for dir_ in Direction
+        }
+
+    @property
+    def positions(self):
+        if self._pos is None:
+            self._pos = self._calculate_node_positions()
+        return self._pos
 
     def _edge_walk(self):
         direction = self.start_direction
@@ -47,11 +53,11 @@ class OrthogonalFace(Face):
                 direction -= 1
             direction = Direction.normalise(direction)
 
-    def get_node_positions(self):
-        positions = {}
+    def _calculate_node_positions(self):
+        positions = []
         pos = Vector2(0, 0)
         for edge_idx, edge, direction in self._edge_walk():
-            positions[edge[0]] = copy.copy(pos)
+            positions.append(copy.copy(pos) + self.offset)
             length = self.lengths[edge_idx]
             if direction == Direction.up:
                 pos[1] += length
