@@ -1,6 +1,6 @@
 import itertools
 import random
-random.seed(2)
+random.seed(10)
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -20,12 +20,13 @@ class MapGenerator(object):
 
     def __init__(self, grid_path):
         g = nx.Graph(nx.read_graphml(grid_path))
-        self.g = nx.dfs_tree(g, list(g.nodes())[0])
+        self.input = nx.dfs_tree(g, list(g.nodes())[0])
+        self.g = nx.DiGraph()
         self.idx = 0
 
         # Make sure each node is max incident of 4.
-        for node in self.g.nodes():
-            node_edges = self.g.edges(node)
+        for node in self.input.nodes():
+            node_edges = self.input.edges(node)
             assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
 
     def intersects_graph2(self, p1, p2, edges):
@@ -55,12 +56,11 @@ class MapGenerator(object):
     def _process_node(self, edge, p_edge):
 
         # self.idx += 1
-        # if self.idx > 25:
+        # if self.idx > 14:
         #     print '    {} early out - True'.format(edge[1])
         #     return True
 
-        print 'process:', edge[1]
-
+        print 'process:', edge[1], 'parent:', edge[0]
 
         dirs = set(Direction)
         edges = set(self.g.edges())
@@ -82,15 +82,15 @@ class MapGenerator(object):
         # again.
         dirs = list(dirs)
         random.shuffle(dirs)
-        max_step = random.randint(MIN_STEP, MAX_STEP)
+        steps = range(MIN_STEP, MAX_STEP + 1)
+        random.shuffle(steps)
 
-        # TODO: Make this properly random.
-        steps = reversed(range(MIN_STEP, max_step + 1))
-
-        p_pos = Vector2(0, 0)#, Vector2(0, 0)
+        p_pos = Vector2(0, 0)
         if edge[0] in self.g.nodes:
             p_pos = self.g.nodes[edge[0]][POSITION]
 
+        # TODO:
+        # All edges might not be checking all valid directions...
         result = False
         for dir_, step in itertools.product(dirs, steps):
             pos = p_pos + utils.step(dir_, step)
@@ -104,29 +104,27 @@ class MapGenerator(object):
             print '    {} step:'.format(edge[1]), step
             print '    {} pos:'.format(edge[1]), pos
 
+            if edge[0] is not None:
+                self.g.add_edge(edge[0], edge[1])
+            else:
+                self.g.add_node(edge[1])
             self.g.nodes[edge[1]][POSITION] = pos
             if edge in self.g.edges():
                 self.g.edges[edge][DIRECTION] = dir_
 
             neigh_results = []
-            for neigh in self.g.neighbors(edge[1]):
-
-
+            for neigh in self.input.neighbors(edge[1]):
 
                 neigh_result = self._process_node((edge[1], neigh), edge)
                 neigh_results.append(neigh_result)
                 if not neigh_result:
-                    # del self.g.nodes[edge[1]][POSITION]
-                    # if edge in self.g.edges():
-                    #     del self.g.edges[edge][DIRECTION]
-                    # print '    >>> {} removing data...'.format(edge[1])
+                    print 'remove subgraph:', list(nx.dfs_tree(self.g, edge[1]).nodes())#.copy()
+                    self.g.remove_nodes_from(nx.dfs_tree(self.g, edge[1]))
                     break
 
             result = all(neigh_results)
             if result:
                 break
-
-
         else:
             print '######## {} TOTALLY FAILED!!'.format(edge[1])
 
@@ -137,12 +135,8 @@ class MapGenerator(object):
 
     def run(self):
 
-        nodes = list(self.g.nodes())
+        nodes = list(self.input.nodes())
         self._process_node((None, nodes[0]), (None, None))
-
-        for node in map_gen.g.nodes():
-            if map_gen.g.nodes[node].get(POSITION) is None:
-                map_gen.g.nodes[node][POSITION] = Vector2(-5, -5)
 
 
 if __name__ == '__main__':
@@ -163,5 +157,3 @@ if __name__ == '__main__':
     pos = nx.get_node_attributes(map_gen.g, POSITION)
     nx.draw_networkx(map_gen.g, pos)
     plt.show()
-
-    raise
