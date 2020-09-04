@@ -1,6 +1,6 @@
 import itertools
 import random
-random.seed(0)
+random.seed(2)
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -28,44 +28,6 @@ class MapGenerator(object):
             node_edges = self.g.edges(node)
             assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
 
-    def does_edge_intersect(self, e1, e2):
-        # if None in e1 or None in e2:
-        #     return False
-
-        a1 = self.g.nodes[e1[0]].get(POSITION)
-        a2 = self.g.nodes[e1[1]].get(POSITION)
-        b1 = self.g.nodes[e2[0]].get(POSITION)
-        b2 = self.g.nodes[e2[1]].get(POSITION)
-
-        # print a1, a2
-        # print b1, b2
-
-
-
-        if a1 is None or a2 is None or b1 is None or b2 is None:
-            return False
-
-        r1 = Rect(a1, a2)
-        r1.normalise()
-        r2 = Rect(b1, b2)
-        r2.normalise()
-        #print '    ', r1.p1, r1.p2, r2.p1, r2.p2
-        return r1.touches(r2)
-
-    def intersects_graph(self, edge, pos):
-
-        # Does edge intersect the rest of the graph??
-        for e in self.g.edges():
-            if edge[0] in e or edge[1] in e:
-                print '        skip node: {}'.format(node)
-                continue
-            inter = self.does_edge_intersect(edge, e)
-            if inter:
-                print '    ********** intersects:', edge, e, inter
-                return True
-
-        return False
-
     def intersects_graph2(self, p1, p2, edges):
 
         r1 = Rect(p1, p2)
@@ -90,86 +52,97 @@ class MapGenerator(object):
 
         return False
 
-    def _process_node(self, node, p_node, p_edge):
-        print 'process:', node
+    def _process_node(self, edge, p_edge):
 
-        edge = (p_node, node)
+        # self.idx += 1
+        # if self.idx > 25:
+        #     print '    {} early out - True'.format(edge[1])
+        #     return True
 
-        print '    edge:', edge
-        print '    p_edge:', p_edge
-
-        pos = Vector2(0, 0)
-        dir_ = None
-        if p_node is not None:
-
-            edges = set(self.g.edges())
-            dirs = set(Direction)
-
-            # Remove prev edge direction.
-            if p_edge[0] is not None:
-                p_dir = Direction.opposite(self.g.edges[p_edge][DIRECTION])
-                dirs.discard(p_dir)
-                edges.discard(p_edge)
-
-            # Remove sibling edge directions.
-            s_edges = filter(lambda x: x[0] == p_node, self.g.edges())
-            for s_edge in s_edges:
-                dirs.discard(self.g.edges[s_edge].get(DIRECTION))
-                edges.discard(s_edge)
-
-            p_pos = self.g.nodes[p_node][POSITION]
-
-            #print '    testing:', edges
+        print 'process:', edge[1]
 
 
-            # If the edge intersects with an existing edge we need to shorten the
-            # step length, then potentially change the step direction and trying
-            # again.
-            dirs = list(dirs)
-            random.shuffle(dirs)
-            max_step = random.randint(MIN_STEP, MAX_STEP)
-            steps = reversed(range(MIN_STEP, max_step + 1))
-            for d, step in itertools.product(dirs, steps):
-                p = p_pos + utils.step(d, step)
-                inter = self.intersects_graph2(p_pos, p, edges)
-                #print '    inter:', inter#, edges
-                if not inter:
-                    dir_ = d
-                    pos = p
+        dirs = set(Direction)
+        edges = set(self.g.edges())
+
+        # Remove prev edge direction.
+        if p_edge[0] is not None:
+            p_dir = Direction.opposite(self.g.edges[p_edge][DIRECTION])
+            dirs.discard(p_dir)
+            edges.discard(p_edge)
+
+        # Remove sibling edge directions.
+        s_edges = filter(lambda e: e[0] == edge[0], self.g.edges())
+        for s_edge in s_edges:
+            dirs.discard(self.g.edges[s_edge].get(DIRECTION))
+            edges.discard(s_edge)
+
+        # If the edge intersects with an existing edge we need to shorten the
+        # step length, then potentially change the step direction and trying
+        # again.
+        dirs = list(dirs)
+        random.shuffle(dirs)
+        max_step = random.randint(MIN_STEP, MAX_STEP)
+
+        # TODO: Make this properly random.
+        steps = reversed(range(MIN_STEP, max_step + 1))
+
+        p_pos = Vector2(0, 0)#, Vector2(0, 0)
+        if edge[0] in self.g.nodes:
+            p_pos = self.g.nodes[edge[0]][POSITION]
+
+        result = False
+        for dir_, step in itertools.product(dirs, steps):
+            pos = p_pos + utils.step(dir_, step)
+            inter = self.intersects_graph2(p_pos, pos, edges)
+            if inter:
+                print '        ********** step FAILED:', dir_, step, p_pos, pos
+                continue
+
+            print '    {} parent:'.format(edge[1]), edge[0]
+            print '    {} dir_:'.format(edge[1]), dir_
+            print '    {} step:'.format(edge[1]), step
+            print '    {} pos:'.format(edge[1]), pos
+
+            self.g.nodes[edge[1]][POSITION] = pos
+            if edge in self.g.edges():
+                self.g.edges[edge][DIRECTION] = dir_
+
+            neigh_results = []
+            for neigh in self.g.neighbors(edge[1]):
+
+
+
+                neigh_result = self._process_node((edge[1], neigh), edge)
+                neigh_results.append(neigh_result)
+                if not neigh_result:
+                    # del self.g.nodes[edge[1]][POSITION]
+                    # if edge in self.g.edges():
+                    #     del self.g.edges[edge][DIRECTION]
+                    # print '    >>> {} removing data...'.format(edge[1])
                     break
-                else:
-                    print '        ********** step FAILED:', d, step, p_pos, p
 
-            self.g.edges[edge][DIRECTION] = dir_
-
-            print '    step:', step
+            result = all(neigh_results)
+            if result:
+                break
 
 
+        else:
+            print '######## {} TOTALLY FAILED!!'.format(edge[1])
 
-        print '    dir_:', dir_
-        print '    position:', pos
+        print '    {} overall result:'.format(edge[1]), result
 
-        # TODO: Don't yet know this is a valid position
-        self.g.nodes[node][POSITION] = pos# + Vector2(random.random() / 2.0, random.random() / 2.0)
+        return result
 
-
-
-        for neigh in self.g.neighbors(node):
-
-            self.idx += 1
-            if self.idx > 50:
-                return
-
-            self._process_node(neigh, node, edge)
 
     def run(self):
 
         nodes = list(self.g.nodes())
-        self._process_node(nodes[0], None, None)
+        self._process_node((None, nodes[0]), (None, None))
 
         for node in map_gen.g.nodes():
             if map_gen.g.nodes[node].get(POSITION) is None:
-                map_gen.g.nodes[node][POSITION] = Vector2(-10, -5)
+                map_gen.g.nodes[node][POSITION] = Vector2(-5, -5)
 
 
 if __name__ == '__main__':
@@ -183,7 +156,7 @@ if __name__ == '__main__':
         # HAX
         for node in map_gen.g.nodes():
             if map_gen.g.nodes[node].get(POSITION) is None:
-                map_gen.g.nodes[node][POSITION] = Vector2(-10, -5)
+                map_gen.g.nodes[node][POSITION] = Vector2(-5, -5)
 
         raise
 
