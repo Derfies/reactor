@@ -25,7 +25,7 @@ class OrthogonalFace(Face):
         self.start_direction = direction
         self.directions = list(zip(*list(self._edge_walk())))[2]    # Gross.
 
-        self.offset = offset or Vector2(0, 0)
+        self.offset = offset if offset is not None else Vector2(0, 0)
 
         self._pos = None
 

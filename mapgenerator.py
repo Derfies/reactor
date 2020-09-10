@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 
 from embeddedbiconngraph import EmbeddedBiconnGraph
 from orthogonallayouter import OrthogonalLayouter
+from tree_layout import MapGenerator as TreeLayouter
+from const import POSITION
 
 
 class MapGenerator(object):
@@ -12,25 +14,31 @@ class MapGenerator(object):
 
         self.biconns = []
         self.layouters = []
+        self.trees = []
+
+        # Make sure each node is max incident of 4.
+        for node in self.g.nodes():
+            node_edges = self.g.edges(node)
+            assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
 
     @property
-    def biconnected_components(self):
-        biconns = list(nx.biconnected_components(self.g))
+    def cyclic_components(self):
+        biconns = list(nx.biconnected_component_subgraphs(self.g))
         return filter(lambda s: len(s) > 2, biconns)
 
     @property
-    def biconnected_graphs(self):
-        biconn_graphs = []
-        for biconn in self.biconnected_components:
-            biconn_graphs.append(self.g.subgraph(biconn))
-        return biconn_graphs
+    def tree_components(self):
+        g = self.g.copy()
+        for comp in self.cyclic_components:
+            g.remove_nodes_from(comp)
+        return nx.connected_component_subgraphs(g)
 
     def run(self):
-        for biconn_graph in self.biconnected_graphs:
+        for cyclic_component in self.cyclic_components:
 
             # Try to run the planar layout on the bicon component. If this fails
             # show the layout for debug.
-            bg = EmbeddedBiconnGraph(biconn_graph)
+            bg = EmbeddedBiconnGraph(cyclic_component)
             self.biconns.append(bg)
             try:
                 bg.run()
@@ -43,3 +51,14 @@ class MapGenerator(object):
             ol.run()
 
             self.layouters.append(ol)
+
+        for tree_component in self.tree_components:
+            map_gen = TreeLayouter(tree_component)
+            self.trees.append(map_gen)
+            try:
+                map_gen.run()
+            except Exception, e:
+                pos = nx.get_node_attributes(map_gen.g, POSITION)
+                nx.draw_networkx(map_gen.g, pos)
+                plt.show()
+                raise

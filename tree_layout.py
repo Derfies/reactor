@@ -18,8 +18,7 @@ GRID_PATH = 'data/tree1.graphml'
 
 class MapGenerator(object):
 
-    def __init__(self, grid_path):
-        g = nx.Graph(nx.read_graphml(grid_path))
+    def __init__(self, g):
         self.input = nx.dfs_tree(g, list(g.nodes())[0])
         self.g = nx.DiGraph()
         self.idx = 0
@@ -28,6 +27,11 @@ class MapGenerator(object):
         for node in self.input.nodes():
             node_edges = self.input.edges(node)
             assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
+
+    @classmethod
+    def from_file(cls, grid_path):
+        g = nx.Graph(nx.read_graphml(grid_path))
+        return cls(g)
 
     def intersects_graph2(self, p1, p2, edges):
 
@@ -121,7 +125,6 @@ class MapGenerator(object):
                     print 'remove subgraph:', list(nx.dfs_tree(self.g, edge[1]).nodes())#.copy()
                     self.g.remove_nodes_from(nx.dfs_tree(self.g, edge[1]))
                     break
-
             result = all(neigh_results)
             if result:
                 break
@@ -142,7 +145,7 @@ class MapGenerator(object):
 if __name__ == '__main__':
 
     # Initialise a map generator using a path to a node graph file, then run it.
-    map_gen = MapGenerator(GRID_PATH)
+    map_gen = MapGenerator.from_file(GRID_PATH)
     try:
         map_gen.run()
     except Exception, e:
