@@ -4,10 +4,11 @@ import itertools as it
 
 import networkx as nx
 
-from vector import Vector2
-from const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION, POSITION
-from orthogonalgraph import OrthogonalGraph
-from orthogonalface import OrthogonalFace
+from ..vector import Vector2
+from ..const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION, POSITION
+from ..orthogonalgraph import OrthogonalGraph
+from ..orthogonalface import OrthogonalFace
+from layouterbase import LayouterBase
 
 
 class NodeState(enum.IntEnum):
@@ -17,9 +18,11 @@ class NodeState(enum.IntEnum):
     known = 2
 
 
-class OrthogonalLayouter(object):
+class CyclicLayouter(LayouterBase):
 
     def __init__(self, faces):
+        super(CyclicLayouter, self).__init__()
+
         self.faces = faces
 
     def _permute_face_angles(self, g, face, indent):
@@ -121,9 +124,8 @@ class OrthogonalLayouter(object):
             if face_idx < len(self.faces) - 1:
                 self._process_face(face_idx + 1, g_copy, indent + 4)
             else:
-                self.graphs.append(g_copy)
+                self.layouts.append(g_copy)
 
 
     def run(self):
-        self.graphs = []
         self._process_face(0, OrthogonalGraph(), 0)

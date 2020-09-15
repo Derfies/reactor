@@ -5,10 +5,11 @@ random.seed(10)
 import networkx as nx
 import matplotlib.pyplot as plt
 
-import utils
-from rect import Rect
-from vector import Vector2
-from const import POSITION, Direction, DIRECTION
+from .. import utils
+from ..rect import Rect
+from ..vector import Vector2
+from ..const import POSITION, Direction, DIRECTION
+from layouterbase import LayouterBase
 
 
 MIN_STEP = 1
@@ -16,17 +17,23 @@ MAX_STEP = 3
 GRID_PATH = 'data/tree1.graphml'
 
 
-class MapGenerator(object):
+class TreeLayouter(LayouterBase):
 
     def __init__(self, g):
+        super(TreeLayouter, self).__init__()
+
         self.input = nx.dfs_tree(g, list(g.nodes())[0])
-        self.g = nx.DiGraph()
+        self.layouts = [nx.DiGraph()]
         self.idx = 0
 
         # Make sure each node is max incident of 4.
         for node in self.input.nodes():
             node_edges = self.input.edges(node)
             assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
+
+    @property
+    def g(self):
+        return self.layouts[0]
 
     @classmethod
     def from_file(cls, grid_path):
