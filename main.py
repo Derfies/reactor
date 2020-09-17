@@ -1,7 +1,10 @@
+import random
+random.seed(0)
+
 from reactor.mapgenerator import MapGenerator
 
 
-GRID_PATH = 'data/reactor02.graphml'
+GRID_PATH = 'data/reactor01.graphml'
 
 
 if __name__ == '__main__':

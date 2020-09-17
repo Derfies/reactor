@@ -5,12 +5,6 @@ from const import ANGLE, DIRECTION, POSITION, LENGTH, Angle
 
 class OrthogonalGraph(nx.Graph):
 
-    def add_component(self, comp):
-
-        # Add a component to the graph, be it face / tree, whatever. Needs to
-        # calculate node offset.
-        pass
-
     def add_face(self, face):
 
         # Assert that the nodes the given face is going to connect to have a

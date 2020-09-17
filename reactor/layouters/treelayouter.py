@@ -1,6 +1,5 @@
 import itertools
 import random
-random.seed(10)
 
 import networkx as nx
 import matplotlib.pyplot as plt
