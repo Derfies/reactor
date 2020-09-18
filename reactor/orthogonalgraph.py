@@ -3,7 +3,7 @@ import networkx as nx
 from const import ANGLE, DIRECTION, POSITION, LENGTH, Angle
 
 
-class OrthogonalGraph(nx.Graph):
+class OrthogonalGraph(nx.DiGraph):
 
     def add_face(self, face):
 

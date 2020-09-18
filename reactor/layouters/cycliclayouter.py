@@ -3,12 +3,14 @@ import enum
 import itertools as it
 
 import networkx as nx
+import matplotlib.pyplot as plt
 
 from ..vector import Vector2
 from ..const import Direction, ANGLE, LENGTH, SideState, Angle, DIRECTION, POSITION
 from ..orthogonalgraph import OrthogonalGraph
 from ..orthogonalface import OrthogonalFace
 from layouterbase import LayouterBase
+from ..embeddedbiconngraph import EmbeddedBiconnGraph
 
 
 class NodeState(enum.IntEnum):
@@ -20,10 +22,23 @@ class NodeState(enum.IntEnum):
 
 class CyclicLayouter(LayouterBase):
 
-    def __init__(self, faces):
+    def __init__(self, g, other=None, start_node=None):
         super(CyclicLayouter, self).__init__()
 
-        self.faces = faces
+        # Try to run the planar layout on the bicon component. If this fails
+        # show the layout for debug.
+        bg = EmbeddedBiconnGraph(g)
+        try:
+            bg.run()
+        except nx.exception.NetworkXException:
+            nx.draw_networkx(bg.g, bg.pos)
+            plt.show()
+            raise
+
+        #self.layouter = CyclicLayouter(bg.faces)
+        #self.layouter.run()
+
+        self.faces = bg.faces
 
     def _permute_face_angles(self, g, face, indent):
 
@@ -128,4 +143,5 @@ class CyclicLayouter(LayouterBase):
 
 
     def run(self):
+        print 'Running:', self
         self._process_face(0, OrthogonalGraph(), 0)

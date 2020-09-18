@@ -2,7 +2,6 @@ import itertools
 import random
 
 import networkx as nx
-import matplotlib.pyplot as plt
 
 from .. import utils
 from ..rect import Rect
@@ -13,16 +12,23 @@ from layouterbase import LayouterBase
 
 MIN_STEP = 1
 MAX_STEP = 3
-GRID_PATH = 'data/tree1.graphml'
 
 
 class TreeLayouter(LayouterBase):
 
-    def __init__(self, g):
-        super(TreeLayouter, self).__init__()
+    def __init__(self, g, layout=None, root_node=None):
+        #super(TreeLayouter, self).__init__()
 
-        self.input = nx.dfs_tree(g, list(g.nodes())[0])
-        self.layouts = [nx.DiGraph()]
+        self._g = g
+
+
+        self._root_node = root_node
+
+        self.input = nx.dfs_tree(self._g, self.root_node)
+        self.max_iter = 70
+        if layout is None:
+            layout = nx.DiGraph()
+        self.layout = layout
         self.idx = 0
 
         # Make sure each node is max incident of 4.
@@ -31,8 +37,14 @@ class TreeLayouter(LayouterBase):
             assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
 
     @property
-    def g(self):
-        return self.layouts[0]
+    def root_node(self):
+        if self._root_node is None:
+            self._root_node = list(self._g.nodes())[0]
+        return self._root_node
+
+    @property
+    def layouts(self):
+        return [self.layout]
 
     @classmethod
     def from_file(cls, grid_path):
@@ -47,8 +59,8 @@ class TreeLayouter(LayouterBase):
         # Does edge intersect the rest of the graph??
         for edge in edges:
 
-            p3 = self.g.nodes[edge[0]].get(POSITION)
-            p4 = self.g.nodes[edge[1]].get(POSITION)
+            p3 = self.layout.nodes[edge[0]].get(POSITION)
+            p4 = self.layout.nodes[edge[1]].get(POSITION)
 
             if p3 is None or p4 is None:
                 #print '        skip:', edge
@@ -59,33 +71,32 @@ class TreeLayouter(LayouterBase):
             touches = r1.touches(r2)
             #print '        ', touches, edge, p1, p2, '->', p3, p4
             if touches:
-                return True
+                return r2
 
         return False
 
-    def _process_node(self, edge, p_edge):
+    def _process_node(self, node, p_node):
 
-        # self.idx += 1
-        # if self.idx > 14:
-        #     print '    {} early out - True'.format(edge[1])
-        #     return True
+        print 'process:', node, 'parent:', p_node
 
-        print 'process:', edge[1], 'parent:', edge[0]
-
+        p_pos = Vector2(0, 0)
         dirs = set(Direction)
-        edges = set(self.g.edges())
+        edges = set(self.layout.edges())
 
-        # Remove prev edge direction.
-        if p_edge[0] is not None:
-            p_dir = Direction.opposite(self.g.edges[p_edge][DIRECTION])
-            dirs.discard(p_dir)
-            edges.discard(p_edge)
+        if p_node is not None:
 
-        # Remove sibling edge directions.
-        s_edges = filter(lambda e: e[0] == edge[0], self.g.edges())
-        for s_edge in s_edges:
-            dirs.discard(self.g.edges[s_edge].get(DIRECTION))
-            edges.discard(s_edge)
+            # Remove prev edge direction.
+            for in_edge in self.layout.in_edges(p_node):
+                dir = Direction.opposite(self.layout.edges[in_edge][DIRECTION])
+                dirs.discard(dir)
+                edges.discard(in_edge)
+
+            # Remove sibling edge directions.
+            for out_edge in self.layout.out_edges(p_node):
+                dirs.discard(self.layout.edges[out_edge].get(DIRECTION))
+                edges.discard(out_edge)
+
+            p_pos = self.layout.nodes[p_node][POSITION]
 
         # If the edge intersects with an existing edge we need to shorten the
         # step length, then potentially change the step direction and trying
@@ -95,10 +106,6 @@ class TreeLayouter(LayouterBase):
         steps = range(MIN_STEP, MAX_STEP + 1)
         random.shuffle(steps)
 
-        p_pos = Vector2(0, 0)
-        if edge[0] in self.g.nodes:
-            p_pos = self.g.nodes[edge[0]][POSITION]
-
         # TODO:
         # All edges might not be checking all valid directions...
         result = False
@@ -106,63 +113,63 @@ class TreeLayouter(LayouterBase):
             pos = p_pos + utils.step(dir_, step)
             inter = self.intersects_graph2(p_pos, pos, edges)
             if inter:
-                print '        ********** step FAILED:', dir_, step, p_pos, pos
+                print '        ********** step FAILED:', dir_, step, p_pos, pos, str(inter), edges
                 continue
 
-            print '    {} parent:'.format(edge[1]), edge[0]
-            print '    {} dir_:'.format(edge[1]), dir_
-            print '    {} step:'.format(edge[1]), step
-            print '    {} pos:'.format(edge[1]), pos
+            print '    {} parent:'.format(node), p_node
+            print '    {} dir_:'.format(node), dir_
+            print '    {} step:'.format(node), step
+            print '    {} pos:'.format(node), pos
 
-            if edge[0] is not None:
-                self.g.add_edge(edge[0], edge[1])
+            if p_node is not None:
+                self.layout.add_edge(p_node, node)
             else:
-                self.g.add_node(edge[1])
-            self.g.nodes[edge[1]][POSITION] = pos
-            if edge in self.g.edges():
-                self.g.edges[edge][DIRECTION] = dir_
+                self.layout.add_node(node)
+            self.layout.nodes[node][POSITION] = pos
+            if (p_node, node) in self.layout.edges():
+                self.layout.edges[(p_node, node)][DIRECTION] = dir_
 
             neigh_results = []
-            for neigh in self.input.neighbors(edge[1]):
+            for neigh in self.input.neighbors(node):
 
-                neigh_result = self._process_node((edge[1], neigh), edge)
+                neigh_result = self._process_node(neigh, node)
                 neigh_results.append(neigh_result)
+
+                # If a neighbor failed to be placed, remove the entire subgraph
                 if not neigh_result:
-                    print 'remove subgraph:', list(nx.dfs_tree(self.g, edge[1]).nodes())#.copy()
-                    self.g.remove_nodes_from(nx.dfs_tree(self.g, edge[1]))
+                    print 'remove subgraph:', list(nx.dfs_tree(self.layout, node).nodes())#.copy()
+                    self.layout.remove_nodes_from(nx.dfs_tree(self.layout, node))
                     break
             result = all(neigh_results)
             if result:
                 break
         else:
-            print '######## {} TOTALLY FAILED!!'.format(edge[1])
+            print '######## {} TOTALLY FAILED!!'.format(node)
 
-        print '    {} overall result:'.format(edge[1]), result
+        print '    {} overall result:'.format(node), result
 
+        # If we can't place all successors then we have to mark this node as
+        # failed, which will result in the entire branch being removed and
+        # another direction / step value being attempted.
         return result
 
 
     def run(self):
+        print 'Running:', self
 
-        nodes = list(self.input.nodes())
-        self._process_node((None, nodes[0]), (None, None))
+        # Set the root node's position to the origin
 
 
-if __name__ == '__main__':
+        p_node = None
+        if self.root_node in self.layout:
 
-    # Initialise a map generator using a path to a node graph file, then run it.
-    map_gen = MapGenerator.from_file(GRID_PATH)
-    try:
-        map_gen.run()
-    except Exception, e:
+            # Assume the root node has already been laid out.
+            p_node = next(self.layout.predecessors(self.root_node), None)
+        else:
 
-        # HAX
-        for node in map_gen.g.nodes():
-            if map_gen.g.nodes[node].get(POSITION) is None:
-                map_gen.g.nodes[node][POSITION] = Vector2(-5, -5)
+            # Set the start node to 0, 0
+            self.layout.add_node(self.root_node)
+            self.layout.nodes[self.root_node][POSITION] = Vector2(0, 0)
 
-        raise
-
-    pos = nx.get_node_attributes(map_gen.g, POSITION)
-    nx.draw_networkx(map_gen.g, pos)
-    plt.show()
+        for neigh in self.input.neighbors(self.root_node):
+            self._process_node(neigh, self.root_node)

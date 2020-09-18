@@ -7,6 +7,9 @@ class Rect(object):
         self.p1 = p1
         self.p2 = p2
 
+    def __str__(self):
+        return '{}, {}'.format(self.p1, self.p2)
+
     @property
     def width(self):
         return abs(self.p2.x - self.p1.x)
