@@ -1,5 +1,7 @@
 import random
 
+import networkx as nx
+
 import const
 from vector import Vector2
 
@@ -23,3 +25,12 @@ def step(direction, length=1):
     else:
         raise Exception('Unknown direction: {}'.format(direction))
     return pos
+
+
+def draw(g, pos=None):
+    import matplotlib.pyplot as plt
+
+    if pos is None:
+        pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
+    nx.draw_networkx(g, pos=pos)
+    plt.show()

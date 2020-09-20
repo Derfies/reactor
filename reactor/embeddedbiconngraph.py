@@ -47,7 +47,7 @@ class EmbeddedBiconnGraph(object):
         planar layouts as advertised, resulting in a borked planar embedding.
 
         """
-        #return nx.spectral_layout(self.g)
+        return nx.spectral_layout(self.g)
         return nx.spring_layout(self.g, seed=1)
         #return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
@@ -176,7 +176,6 @@ class EmbeddedBiconnGraph(object):
         self._embedding = self._calculate_planar_embedding()
         self._all_faces = self._calculate_all_faces()
         self._ext_hedge = self._calculate_external_face_half_edge()
-        print 'Exterior half edge: {}'.format(self._ext_hedge)
         self._faces = self._calculate_inner_faces()
 
         # Outright fail if any face is less than 4 edges. We can change this to
