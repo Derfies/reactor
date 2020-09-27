@@ -47,8 +47,3 @@ class BlockBase(object):
 
     def update_layout(self, g):
         self.layout.update(g)
-
-    def remove_subtree(self):
-        del_nodes = nx.dfs_tree(self.layout, self.node)
-        print '**** REMOVE SUBGRAPH:', list(del_nodes)
-        self.layout.remove_nodes_from(del_nodes)

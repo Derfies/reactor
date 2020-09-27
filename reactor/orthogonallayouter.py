@@ -1,3 +1,5 @@
+import copy
+
 import networkx as nx
 
 from reactor.blocks.blockgraph import BlockGraph
@@ -24,6 +26,7 @@ class OrthogonalLayouter(object):
         print '\nprocess:', layouter, ', parent:', layouter.parent_block_node#, 'node:', layouter.node
 
         result = False
+        old_layout = copy.deepcopy(self.layout)
         for perm in layouter.get_permutations():
 
             # Test to see if the block can be laid out. If so, merge into main
@@ -48,11 +51,8 @@ class OrthogonalLayouter(object):
                     # Actually, why - when a face fails and we remove the parent
                     # node, does the parent not not get re-placed?
                     # TODO: Must do block removal - particularly by face
-                    #del_nodes = nx.dfs_tree(self.layout, layouter.node)
-                    #print '**** REMOVE SUBGRAPH FROM:', layouter.node, '->', list(del_nodes)
-                    #self.layout.remove_nodes_from(del_nodes)
-                    layouter.remove_subtree()
-
+                    print '**** REMOVE SUBGRAPH FROM:', layouter
+                    self.layout = layouter.layout = old_layout
                     break
 
             # All children be laid out, so we can stop looping this block's
@@ -61,8 +61,7 @@ class OrthogonalLayouter(object):
             if result:
                 break
 
-        else:
-
+        if not result:
             print '#### TOTALLY FAILED: {}'.format(block)
 
             # import utils
@@ -78,21 +77,9 @@ class OrthogonalLayouter(object):
             self._process_block2(child)
 
     def run(self):
-
         print ''
         self.bg = BlockGraph(self.g)
         self.bg.run()
-
-        # TODO: Use dfs_successors and alter the return in order to put faces
-        # first.
-        #
-        # import utils
-        # utils.draw(self.bg.q)
-
         self._process_block(self.bg.root)
-
         print 'complete:', len(self.g) == len(self.layout)
 
-        import utils
-        pos = nx.get_node_attributes(self.layout, POSITION)
-        utils.draw(self.layout, pos)

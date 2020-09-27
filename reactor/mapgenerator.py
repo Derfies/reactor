@@ -25,5 +25,5 @@ class MapGenerator(object):
 
     def run(self):
         self.load_graph()
-        layouter = OrthogonalLayouter(self.g)
-        layouter.run()
+        self.layouter = OrthogonalLayouter(self.g)
+        self.layouter.run()

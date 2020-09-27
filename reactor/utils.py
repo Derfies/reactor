@@ -1,3 +1,4 @@
+import os
 import random
 
 import networkx as nx
@@ -41,46 +42,37 @@ def step(direction, length=1):
 
 def init_pyplot(figsize):
 
-
     # Set pyplot dimensions.
     plt.figure(figsize=figsize)
 
-
-
-    # Then we set up our axes (the plot region, or the area in which we plot things).
-    # Usually there is a thin border drawn around the axes, but we turn it off with `frameon=False`.
+    # Then we set up our axes (the plot region, or the area in which we plot
+    # things). Usually there is a thin border drawn around the axes, but we turn
+    # it off with `frameon=False`. Also set the aspect ratio so x and y units
+    # appear the same size.
     ax = plt.axes([0, 0, 1, 1], frameon=False)
-
     ax.set_aspect('equal')
-
-    # Then we disable our xaxis and yaxis completely. If we just say
-    # plt.axis('off'), they are still used in the computation of the image
-    # padding.
-    # ax.get_xaxis().set_visible(False)
-    # ax.get_yaxis().set_visible(False)
-
-    #ax.get_xaxis().autoscale('equal')
-    #ax.get_yaxis().autoscale('equal')
-
-
 
     # Even though our axes (plot region) are set to cover the whole image with
     # [0,0,1,1], by default they leave padding between the plotted data and the
     # frame. We use tigher=True to make sure the data gets scaled to the full
     # extents of the axes.
-    #plt.autoscale(tight=True)
+    plt.autoscale(tight=True)
 
 
-def draw(g, pos=None):
-    #import matplotlib.pyplot as plt
-
+def draw_graph(g, pos=None):
     if pos is None:
         pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
-
-    #plt.axes().set_aspect('equal')
     init_pyplot((10, 10))
     nx.draw_networkx(g, pos=pos)
-    #plt.figure(figsize=figsize)
-    #plt.axes.autoscale('equal')
-    #init_pyplot((10, 10))
     plt.show()
+
+
+def save_graph(g, pos=None, save_path=None):
+    if pos is None:
+        pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
+    init_pyplot((10, 10))
+    nx.draw_networkx(g, pos=pos)
+    dir_path = os.path.split(save_path)[0]
+    if not os.path.isdir(dir_path):
+        os.makedirs(dir_path)
+    plt.savefig(save_path)
