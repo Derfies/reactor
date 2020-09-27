@@ -28,7 +28,7 @@ class Rect(object):
 
     def touches(self, other):
         return (
-            self.p1.x <= other.p2.x and
+            self.p1.x <= other.p2.x and # If rect1 LHS is less than or equal to rect2 RHS
             self.p2.x >= other.p1.x and
             self.p1.y <= other.p2.y and
             self.p2.y >= other.p1.y

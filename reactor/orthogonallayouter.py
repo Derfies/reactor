@@ -1,85 +1,58 @@
 import networkx as nx
 
-from reactor import utils
-from reactor.blocks.nodeblock import NodeBlock
-from reactor.blocks.cyclicblock import CyclicBlock
+from reactor.blocks.blockgraph import BlockGraph
 from reactor.const import POSITION
+from reactor.orthogonalgraph import OrthogonalGraph
 
 
 class OrthogonalLayouter(object):
 
     def __init__(self, g):
         self._g = g
-        self._dg = nx.DiGraph()
-        self._q = nx.DiGraph()
-        self._layout = nx.DiGraph()
+
+        self.layout = OrthogonalGraph()
 
     @property
     def g(self):
         return self._g
 
-    @property
-    def dg(self):
-        return self._dg
-
-    @property
-    def q(self):
-        return self._q
-
-    @property
-    def layout(self):
-        return self._layout
-
-    @property
-    def root_node(self):
-        return filter(lambda x: not self.q.in_edges(x), self.q.nodes())[0]
-
-    def _calculate_oriented_edge_graph(self):
-        dg = self.g.to_directed()
-        dfs_edges = list(nx.edge_dfs(self.g))
-        del_edges = filter(lambda e: e not in dfs_edges, dg.edges())
-        dg.remove_edges_from(del_edges)
-        return dg
-
-    def _calculate_quotient_graph(self):
-        biconns = list(nx.biconnected_components(self.g))
-
-        def partition_fn(a, b):
-            return any([
-                a in biconn and b in biconn and len(biconn) > 2
-                for biconn in biconns
-            ])
-
-        return nx.quotient_graph(self.dg, partition_fn)
-
-    def get_block_class(self, nodes):
-        return CyclicBlock if len(nodes) > 1 else NodeBlock
-
     def _process_block(self, block):
-        print 'process:', list(block.g.nodes()), 'parent:', block.parent_block_node
+
+        layouter_cls = self.bg.get_block_class(block)
+        layouter = layouter_cls(block, self.bg.q, self.layout)
+
+        print '\nprocess:', layouter, ', parent:', layouter.parent_block_node#, 'node:', layouter.node
 
         result = False
-        for perm in block.get_permutations():
+        for perm in layouter.get_permutations():
 
             # Test to see if the block can be laid out. If so, merge into main
             # layout.
-            if not block.can_lay_out(perm):
+            if not layouter.can_lay_out(perm):
                 print '    **** FAILED:', nx.get_node_attributes(perm, POSITION)
                 continue
-            self.layout.update(perm)
+            print '    **** SUCCESS:', nx.get_node_attributes(perm, POSITION)
+            layouter.update_layout(perm)
 
             # Recurse children.
             child_results = []
-            for child in self.q.successors(block):
+            for child in self.bg.q.successors(block):
 
                 # If a child failed to be placed, remove the entire subgraph.
                 child_result = self._process_block(child)
                 child_results.append(child_result)
                 if not child_result:
-                    del_nodes = nx.dfs_tree(self.layout, block.root_node)
-                    print '**** REMOVE SUBGRAPH:', list(del_nodes)
-                    self.layout.remove_nodes_from(del_nodes)
-                    #result = False
+
+                    # TODO: Need to specialise this... if a face fails then the
+                    # parent root node will be removed...
+                    # Actually, why - when a face fails and we remove the parent
+                    # node, does the parent not not get re-placed?
+                    # TODO: Must do block removal - particularly by face
+                    #del_nodes = nx.dfs_tree(self.layout, layouter.node)
+                    #print '**** REMOVE SUBGRAPH FROM:', layouter.node, '->', list(del_nodes)
+                    #self.layout.remove_nodes_from(del_nodes)
+                    layouter.remove_subtree()
+
                     break
 
             # All children be laid out, so we can stop looping this block's
@@ -89,26 +62,37 @@ class OrthogonalLayouter(object):
                 break
 
         else:
-            print '#### TOTALLY FAILED:'.format(block)#, result
-            #result = False
 
-        # pos = nx.get_node_attributes(self.layout, POSITION)
-        # utils.draw(self.layout, pos)
+            print '#### TOTALLY FAILED: {}'.format(block)
+
+            # import utils
+            # pos = nx.get_node_attributes(self.layout, POSITION)
+            # utils.draw(self.layout, pos)
 
         return result
 
+    def _process_block2(self, block):
+        print 'process:', block, self.bg.q.nodes[block].get('cls')
+
+        for child in self.bg.q.successors(block):
+            self._process_block2(child)
+
     def run(self):
 
-        # Calculate edges oriented to dfs.
-        self._dg = self._calculate_oriented_edge_graph()
+        print ''
+        self.bg = BlockGraph(self.g)
+        self.bg.run()
 
-        # Replace nodes in the tree with block classes.
-        q = self._calculate_quotient_graph()
-        mapping = {}
-        for nodes in q.nodes():
-            block_cls = self.get_block_class(nodes)
-            sg = self.dg.subgraph(nodes)
-            mapping[nodes] = block_cls(sg, q, self.layout)
-        self._q = nx.relabel_nodes(q, mapping, copy=False)
+        # TODO: Use dfs_successors and alter the return in order to put faces
+        # first.
+        #
+        # import utils
+        # utils.draw(self.bg.q)
 
-        self._process_block(self.root_node)
+        self._process_block(self.bg.root)
+
+        print 'complete:', len(self.g) == len(self.layout)
+
+        import utils
+        pos = nx.get_node_attributes(self.layout, POSITION)
+        utils.draw(self.layout, pos)

@@ -1,69 +1,54 @@
 import abc
+import itertools
 
+import networkx as nx
+
+from reactor import utils
 from reactor.rect import Rect
-from reactor.const import POSITION
 
 
 class BlockBase(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, g, q, layout):
-        self.g = g
+    def __init__(self, data, q, layout):
+        self.data = data
         self.q = q
         self.layout = layout
 
-    @property
-    def root_node(self):
-        return filter(lambda n: not self.g.in_edges(n), self.g.nodes())[0]
+    def __str__(self):
+        return self.__class__.__name__ + '.' + str(self.data)
 
     @property
     def parent_block_node(self):
-        return next(self.g._graph.predecessors(self.node), None)
-
-    @property
-    def parent(self):
-        return next(self.q.predecessors(self), None)
+        return next(self.q.predecessors(self.data), None)
 
     @abc.abstractmethod
-    def get_permutations(self, *args, **kwargs):
+    def get_permutations(self):
         """"""
 
-    @abc.abstractmethod
-    def can_lay_out(self, *args, **kwargs):
-        """"""
+    def edge_intersection(self, e1, g1, e2, g2):
+        """
+        Still has a weird smell about it. If the edges being compared share a
+        node then do an intersection test, otherwise do a touch test.
 
-    def intersects_graph2(self, p1, p2, ignore_edges=None):
-
-        ignore_edges = ignore_edges or []
-
-        r1 = Rect(p1, p2)
+        """
+        r1 = Rect(*utils.get_edge_positions(g1, e1))
         r1.normalise()
+        r2 = Rect(*utils.get_edge_positions(g2, e2))
+        r2.normalise()
+        return r1.intersects(r2) if set(e1) & set(e2) else r1.touches(r2)
 
-        # Does edge intersect the rest of the graph??
-        edges = set(self.layout.edges()) - set(ignore_edges)
-        for edge in edges:
+    def can_lay_out(self, perm):
+        return not any([
+            self.edge_intersection(e1, perm, e2, self.layout)
+            for e1, e2 in itertools.product(perm.edges(), self.layout.edges())
+        ])
 
-            p3 = self.layout.nodes[edge[0]].get(POSITION)
-            p4 = self.layout.nodes[edge[1]].get(POSITION)
+    def update_layout(self, g):
+        self.layout.update(g)
 
-            if p3 is None or p4 is None:
-                #print '        skip:', edge
-                continue
-
-            r2 = Rect(p3, p4)
-            r2.normalise()
-            touches = r1.touches(r2)
-            #print '        ', touches, edge, p1, p2, '->', p3, p4
-            if touches:
-                return r2
-
-        return False
-
-    def permutation_intersected(self, perm, edges):
-        for edge in perm.edges():
-            p1 = perm.nodes[edge[0]].get(POSITION)
-            p2 = perm.nodes[edge[1]].get(POSITION)
-            if self.intersects_graph2(p1, p2, edges):
-                return True
-        return False
+    def remove_subtree(self):
+        del_nodes = nx.dfs_tree(self.layout, self.node)
+        print '**** REMOVE SUBGRAPH:', list(del_nodes)
+        self.layout.remove_nodes_from(del_nodes)

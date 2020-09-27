@@ -24,7 +24,7 @@ class Face(object):
         return False
 
     def __str__(self):
-        return str(self.edges)
+        return 'Face: ' + str(self.edges)
 
     def __len__(self):
         return len(self.edges)

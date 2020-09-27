@@ -1,3 +1,5 @@
+from operator import itemgetter
+
 import networkx as nx
 
 from orthogonallayouter import OrthogonalLayouter
@@ -6,21 +8,22 @@ from orthogonallayouter import OrthogonalLayouter
 class MapGenerator(object):
 
     def __init__(self, grid_path):
-        self.g = nx.read_graphml(grid_path).to_undirected()
+        self.grid_path = grid_path
+        self._g = nx.Graph()
 
-        # Make sure each node has max incident of 4.
-        for node in self.g.nodes():
-            node_edges = self.g.edges(node)
-            assert len(node_edges) < 5, 'Node: {} has incident value greater than 4'.format(node)
+    @property
+    def g(self):
+        return self._g
+
+    def load_graph(self):
+        self._g = nx.read_graphml(self.grid_path).to_undirected()
+
+        # Ensure no node has a degree greater than 4.
+        max_degree = filter(lambda x: x[1] > 4, self._g.degree)
+        msg = 'Node(s): {} have degree greater than 4'
+        assert not max_degree, msg.format(', '.join(map(itemgetter(0), max_degree)))
 
     def run(self):
+        self.load_graph()
         layouter = OrthogonalLayouter(self.g)
         layouter.run()
-
-
-        from reactor import utils
-        from reactor.const import POSITION
-
-        print 'complete:', len(self.g) == len(layouter.layout)
-        pos = nx.get_node_attributes(layouter.layout, POSITION)
-        utils.draw(layouter.layout, pos)

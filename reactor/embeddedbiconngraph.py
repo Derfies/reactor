@@ -8,13 +8,14 @@ from face import Face
 class EmbeddedBiconnGraph(object):
 
     def __init__(self, g):
-        self._g = g
+        self._g = g         # Does this have to be di/graph?
 
         self._pos = {}
         self._embedding = nx.PlanarEmbedding()
         self._all_faces = []
         self._ext_hedge = None
-        self._faces = []
+        self._ext_face = None
+        #self._faces = []
 
     @property
     def g(self):
@@ -37,8 +38,12 @@ class EmbeddedBiconnGraph(object):
         return self._ext_hedge
 
     @property
-    def faces(self):
-        return self._faces
+    def ext_face(self):
+        return self._ext_face
+
+    # @property
+    # def faces(self):
+    #     return self._faces
 
     def _calculate_planar_layout(self):
         """
@@ -74,7 +79,12 @@ class EmbeddedBiconnGraph(object):
             for neigh in neighes_sorted:
                 emd.add_half_edge_ccw(node, neigh, last)
                 last = neigh
-        emd.check_structure()
+        try:
+            emd.check_structure()
+        except nx.exception.NetworkXException:
+            import utils
+            utils.draw(self.g, self.pos)
+            raise
         return emd
 
     def _calculate_all_faces(self):
@@ -111,76 +121,116 @@ class EmbeddedBiconnGraph(object):
                 self.pos[node][1] - self.pos[corner][1]
             )
         )  # maximum cosine value
-        return (other, corner)
+        return other, corner
 
-    def _calculate_inner_faces(self):
-        """
-        Return a list of the inner faces of the biconn. These are sorted so as
-        to satisfy two requirements:
-            - Any two adjacent faces in the list share an edge.
-            - The resulting list orders faces from least number of edges to
-            greatest.
+    # def _calculate_inner_faces(self):
+    #     """
+    #     Return a list of the inner faces of the biconn. These are sorted so as
+    #     to satisfy two requirements:
+    #         - Any two adjacent faces in the list share an edge.
+    #         - The resulting list orders faces from least number of edges to
+    #         greatest.
+    #
+    #     """
+    #     # TODO: Move this to layouter as a face sorter method.
+    #     # Calculate inner faces by removing the face that contains the exterior
+    #     # half edge. Obviously node order in the half edge is important here or
+    #     # else we'll grab the wrong one. This should select the correct face
+    #     # as from the docs: "The face that is traversed lies to the right of the
+    #     # half - edge( in an orientation where v is below w)."
+    #     # https://networkx.github.io/documentation/stable/reference/algorithms/planarity.html?highlight=traverse_face#networkx.algorithms.planarity.PlanarEmbedding.traverse_face
+    #     int_faces = filter(lambda f: self.ext_hedge not in f, self.all_faces)
+    #
+    #     # Build edge -> face dict.
+    #     edge_to_face = {}
+    #     for face in int_faces:
+    #         edge_to_face.update(dict.fromkeys(list(face), face))
+    #
+    #     # Sort faces. Since the number of face layout permutations increases
+    #     # dramatically with the number of nodes, it makes sense to lay out the
+    #     # face with the least number of edges first.
+    #     faces = []
+    #     smallest_face = sorted(int_faces, key=lambda n: len(n))[0]
+    #     s = [smallest_face]
+    #     while s:
+    #
+    #         # Pop face off the stack - ignore it if we've already evaluated it
+    #         # otherwise keep it.
+    #         face = s.pop()
+    #         if face in faces:
+    #             continue
+    #         faces.append(face)
+    #
+    #         # This feels like it could be cleaned up... maybe need a new class
+    #         # here... the block requires knowledge of all the faces in a biconn
+    #         # and how their edges are shared with an adjacent face.
+    #         # Find the adjacent faces to this edge. Sort them by number of
+    #         # edges.
+    #         edge_to_adj_face = {}
+    #         for rev_edge in face.reversed():
+    #             adj_face = edge_to_face.get(rev_edge)
+    #             if adj_face is not None and adj_face not in edge_to_adj_face:
+    #                 edge_to_adj_face[rev_edge] = adj_face
+    #         edge_to_adj_face = sorted(edge_to_adj_face.items(),
+    #                                   key=lambda x: len(x[1]))
+    #
+    #         # Push a new face onto the stack, reordering the edges so that the
+    #         # adjacent edge is in the first index.
+    #         for edge, adj_face in reversed(edge_to_adj_face):
+    #             s.append(adj_face.set_from_edge(edge))
+    #
+    #     return faces
 
-        """
-        # TODO: Move this to layouter as a face sorter method.
-        # Calculate inner faces by removing the face that contains the exterior
-        # half edge. Obviously node order in the half edge is important here or
-        # else we'll grab the wrong one. This should select the correct face
-        # as from the docs: "The face that is traversed lies to the right of the
-        # half - edge( in an orientation where v is below w)."
-        # https://networkx.github.io/documentation/stable/reference/algorithms/planarity.html?highlight=traverse_face#networkx.algorithms.planarity.PlanarEmbedding.traverse_face
-        int_faces = filter(lambda f: self.ext_hedge not in f, self.all_faces)
+    def get_face_graph(self, root_node):
 
-        # Build edge -> face dict.
-        edge_to_face = {}
-        for face in int_faces:
-            edge_to_face.update(dict.fromkeys(list(face), face))
+        #print '****'
 
-        # Sort faces. Since the number of face layout permutations increases
-        # dramatically with the number of nodes, it makes sense to lay out the
-        # face with the least number of edges first.
-        faces = []
-        smallest_face = sorted(int_faces, key=lambda n: len(n))[0]
-        s = [smallest_face]
-        while s:
+        visited = set()
+        face_graph = nx.DiGraph()
 
-            # Pop face off the stack - ignore it if we've already evaluated it
-            # otherwise keep it.
-            face = s.pop()
-            if face in faces:
-                continue
-            faces.append(face)
+        # TODO: Remove recursive and use stack?
+        def recurse_edge(edge, p_face=None):
 
-            # This feels like it could be cleaned up... maybe need a new class
-            # here... the block requires knowledge of all the faces in a biconn
-            # and how their edges are shared with an adjacent face.
-            # Find the adjacent faces to this edge. Sort them by number of
-            # edges.
-            edge_to_adj_face = {}
-            for rev_edge in face.reversed():
-                adj_face = edge_to_face.get(rev_edge)
-                if adj_face is not None and adj_face not in edge_to_adj_face:
-                    edge_to_adj_face[rev_edge] = adj_face
-            edge_to_adj_face = sorted(edge_to_adj_face.items(),
-                                      key=lambda x: len(x[1]))
+            #print 'recurse edge:', edge
 
-            # Push a new face onto the stack, reordering the edges so that the
-            # adjacent edge is in the first index.
-            for edge, adj_face in reversed(edge_to_adj_face):
-                s.append(adj_face.set_from_edge(edge))
+            if edge in visited:
+                return
 
-        return faces
+            # Get the nodes that make up the face. Nodes are guaranteed to be in
+            # edge order.
+            nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
+            face = Face.from_nodes(nodes)
+            face.set_from_edge(edge)    # Order from the input edge.
+
+            if self.ext_hedge not in face:
+                face_graph.add_node(face)
+                if p_face is not None:
+                    face_graph.add_edge(p_face, face)
+                for next_edge in face.reversed():
+                    recurse_edge(next_edge, face)
+
+        #print 'root:', root_node
+        edges = filter(lambda x: x not in self.ext_face, self.embedding.edges())
+        #print '     edges:', edges
+        edges = sorted(edges, key=lambda x: x[0] != root_node)
+        #print '    edges2:', edges
+        recurse_edge(edges[0])
+
+        # TODO: Reorder successors in face-complexity order.
+        return face_graph
 
     def run(self):
         self._pos = self._calculate_planar_layout()
         self._embedding = self._calculate_planar_embedding()
         self._all_faces = self._calculate_all_faces()
         self._ext_hedge = self._calculate_external_face_half_edge()
-        self._faces = self._calculate_inner_faces()
+        nodes = self.embedding.traverse_face(*self.ext_hedge)
+        self._ext_face = Face.from_nodes(nodes)
+        #self._faces = self._calculate_inner_faces()
 
-        # Outright fail if any face is less than 4 edges. We can change this to
-        # try to insert new dummy nodes in the future.
-        assert all([
-            len(face) >= 4
-            for face in self.faces
-        ]), 'Cannot close polygon with less than 4 nodes'
+        # # Outright fail if any face is less than 4 edges. We can change this to
+        # # try to insert new dummy nodes in the future.
+        # assert all([
+        #     len(face) >= 4
+        #     for face in self.faces
+        # ]), 'Cannot close polygon with less than 4 nodes'

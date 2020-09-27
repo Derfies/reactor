@@ -1,14 +1,18 @@
 import random
-random.seed(1)
+random.seed(0)
 
 from reactor.mapgenerator import MapGenerator
 
 
-GRID_PATH = 'data/tree1.graphml'
+# Remaining fails:
+# bow1
+# single_node1
+# tree_and_cycle2 (needs leading edge permutations)
+GRID_PATH = 'data/tree_and_cycle2.graphml'
 
 
 if __name__ == '__main__':
 
     # Initialise a map generator using a path to a node graph file, then run it.
-    map_gen = MapGenerator(GRID_PATH)
-    map_gen.run()
+    gen = MapGenerator(GRID_PATH)
+    gen.run()
