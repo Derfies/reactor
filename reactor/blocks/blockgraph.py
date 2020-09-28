@@ -100,12 +100,8 @@ class BlockGraph(object):
                 bg = EmbeddedBiconnGraph(self.g.subgraph(nodes))
                 bg.run()
                 fg = bg.get_face_graph(root_node)
-                # for f in fg:
-                #     print 'face:', f
                 nx.set_node_attributes(fg, CyclicBlock, 'cls')
                 self.q.update(fg)
-
-
 
                 # Add the edge from the parent to the first node of the first
                 # face.

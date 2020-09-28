@@ -19,62 +19,38 @@ class OrthogonalLayouter(object):
         return self._g
 
     def _process_block(self, block):
-
         layouter_cls = self.bg.get_block_class(block)
-        layouter = layouter_cls(block, self.bg.q, self.layout)
+        layouter = layouter_cls(block, self.bg.q, self)
 
-        print '\nprocess:', layouter, ', parent:', layouter.parent_block_node#, 'node:', layouter.node
+        print '\nprocess:', layouter, ', parent:', layouter.parent_block_node
 
         result = False
         old_layout = copy.deepcopy(self.layout)
         for perm in layouter.get_permutations():
-
-            # Test to see if the block can be laid out. If so, merge into main
-            # layout.
             if not layouter.can_lay_out(perm):
                 print '    **** FAILED:', nx.get_node_attributes(perm, POSITION)
                 continue
             print '    **** SUCCESS:', nx.get_node_attributes(perm, POSITION)
             layouter.update_layout(perm)
 
-            # Recurse children.
-            child_results = []
+            # Lay out children. If a single child cannot be laid out we consider
+            # this whole block to have failed.
             for child in self.bg.q.successors(block):
-
-                # If a child failed to be placed, remove the entire subgraph.
-                child_result = self._process_block(child)
-                child_results.append(child_result)
-                if not child_result:
-
-                    # TODO: Need to specialise this... if a face fails then the
-                    # parent root node will be removed...
-                    # Actually, why - when a face fails and we remove the parent
-                    # node, does the parent not not get re-placed?
-                    # TODO: Must do block removal - particularly by face
-                    print '**** REMOVE SUBGRAPH FROM:', layouter
-                    self.layout = layouter.layout = old_layout
+                if not self._process_block(child):
                     break
+            else:
+                result = True
 
-            # All children be laid out, so we can stop looping this block's
-            # permutations.
-            result = all(child_results)
+            # Stop evaluating permutations on successful lay out.
             if result:
                 break
 
+        # Layout failed - revert the layout.
         if not result:
             print '#### TOTALLY FAILED: {}'.format(block)
-
-            # import utils
-            # pos = nx.get_node_attributes(self.layout, POSITION)
-            # utils.draw(self.layout, pos)
+            self.layout = old_layout
 
         return result
-
-    def _process_block2(self, block):
-        print 'process:', block, self.bg.q.nodes[block].get('cls')
-
-        for child in self.bg.q.successors(block):
-            self._process_block2(child)
 
     def run(self):
         print ''

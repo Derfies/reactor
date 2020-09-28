@@ -1,8 +1,6 @@
 import abc
 import itertools
 
-import networkx as nx
-
 from reactor import utils
 from reactor.rect import Rect
 
@@ -11,10 +9,14 @@ class BlockBase(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, data, q, layout):
+    def __init__(self, data, q, layouter):
         self.data = data
         self.q = q
-        self.layout = layout
+        self.layouter = layouter
+
+    @property
+    def layout(self):
+        return self.layouter.layout
 
     def __str__(self):
         return self.__class__.__name__ + '.' + str(self.data)

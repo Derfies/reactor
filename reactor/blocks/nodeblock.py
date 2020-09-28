@@ -42,9 +42,6 @@ class NodeBlock(BlockBase):
         # Create permutations from the direction and step values.
         perms = []
         p_pos = self.layout.nodes[p_node][POSITION]
-        # print 'dirs:', dirs
-        # print 'steps:', steps
-        # print 'perm:', list(itertools.product(dirs, steps))
         for dir_, step in itertools.product(dirs, steps):
             g = nx.DiGraph()
             g.add_edge(p_node, self.node, **{DIRECTION: dir_})

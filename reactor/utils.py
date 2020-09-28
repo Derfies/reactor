@@ -49,13 +49,15 @@ def init_pyplot(figsize):
     # things). Usually there is a thin border drawn around the axes, but we turn
     # it off with `frameon=False`. Also set the aspect ratio so x and y units
     # appear the same size.
-    ax = plt.axes([0, 0, 1, 1], frameon=False)
+
+    ax = plt.axes(frameon=False)
     ax.set_aspect('equal')
 
     # Even though our axes (plot region) are set to cover the whole image with
     # [0,0,1,1], by default they leave padding between the plotted data and the
     # frame. We use tigher=True to make sure the data gets scaled to the full
     # extents of the axes.
+    plt.tight_layout()
     plt.autoscale(tight=True)
 
 
