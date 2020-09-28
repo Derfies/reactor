@@ -5,11 +5,11 @@ import networkx as nx
 
 from reactor import utils
 from reactor.blocks.blockbase import BlockBase
-from reactor.const import POSITION, DIRECTION, Direction
+from reactor.const import POSITION, DIRECTION
 
 
-MIN_STEP = 1
-MAX_STEP = 3
+MIN_LENGTH = 1
+MAX_LENGTH = 3
 
 
 class NodeBlock(BlockBase):
@@ -20,34 +20,23 @@ class NodeBlock(BlockBase):
 
     def get_permutations(self):
 
-        # If no parent node has been laid out then this block is the first.
-        p_node = self.parent_block_node
+        # Collect valid step direction and lengths.
+        dirs = self.calculate_start_direction_permutations()
+        lengths = range(MIN_LENGTH, MAX_LENGTH + 1)
 
-        # Calculate valid edge directions.
-        # Remove prev edge direction.
-        # Remove sibling edge directions.
-        dirs = set(Direction)
-        for in_edge in self.layout.in_edges(p_node):
-            dir = Direction.opposite(self.layout.edges[in_edge][DIRECTION])
-            dirs.discard(dir)
-        for out_edge in self.layout.out_edges(p_node):
-            dirs.discard(self.layout.edges[out_edge].get(DIRECTION))
-
-        # Shuffle available directions and step lengths.
-        dirs = list(dirs)
-        random.shuffle(dirs)
-        steps = range(MIN_STEP, MAX_STEP + 1)
-        random.shuffle(steps)
-
-        # Create permutations from the direction and step values.
+        # Create permutations from direction and length values.
         perms = []
+        p_node = self.parent_block_node
         p_pos = self.layout.nodes[p_node][POSITION]
-        for dir_, step in itertools.product(dirs, steps):
+        for dir_, length in itertools.product(dirs, lengths):
             g = nx.DiGraph()
             g.add_edge(p_node, self.node, **{DIRECTION: dir_})
             nx.set_node_attributes(g, {
                 p_node: {POSITION: p_pos},
-                self.node: {POSITION: p_pos + utils.step(dir_, step)}
+                self.node: {POSITION: p_pos + utils.step(dir_, length)}
             })
             perms.append(g)
+
+        # Shuffle result and return.
+        random.shuffle(perms)
         return perms

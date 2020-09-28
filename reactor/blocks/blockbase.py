@@ -3,6 +3,7 @@ import itertools
 
 from reactor import utils
 from reactor.rect import Rect
+from reactor.const import DIRECTION, Direction
 
 
 class BlockBase(object):
@@ -29,10 +30,25 @@ class BlockBase(object):
     def get_permutations(self):
         """"""
 
+    def calculate_start_direction_permutations(self):
+
+        # Calculate valid edge directions.
+        # Remove prev edge direction.
+        # Remove sibling edge directions.
+        dirs = set(Direction)
+        for in_edge in self.layout.in_edges(self.parent_block_node):
+            dir = Direction.opposite(self.layout.edges[in_edge][DIRECTION])
+            dirs.discard(dir)
+        for out_edge in self.layout.out_edges(self.parent_block_node):
+            dirs.discard(self.layout.edges[out_edge].get(DIRECTION))
+        return dirs
+
     def edge_intersection(self, e1, g1, e2, g2):
         """
         Still has a weird smell about it. If the edges being compared share a
         node then do an intersection test, otherwise do a touch test.
+
+        TODO: Move to utils?
 
         """
         r1 = Rect(*utils.get_edge_positions(g1, e1))

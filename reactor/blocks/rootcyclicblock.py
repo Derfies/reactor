@@ -3,13 +3,12 @@ from reactor.blocks.cyclicblock import CyclicBlock
 
 class RootCyclicBlock(CyclicBlock):
 
-    pass
+    def get_permutations(self):
+        angle_perms = self._calculate_angle_permutations()
+        dirs = self.calculate_start_direction_permutations()
+        faces = []
+        for dir_ in dirs:
+            faces.extend(self._calculate_face_permutations(angle_perms, dir_))
 
-    # @property
-    # def node(self):
-    #     return self.data
-    #
-    # def get_permutations(self):
-    #     g = nx.DiGraph()
-    #     g.add_node(self.data, **{POSITION: Vector2(0, 0)})
-    #     return [g]
+        # TODO: Remove once faces are made into graph objects.
+        return self.to_faces(faces)
