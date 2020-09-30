@@ -83,7 +83,7 @@ class EmbeddedBiconnGraph(object):
             emd.check_structure()
         except nx.exception.NetworkXException:
             import utils
-            utils.draw(self.g, self.pos)
+            utils.draw_graph(self.g, self.pos)
             raise
         return emd
 

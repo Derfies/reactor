@@ -40,9 +40,9 @@ class CyclicBlock(BlockBase):
         # There *must* be a common node already in the layout.
         offset = self.layout.nodes[self.data.nodes[0]][POSITION]
 
-        # Turn each set of
+        # TODO: Replace with get_edge_attributes
         lengths = [self.layout.edges.get(edge, {}).get(LENGTH) for edge in
-                   self.data]
+                   self.data.reversed()]
         ofaces = []
         for angles in angle_perms:
 
