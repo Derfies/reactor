@@ -1,4 +1,4 @@
-from vector import Vector2
+from reactor.geometry.vector import Vector2
 
 
 class Rect(object):

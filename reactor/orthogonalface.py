@@ -3,7 +3,7 @@ import copy
 from face import Face
 from const import Direction, Angle
 from side import Side
-from vector import Vector2
+from reactor.geometry.vector import Vector2
 
 
 class OrthogonalFace(Face):

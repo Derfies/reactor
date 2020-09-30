@@ -2,7 +2,7 @@ import networkx as nx
 
 from reactor.blocks.blockbase import BlockBase
 from reactor.const import POSITION
-from reactor.vector import Vector2
+from reactor.geometry.vector import Vector2
 
 
 class RootNodeBlock(BlockBase):

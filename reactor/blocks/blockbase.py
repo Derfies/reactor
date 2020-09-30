@@ -2,7 +2,7 @@ import abc
 import itertools
 
 from reactor import utils
-from reactor.rect import Rect
+from reactor.geometry.rect import Rect
 from reactor.const import DIRECTION, Direction
 
 

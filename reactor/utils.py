@@ -5,7 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 import const
-from vector import Vector2
+from reactor.geometry.vector import Vector2
 
 
 def get_node_position(g, node):
@@ -64,7 +64,7 @@ def init_pyplot(figsize):
 def draw_graph(g, pos=None):
     if pos is None:
         pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
-    init_pyplot((10, 10))
+    init_pyplot((5, 5))
     nx.draw_networkx(g, pos=pos)
     plt.show()
 
