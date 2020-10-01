@@ -22,6 +22,7 @@ class BlockBase(object):
     def __str__(self):
         return self.__class__.__name__ + '.' + str(self.data)
 
+    # TODO: Rename this property
     @property
     def parent_block_node(self):
         return next(self.q.predecessors(self.data), None)

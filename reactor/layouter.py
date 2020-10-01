@@ -7,11 +7,13 @@ from reactor.const import POSITION
 from reactor.orthogonalgraph import OrthogonalGraph
 
 
-class OrthogonalLayouter(object):
+class Layouter(object):
 
     def __init__(self, g):
         self._g = g
 
+        # TODO: In order to make truly abstract, need to make layout and block
+        # graphs input args...
         self.layout = OrthogonalGraph()
 
     @property
@@ -25,10 +27,11 @@ class OrthogonalLayouter(object):
         print '\nprocess:', layouter, ', parent:', layouter.parent_block_node
 
         result = False
-        old_layout = copy.deepcopy(self.layout)
+
         for perm in layouter.get_permutations():
+            old_layout = copy.deepcopy(self.layout)
             if not layouter.can_lay_out(perm):
-                print '    **** FAILED:', nx.get_node_attributes(perm, POSITION)
+                print '    **** FAILED:', nx.get_node_attributes(perm, POSITION), '-> [', list(self.layout), ']'
                 continue
             print '    **** SUCCESS:', nx.get_node_attributes(perm, POSITION)
             layouter.update_layout(perm)
@@ -44,12 +47,12 @@ class OrthogonalLayouter(object):
             # Stop evaluating permutations on successful lay out.
             if result:
                 break
+            else:
+                print '#### PERM FAILED: {}'.format(block)
+                print '    resetting to:', list(old_layout)
+                self.layout = old_layout
 
-        # Layout failed - revert the layout.
-        if not result:
-            print '#### TOTALLY FAILED: {}'.format(block)
-            self.layout = old_layout
-
+        print 'leaving:', layouter, ', result:', result, '\n'
         return result
 
     def run(self):

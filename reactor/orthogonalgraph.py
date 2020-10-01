@@ -1,6 +1,6 @@
 import networkx as nx
 
-from const import ANGLE, Angle
+from reactor.const import ANGLE, Angle
 
 
 class OrthogonalGraph(nx.DiGraph):
@@ -21,6 +21,5 @@ class OrthogonalGraph(nx.DiGraph):
     # Rename to "get_outer_angle"?
     def get_explementary_angle(self, node):
         existing_angles = self.get_existing_angles(node)
-        print '    existing_angles:', existing_angles
         total = sum(map(lambda a: 180 - a, existing_angles.values()))
         return Angle(180 - (360 - total))

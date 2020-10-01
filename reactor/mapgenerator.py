@@ -2,7 +2,7 @@ from operator import itemgetter
 
 import networkx as nx
 
-from orthogonallayouter import OrthogonalLayouter
+from layouter import Layouter
 
 
 class MapGenerator(object):
@@ -25,5 +25,5 @@ class MapGenerator(object):
 
     def run(self):
         self.load_graph()
-        self.layouter = OrthogonalLayouter(self.g)
+        self.layouter = Layouter(self.g)
         self.layouter.run()
