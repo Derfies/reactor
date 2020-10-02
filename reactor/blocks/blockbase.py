@@ -15,6 +15,7 @@ class BlockBase(object):
         self.q = q
         self.layouter = layouter
 
+    # TODO: This feels kinda skeezy.
     @property
     def layout(self):
         return self.layouter.layout

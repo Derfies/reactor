@@ -12,7 +12,6 @@ class EmbeddedBiconnGraph(object):
 
         self._pos = {}
         self._embedding = nx.PlanarEmbedding()
-        self._all_faces = []
         self._ext_hedge = None
         self._ext_face = None
 
@@ -29,10 +28,6 @@ class EmbeddedBiconnGraph(object):
         return self._embedding
 
     @property
-    def all_faces(self):
-        return self._all_faces
-
-    @property
     def ext_hedge(self):
         return self._ext_hedge
 
@@ -47,9 +42,9 @@ class EmbeddedBiconnGraph(object):
         planar layouts as advertised, resulting in a borked planar embedding.
 
         """
-        return nx.spectral_layout(self.g)
-        return nx.spring_layout(self.g, seed=1)
-        #return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
+        #return nx.spectral_layout(self.g)
+        #return nx.spring_layout(self.g, seed=1)
+        return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
 
     def _calculate_planar_embedding(self):
         """
@@ -82,24 +77,6 @@ class EmbeddedBiconnGraph(object):
             raise
         return emd
 
-    def _calculate_all_faces(self):
-        """
-        Return all faces for the graph using the planar embedding. Note that
-        this includes the exterior face of the graph. This should return all
-        faces with their nodes in the same rotation-wise order.
-
-        """
-        faces = []
-        visited = set()
-        for edge in self.embedding.edges():
-            if edge in visited:
-                continue
-            nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
-
-            # Nodes are guaranteed to be in edge order.
-            faces.append(Face.from_nodes(nodes))
-        return faces
-
     def _calculate_external_face_half_edge(self):
         """
         Return a half-edge on the external face. We do this by selecting a node
@@ -120,15 +97,11 @@ class EmbeddedBiconnGraph(object):
 
     def get_face_graph(self, root_node):
 
-        #print '****'
-
         visited = set()
         face_graph = nx.DiGraph()
 
         # TODO: Remove recursive and use stack?
         def recurse_edge(edge, p_face=None):
-
-            #print 'recurse edge:', edge
 
             if edge in visited:
                 return
@@ -136,21 +109,18 @@ class EmbeddedBiconnGraph(object):
             # Get the nodes that make up the face. Nodes are guaranteed to be in
             # edge order.
             nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
-            face = Face.from_nodes(nodes)
-            face.set_from_edge(edge)    # Order from the input edge.
+            face = Face.from_path(nodes)
+            face.set_source_edge(edge)    # Order from the input edge.
 
-            if self.ext_hedge not in face:
+            if self.ext_hedge not in face.edges():
                 face_graph.add_node(face)
                 if p_face is not None:
                     face_graph.add_edge(p_face, face)
-                for next_edge in face.reversed():
+                for next_edge in face.edges_reverse():
                     recurse_edge(next_edge, face)
 
-        #print 'root:', root_node
-        edges = filter(lambda x: x not in self.ext_face, self.embedding.edges())
-        #print '     edges:', edges
+        edges = filter(lambda x: x not in self.ext_face.edges(), self.embedding.edges())
         edges = sorted(edges, key=lambda x: x[0] != root_node)
-        #print '    edges2:', edges
         recurse_edge(edges[0])
 
         # TODO: Reorder successors in face-complexity order.
@@ -159,10 +129,9 @@ class EmbeddedBiconnGraph(object):
     def run(self):
         self._pos = self._calculate_planar_layout()
         self._embedding = self._calculate_planar_embedding()
-        self._all_faces = self._calculate_all_faces()
         self._ext_hedge = self._calculate_external_face_half_edge()
-        nodes = self.embedding.traverse_face(*self.ext_hedge)
-        self._ext_face = Face.from_nodes(nodes)
+        ext_nodes = self.embedding.traverse_face(*self.ext_hedge)
+        self._ext_face = Face.from_path(ext_nodes)
 
         # # Outright fail if any face is less than 4 edges. We can change this to
         # # try to insert new dummy nodes in the future.

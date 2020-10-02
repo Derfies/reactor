@@ -1,50 +1,30 @@
-class Face(object):
+import networkx as nx
 
-    def __init__(self, edges):
-        self.edges = tuple(edges)
+from reactor.geometry.vector import Vector2
+
+
+class Face(nx.DiGraph):
+
+    # def __init__(self, start_direction, offset=None):
+    #     self.start_direction = start_direction
+    #     self.offset = offset if offset is not None else Vector2(0, 0)
 
     @classmethod
-    def from_nodes(cls, nodes):
-        # Each node is the head of the edge of the same index.
-        return cls([
-            (nodes[idx], nodes[(idx + 1) % len(nodes)])
-            for idx in range(len(nodes))
-        ])
+    def from_path(cls, nodes):
+        face = cls()
+        nx.add_path(face, nodes)
+        face.add_edge(nodes[-1], nodes[0])
+        return face
 
-    @property
-    def nodes(self):
-        nodes = []
-        for edge in self:
-            nodes.extend(filter(lambda n: n not in nodes, edge))
-        return tuple(nodes)
+    def get_source_edge(self):
+        return self.graph.get('start')
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return set(self.edges) == set(other.edges)
-        return False
+    def set_source_edge(self, edge):
+        assert edge in self.edges(), 'The edge {}-{} is not in the graph'.format(*edge)
+        self.graph['start'] = edge
 
-    def __str__(self):
-        return 'Face: ' + str(self.edges)
+    def edges_forward(self):
+        return nx.edge_dfs(self, self.get_source_edge())
 
-    def __len__(self):
-        return len(self.edges)
-
-    def __getitem__(self, idx):
-        return self.edges[idx]
-
-    def index(self, edge):
-        return self.edges.index(edge)
-
-    def reversed(self):
-        """
-        Note this only reverses the direction of the face edges the edge indices
-        remain unchanged.
-
-        """
-        return Face([tuple(reversed(edge)) for edge in self])
-
-    def set_from_edge(self, edge):
-        idx = self.index(edge)
-        edges = list(self[idx:])
-        edges.extend(self[:idx])
-        return self.__class__(edges)
+    def edges_reverse(self):
+        return iter([tuple(reversed(edge)) for edge in self.edges_forward()])

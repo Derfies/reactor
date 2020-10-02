@@ -9,7 +9,7 @@ class OrthogonalGraph(nx.DiGraph):
         return nx.get_node_attributes(self, ANGLE).get(node)
 
     def get_common_edges(self, face):
-        return filter(lambda x: x in self.edges, face.reversed())
+        return filter(lambda x: x in self.edges, face.edges_reverse())
 
     def get_possible_angles(self, node):
         existing_angles = self.get_existing_angles(node)

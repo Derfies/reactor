@@ -23,7 +23,7 @@ class CyclicBlock(BlockBase):
         # Warning! These edges aren't guaranteed to be contiguous.
         poss_angles = []
         common_edges = self.layout.get_common_edges(self.data)
-        for node in self.data.nodes:
+        for node in nx.dfs_preorder_nodes(self.data):#self.data.nodes2:
             state_idx = len(filter(lambda edge: node in edge, common_edges))
             state = NodeState(state_idx)
             if state == NodeState.known:
@@ -38,16 +38,23 @@ class CyclicBlock(BlockBase):
     def _calculate_face_permutations(self, angle_perms, start_dir):
 
         # There *must* be a common node already in the layout.
-        offset = self.layout.nodes[self.data.nodes[0]][POSITION]
+        offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
 
         # TODO: Replace with get_edge_attributes
-        lengths = [self.layout.edges.get(edge, {}).get(LENGTH) for edge in
-                   self.data.reversed()]
+        lengths = [
+            self.layout.edges.get(edge, {}).get(LENGTH)
+            for edge in self.data.edges_reverse()
+        ]
         ofaces = []
         for angles in angle_perms:
 
-            oface = OrthogonalFace(self.data.edges, angles, lengths[:],
-                                   start_dir, offset)
+            oface = OrthogonalFace(
+                list(self.data.edges_forward()),
+                angles,
+                lengths[:],
+                start_dir,
+                offset
+            )
             ofaces.append(oface)
 
             for dir_, opp_dir in (Direction.xs(), Direction.ys()):
@@ -58,7 +65,7 @@ class CyclicBlock(BlockBase):
                 if max_side.proposed_length < min_side.proposed_length:
                     min_side, max_side = max_side, min_side
 
-                # print ' ' * (indent + 6), 'Axis:', dir_, opp_dir
+                print '\n    Axis:', dir_, opp_dir
 
                 # If one of the sides has a known length then we must use that
                 # length
@@ -67,7 +74,7 @@ class CyclicBlock(BlockBase):
                     max_length = min_side.length
                 elif max_side.state == SideState.known:
                     max_length = max_side.length
-                # print ' ' * (indent + 8), 'max_length:', max_length
+                print '    max_length:', max_length
 
                 # If the min side is unknown, split the remainder and divide it
                 # amongst the edges.
@@ -79,6 +86,11 @@ class CyclicBlock(BlockBase):
                         oface.lengths[edge_idx] = oface.lengths[
                                                       edge_idx] or min_side_edge
 
+                # print '    min_side_edges:'
+                # for edge_idx in min_side.indices:
+                #     print '    ', edge_idx, oface[edge_idx], oface.lengths[
+                #         edge_idx]
+
                 # If the max side is unknown, split the remainder and divide it
                 # amongst the edges.
                 if max_side.state == SideState.unknown:
@@ -89,7 +101,10 @@ class CyclicBlock(BlockBase):
                         oface.lengths[edge_idx] = oface.lengths[
                                                       edge_idx] or max_side_edge
 
-                # print ' ' * (indent + 8), 'max_side_edge:', [oface.lengths[edge_idx] for edge_idx in max_side.indices]
+                # print '    max_side_edges:'
+                # for edge_idx in max_side.indices:
+                #     print '    ', edge_idx, oface[edge_idx], oface.lengths[edge_idx]
+
 
         return ofaces
 
@@ -98,14 +113,14 @@ class CyclicBlock(BlockBase):
         angle_perms = self._calculate_angle_permutations()
 
         # Get starting edge direction.
-        start_dir = Direction.up
+        #start_dir = Direction.up
         common_edges = self.layout.get_common_edges(self.data)
-        if common_edges:
-            edge = common_edges[0]
-            rev_dir = self.layout.edges[edge][DIRECTION]
-            start_dir = Direction.opposite(rev_dir)
+        #if common_edges:
+        edge = common_edges[0]
+        rev_dir = self.layout.edges[edge][DIRECTION]
+        start_dir = Direction.opposite(rev_dir)
 
-        print '    start node:', self.data.nodes[0]
+        print '    start node:', self.data.get_source_edge()[0]
         print '    common_edges:', common_edges
         print '    start dir:', start_dir
 
@@ -120,6 +135,8 @@ class CyclicBlock(BlockBase):
         rtn = []
         for face in ofaces:
             g = nx.DiGraph()
+
+            print face, list(face), type(face)
 
             # Merge edges into the graph.
             g.add_edges_from(face)
