@@ -124,3 +124,6 @@ dmypy.json
 .pyre/
 
 .idea/*
+
+# Output image dir
+/output
