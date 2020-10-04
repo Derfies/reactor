@@ -1,13 +1,10 @@
 import networkx as nx
 
-from reactor.geometry.vector import Vector2
+
+SOURCE_EDGE = 'source_edge'
 
 
 class Face(nx.DiGraph):
-
-    # def __init__(self, start_direction, offset=None):
-    #     self.start_direction = start_direction
-    #     self.offset = offset if offset is not None else Vector2(0, 0)
 
     @classmethod
     def from_path(cls, nodes):
@@ -17,11 +14,11 @@ class Face(nx.DiGraph):
         return face
 
     def get_source_edge(self):
-        return self.graph.get('start')
+        return self.graph.get(SOURCE_EDGE)
 
     def set_source_edge(self, edge):
         assert edge in self.edges(), 'The edge {}-{} is not in the graph'.format(*edge)
-        self.graph['start'] = edge
+        self.graph[SOURCE_EDGE] = edge
 
     def edges_forward(self):
         return nx.edge_dfs(self, self.get_source_edge())

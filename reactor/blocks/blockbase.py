@@ -32,7 +32,7 @@ class BlockBase(object):
     def get_permutations(self):
         """"""
 
-    def calculate_start_direction_permutations(self):
+    def get_start_direction_permutations(self):
 
         # Calculate valid edge directions.
         # Remove prev edge direction.

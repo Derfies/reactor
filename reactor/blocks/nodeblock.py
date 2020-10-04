@@ -1,4 +1,3 @@
-import random
 import itertools
 
 import networkx as nx
@@ -21,7 +20,7 @@ class NodeBlock(BlockBase):
     def get_permutations(self):
 
         # Collect valid step direction and lengths.
-        dirs = self.calculate_start_direction_permutations()
+        dirs = self.get_start_direction_permutations()
         lengths = range(MIN_LENGTH, MAX_LENGTH + 1)
 
         # Create permutations from direction and length values.
@@ -31,12 +30,7 @@ class NodeBlock(BlockBase):
         for dir_, length in itertools.product(dirs, lengths):
             g = nx.DiGraph()
             g.add_edge(p_node, self.node, **{DIRECTION: dir_})
-            nx.set_node_attributes(g, {
-                p_node: {POSITION: p_pos},
-                self.node: {POSITION: p_pos + utils.step(dir_, length)}
-            })
+            g.nodes[p_node][POSITION] = p_pos
+            g.nodes[self.node][POSITION] = p_pos + utils.step(dir_, length)
             perms.append(g)
-
-        # Shuffle result and return.
-        random.shuffle(perms)
         return perms

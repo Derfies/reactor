@@ -1,4 +1,5 @@
 import copy
+import random
 
 import networkx as nx
 
@@ -16,10 +17,6 @@ class Layouter(object):
         # graphs input args...
         self.layout = OrthogonalGraph()
 
-    @property
-    def g(self):
-        return self._g
-
     def _process_block(self, block):
         layouter_cls = self.bg.get_block_class(block)
         layouter = layouter_cls(block, self.bg.q, self)
@@ -28,7 +25,9 @@ class Layouter(object):
 
         result = False
 
-        for perm in layouter.get_permutations():
+        perms = layouter.get_permutations()
+        random.shuffle(perms)
+        for perm in perms:
             old_layout = copy.deepcopy(self.layout)
             if not layouter.can_lay_out(perm):
                 print '    **** FAILED:', nx.get_node_attributes(perm, POSITION), '-> [', list(self.layout), ']'
@@ -57,8 +56,8 @@ class Layouter(object):
 
     def run(self):
         print ''
-        self.bg = BlockGraph(self.g)
+        self.bg = BlockGraph(self._g)
         self.bg.run()
         self._process_block(self.bg.root)
-        print 'complete:', len(self.g) == len(self.layout)
+        print 'complete:', len(self._g) == len(self.layout)
 
