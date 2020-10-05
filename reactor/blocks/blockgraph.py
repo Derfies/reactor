@@ -88,11 +88,11 @@ class BlockGraph(object):
 
         # Use a node from the largest biconnected component as the source. This
         # will hopefully process a larger chunk of faces / permutations first.
-        biconns = sorted(self.biconns, key=lambda b: -len(b))
-        print('sorted biconns:', biconns)
-        source = list(biconns[0])[0]
+        biconns = sorted(self.biconns, key=lambda b: (len(b), b), reverse=True)
 
-        print('using source biconn:', source)
+        source = None
+        if biconns:
+            source = sorted(biconns[0])[0]
 
         # BROKEN - this source isn't working!!!
 
@@ -107,7 +107,7 @@ class BlockGraph(object):
         # TODO: Bow graphs do not work. They share a node but they're ending up
         # in two different frozen sets.
         # NO
-        dg = nx.dfs_tree(self.g)
+        dg = nx.dfs_tree(self.g, source)
 
         return dg
 
@@ -123,6 +123,7 @@ class BlockGraph(object):
     def run(self):
         self._biconns = tuple(nx.biconnected_components(self.g))
         self._dg = self._calculate_oriented_graph()
+        dfs_nodes = list(nx.dfs_preorder_nodes(self.dg))
         self._q = self._calculate_quotient_graph()
 
         for nodes in list(nx.dfs_preorder_nodes(self.q, self.root)):
@@ -136,7 +137,8 @@ class BlockGraph(object):
                 # Get the root node. If there is no parent then pick the first
                 # node in the bunch, otherwise use the node connected to the
                 # previous block.
-                root_node = list(nodes)[0]
+                sorted_nodes = sorted(nodes, key=lambda n: dfs_nodes.index(n))
+                root_node = sorted_nodes[0]
                 if p_nodes is not None:
                     in_edge = next(nx.edge_boundary(self.g, p_nodes, nodes))
                     root_node = in_edge[1]
