@@ -122,7 +122,7 @@ class EmbeddedBiconnGraph(object):
                     recurse_edge(next_edge, face)
 
         edges = filter(lambda x: x not in self.ext_face.edges(), self.embedding.edges())
-        edges = sorted(edges, key=lambda x: x[0] != root_node)
+        edges = sorted(edges, key=lambda x: (x[0] != root_node, x))
         recurse_edge(edges[0])
 
         # TODO: Reorder successors in face-complexity order.
