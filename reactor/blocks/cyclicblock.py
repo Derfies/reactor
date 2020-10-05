@@ -23,7 +23,7 @@ class CyclicBlock(BlockBase):
         angle_perms = {}
         common_edges = self.layout.get_common_edges(self.data)
         for node in nx.dfs_preorder_nodes(self.data):
-            state_idx = len(filter(lambda edge: node in edge, common_edges))
+            state_idx = len(list(filter(lambda edge: node in edge, common_edges)))
             state = NodeState(state_idx)
             if state == NodeState.known:
                 angle_perms[node] = [self.layout.get_explementary_angle(node)]
@@ -94,7 +94,7 @@ class CyclicBlock(BlockBase):
         return ofaces
 
     def get_permutations(self):
-        edge = self.layout.get_common_edges(self.data)[0]
+        edge = next(self.layout.get_common_edges(self.data))
         dir_ = Direction.opposite(self.layout.edges[edge][DIRECTION])
         return self.get_face_permutations(dir_)
 

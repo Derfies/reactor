@@ -2,9 +2,9 @@ from collections import defaultdict
 
 import networkx as nx
 
-from face import Face
-from const import Direction, Angle, ANGLE, LENGTH, DIRECTION, SideState
 from reactor import utils
+from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION, SideState
+from reactor.face import Face
 from reactor.geometry.vector import Vector2
 
 

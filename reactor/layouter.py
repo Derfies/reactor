@@ -21,7 +21,7 @@ class Layouter(object):
         layouter_cls = self.bg.get_block_class(block)
         layouter = layouter_cls(block, self.bg.q, self)
 
-        print '\nprocess:', layouter, ', parent:', layouter.parent_block_node
+        print('\nprocess:', layouter, ', parent:', layouter.parent_block_node)
 
         result = False
 
@@ -30,9 +30,9 @@ class Layouter(object):
         for perm in perms:
             old_layout = copy.deepcopy(self.layout)
             if not layouter.can_lay_out(perm):
-                print '    **** FAILED:', nx.get_node_attributes(perm, POSITION), '-> [', list(self.layout), ']'
+                print('    **** FAILED:', nx.get_node_attributes(perm, POSITION), '-> [', list(self.layout), ']')
                 continue
-            print '    **** SUCCESS:', nx.get_node_attributes(perm, POSITION)
+            print('    **** SUCCESS:', nx.get_node_attributes(perm, POSITION))
             layouter.update_layout(perm)
 
             # Lay out children. If a single child cannot be laid out we consider
@@ -47,17 +47,17 @@ class Layouter(object):
             if result:
                 break
             else:
-                print '#### PERM FAILED: {}'.format(block)
-                print '    resetting to:', list(old_layout)
+                print('#### PERM FAILED: {}'.format(block))
+                print('    resetting to:', list(old_layout))
                 self.layout = old_layout
 
-        print 'leaving:', layouter, ', result:', result, '\n'
+        print('leaving:', layouter, ', result:', result, '\n')
         return result
 
     def run(self):
-        print ''
+        print('')
         self.bg = BlockGraph(self._g)
         self.bg.run()
         self._process_block(self.bg.root)
-        print 'complete:', len(self._g) == len(self.layout)
+        print('complete:', len(self._g) == len(self.layout))
 
