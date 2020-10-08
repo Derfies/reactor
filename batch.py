@@ -1,6 +1,6 @@
 import os
 import random
-random.seed(0, version=1)
+random.seed(0)
 
 import networkx as nx
 
@@ -10,7 +10,7 @@ from reactor.mapgenerator import MapGenerator
 
 
 NUM_PERMUTATIONS = 20
-GRID_PATH = 'data/reactor4.gexf'
+GRID_PATH = 'data/reactor1.gexf'
 
 
 if __name__ == '__main__':

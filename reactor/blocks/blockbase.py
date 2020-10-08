@@ -68,22 +68,10 @@ class BlockBase(object):
         return r1.intersects(r2) if set(e1) & set(e2) else r1.touches(r2)
 
     def can_lay_out(self, perm):
-        # for e1, e2 in itertools.product(perm.edges, self.layout.edges):
-        #     print('e1:', e1)
-        #     print('e2:', e2)
-        #     print('result:', self.edge_intersection(e1, perm, e2, self.layout))
         return not any([
             self.edge_intersection(e1, perm, e2, self.layout)
             for e1, e2 in itertools.product(perm.edges, self.layout.edges)
         ])
-
-    # def collides(self, perm):
-    #     for e1, e2 in itertools.product(perm.edges, self.layout.edges):
-    #         print(e1, e2, '->', self.edge_intersection(e1, perm, e2, self.layout))
-    #     return [
-    #         self.edge_intersection(e1, perm, e2, self.layout)
-    #         for e1, e2 in itertools.product(perm.edges, self.layout.edges)
-    #     ]
 
     def update_layout(self, g):
         self.layout.update(g)

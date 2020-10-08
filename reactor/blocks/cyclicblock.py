@@ -45,17 +45,8 @@ class CyclicBlock(BlockBase):
 
     def get_face_permutations(self, start_dir):
 
-        print('self.data.get_source_edge():', self.data.get_source_edge())
-
         # There *must* be a common node already in the layout.
-        #foo = frozenset({self.data.get_source_edge()[0]})
-        try:
-            offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
-        except:
-            from reactor import utils
-            pos = nx.get_node_attributes(self.layout, POSITION)
-            utils.draw_graph(self.layout, pos)
-            raise
+        offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
 
         # Pull out known edge lengths from the layout.
         lengths = {

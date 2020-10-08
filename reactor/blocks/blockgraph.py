@@ -62,7 +62,6 @@ class BlockGraph(object):
     def __init__(self, g):
         self._g = g
         self._biconns = ()
-        self._dg = nx.DiGraph()
         self._q = nx.DiGraph()   # Adj order is important!
 
     @property
@@ -72,10 +71,6 @@ class BlockGraph(object):
     @property
     def biconns(self):
         return self._biconns
-
-    # @property
-    # def dg(self):
-    #     return self._dg
 
     @property
     def q(self):
@@ -87,34 +82,6 @@ class BlockGraph(object):
 
     def get_block_class(self, block):
         return self.q.nodes[block].get(LAYOUT_CLASS)
-    '''
-    def _calculate_oriented_graph(self):
-
-        # Use a node from the largest biconnected component as the source. This
-        # will hopefully process a larger chunk of faces / permutations first.
-        biconns = sorted(self.biconns, key=lambda b: (len(b), b), reverse=True)
-
-        source = None
-        if biconns:
-            source = sorted(biconns[0])[0]
-
-        # BROKEN - this source isn't working!!!
-
-        # TODO: Do we still need to do this anymore?
-        # Yes? because dfs on the resulting quotient graph is going to be hard
-        # Yes? Because each block still needs to know it's parent
-        # dg = self.g.to_directed()
-        # edge_dfs = list(nx.edge_dfs(self.g, source))#, 'N5')) # HAXXOR
-        # del_edges = filter(lambda e: e not in edge_dfs, dg.edges())
-        # dg.remove_edges_from(del_edges)
-
-        # TODO: Bow graphs do not work. They share a node but they're ending up
-        # in two different frozen sets.
-        # NO
-        dg = nx.dfs_tree(self.g, source)
-
-        return dg
-    '''
 
     def _calculate_quotient_graph(self):
 
@@ -136,18 +103,13 @@ class BlockGraph(object):
         biconns_to_face_g = {}
         q_nodes = sorted(self.q)
         for q_node in q_nodes:
-            if q_node not in self.biconns:
-                pass
-                #self.q.nodes[q_node][LAYOUT_CLASS] = NodeBlock
-                #nx.relabel_nodes(self.q, {q_node: list(q_node)[0]}, copy=False)
-            else:
+            if q_node in self.biconns:
 
                 # Run face detection and merge the resulting graph into the
                 # main graph.
                 bg = EmbeddedBiconnGraph(self.g.subgraph(q_node))
                 bg.run()
                 face_g = biconns_to_face_g[q_node] = bg.get_face_graph()
-                #nx.set_node_attributes(face_g, CyclicBlock, LAYOUT_CLASS)
                 self.q.update(face_g)
 
                 # Find adjacent edges in the biconn and find out which faces
@@ -175,23 +137,8 @@ class BlockGraph(object):
             largest_biconn = sorted(biconns_to_face_g, key=lambda b: len(b))[0]
             root_node = sorted(biconns_to_face_g[largest_biconn], key=lambda f: len(f))[0]
 
-
-
-
-
         # Now orient the graph.
         self._q = nx.bfs_tree(self.q, root_node)
-
-        # Create root node if necessary.
-        # DO THIS FOR ALL ROOT CYCLES
-        '''
-        if len(root_node) > 1:
-            new_root_node = sorted(root_node)[0]
-            new_root_node = frozenset([new_root_node])
-            self.q.add_edge(new_root_node, root_node)
-            root_node = new_root_node
-        print('\nroot_node:', root_node)
-        '''
 
         for node in list(self.q):
 
@@ -204,23 +151,11 @@ class BlockGraph(object):
                 else:
                     p_node = next(self.q.predecessors(node), None)
                     if len(p_node) < 2:
-                        print('*****do:', node)
                         pp_node = list(p_node)[0]
                         edge = next(nx.edge_boundary(self.g, node, (pp_node,)), None)
                         face_root = list(filter(lambda n: n != pp_node, edge))[0]
-                        print('p_node:', p_node)
-                        print('face_root:', face_root)
                         self.q.remove_edge(p_node, node)
                         nx.add_path(self.q, (p_node, frozenset([face_root]), node))
-                        #self.q.add_edge(new_root_node, root_node)
-                        # print('face_root', face_root)
-                        #
-                        # out_edge = list(node.out_edges(face_root))[0]
-                        # print('out_edge', out_edge)
-                        # node.set_source_edge(out_edge)
-
-        print('\nroot_node:', root_node)
-
 
         # Assign layout classes.
         for node in self.q:
@@ -235,46 +170,18 @@ class BlockGraph(object):
             else:
                 self.q.nodes[node][LAYOUT_CLASS] = NodeBlock
 
-
             # Set face leading edge.
-            # HAXXOR
             if len(node) > 1:
-                print('node:', node)
-                print('p_node:', p_node)
                 if len(p_node) > 1:
-                    print('parent was face')
-                    #print(node.edges, p_node.edges)
                     common = set(node.edges_forward()) & set(p_node.edges_reverse())
                     out_edge = list(common)[0]
                     node.set_source_edge(out_edge)
-                    print('set_source_edge:', out_edge)
                 else:
 
                     # Issue happens if the previous node is a root node, ie it
                     # falls on this face. As distict from an edges leading INTO
                     # the face.
-                    print('parent was node')
-                    #print('is leading from node')
                     p_node = list(p_node)[0]
-
                     if p_node in node:
                         out_edge = list(node.out_edges(p_node))[0]
-                        #print('----->', list(node.edges()), out_edge)
-                        print('set_source_edge:', out_edge)
                         node.set_source_edge(out_edge)
-                        #print('NOW:', node.get_source_edge())
-                    # else:
-                    #     print('SHOULD NEVER GET HERE')
-                    #
-                    #     # Set the start edge to be the one that
-                    #     edge = next(nx.edge_boundary(self.g, node, (p_node,)), None)
-                    #     face_root = list(filter(lambda n: n != p_node, edge))
-                    #     print('face_root', face_root)
-                    #
-                    #     out_edge = list(node.out_edges(face_root))[0]
-                    #     print('out_edge', out_edge)
-                    #     node.set_source_edge(out_edge)
-
-
-        for node in list(self.q):
-            print(node, type(node), '->', self.q.nodes[node].get(LAYOUT_CLASS))
