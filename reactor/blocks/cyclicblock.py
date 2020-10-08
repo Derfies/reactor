@@ -17,6 +17,9 @@ class NodeState(enum.IntEnum):
 
 class CyclicBlock(BlockBase):
 
+    def __str__(self):
+        return self.__class__.__name__ + ' [' + str(list(self.data.edges)) + ']'
+
     def get_angle_permutations(self):
 
         # Warning! These edges aren't guaranteed to be contiguous.
@@ -42,13 +45,22 @@ class CyclicBlock(BlockBase):
 
     def get_face_permutations(self, start_dir):
 
+        print('self.data.get_source_edge():', self.data.get_source_edge())
+
         # There *must* be a common node already in the layout.
-        offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
+        #foo = frozenset({self.data.get_source_edge()[0]})
+        try:
+            offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
+        except:
+            from reactor import utils
+            pos = nx.get_node_attributes(self.layout, POSITION)
+            utils.draw_graph(self.layout, pos)
+            raise
 
         # Pull out known edge lengths from the layout.
         lengths = {
             edge: self.layout.edges.get((edge[1], edge[0]), {}).get(LENGTH)
-            for edge in self.data.edges()
+            for edge in self.data.edges
         }
 
         ofaces = []
@@ -77,14 +89,14 @@ class CyclicBlock(BlockBase):
                 # amongst the edges.
                 if min_side.state == SideState.unknown:
                     min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
-                    for edge in min_side.g.edges():
+                    for edge in min_side.g.edges:
                         oface.edges[edge][LENGTH] = min_side.g.edges[edge][LENGTH] or min_side_edge
 
                 # If the max side is unknown, split the remainder and divide it
                 # amongst the edges.
                 if max_side.state == SideState.unknown:
                     max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
-                    for edge in max_side.g.edges():
+                    for edge in max_side.g.edges:
                         oface.edges[edge][LENGTH] = max_side.g.edges[edge][LENGTH] or max_side_edge
 
             # Final node positions.

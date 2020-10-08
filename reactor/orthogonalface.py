@@ -15,7 +15,7 @@ class Side(object):
 
     @property
     def lengths(self):
-        return [self.g.edges[e].get(LENGTH) for e in self.g.edges()]
+        return [self.g.edges[e].get(LENGTH) for e in self.g.edges]
 
     @property
     def state(self):
@@ -73,7 +73,7 @@ class OrthogonalFace(Face):
 
     def _calculate_sides(self):
         edges = defaultdict(list)
-        for edge in self.edges():
+        for edge in self.edges:
             edges[self.edges[edge][DIRECTION]].append(edge)
         return {
             dir_: Side(nx.DiGraph(self).edge_subgraph(edges))

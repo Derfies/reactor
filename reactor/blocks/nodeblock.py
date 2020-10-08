@@ -15,7 +15,7 @@ class NodeBlock(BlockBase):
 
     @property
     def node(self):
-        return self.data
+        return list(self.data)[0]
 
     def get_permutations(self):
 
@@ -25,7 +25,7 @@ class NodeBlock(BlockBase):
 
         # Create permutations from direction and length values.
         perms = []
-        p_node = self.parent_block_node
+        p_node = self.pfoo
         p_pos = self.layout.nodes[p_node][POSITION]
         for dir_, length in itertools.product(dirs, lengths):
             g = nx.DiGraph()

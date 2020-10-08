@@ -1,5 +1,5 @@
 import random
-random.seed(3)
+random.seed(2, version=1)
 
 import networkx as nx
 
@@ -10,9 +10,8 @@ from reactor.mapgenerator import MapGenerator
 
 # Remaining fails:
 # bow1
-# single_node1
-# tree_and_cycle2 (needs leading edge permutations)
-GRID_PATH = 'data/reactor4.graphml'
+# reactor5 (sometimes)
+GRID_PATH = 'data/reactor2.gexf'
 
 
 if __name__ == '__main__':
@@ -23,4 +22,5 @@ if __name__ == '__main__':
 
     # Show result.
     pos = nx.get_node_attributes(gen.layouter.layout, POSITION)
+    print(pos)
     utils.draw_graph(gen.layouter.layout, pos)

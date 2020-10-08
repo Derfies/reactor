@@ -9,6 +9,10 @@ from reactor.blocks.rootnodeblock import RootNodeBlock
 from reactor.embeddedbiconngraph import EmbeddedBiconnGraph
 
 
+LAYOUT_CLASS = 'class'
+
+
+# Can probably remove this now.
 def equivalence_classes(iterable, relation):
     """Returns the set of equivalence classes of the given `iterable` under
     the specified equivalence relation.
@@ -69,9 +73,9 @@ class BlockGraph(object):
     def biconns(self):
         return self._biconns
 
-    @property
-    def dg(self):
-        return self._dg
+    # @property
+    # def dg(self):
+    #     return self._dg
 
     @property
     def q(self):
@@ -79,11 +83,11 @@ class BlockGraph(object):
 
     @property
     def root(self):
-        return next(filter(lambda n: not self.q.in_edges(n), self.q))#[0]
+        return next(filter(lambda n: not self.q.in_edges(n), self.q))
 
     def get_block_class(self, block):
-        return self.q.nodes[block].get('cls')
-
+        return self.q.nodes[block].get(LAYOUT_CLASS)
+    '''
     def _calculate_oriented_graph(self):
 
         # Use a node from the largest biconnected component as the source. This
@@ -110,53 +114,167 @@ class BlockGraph(object):
         dg = nx.dfs_tree(self.g, source)
 
         return dg
+    '''
 
     def _calculate_quotient_graph(self):
+
+        # TODO: This still puts a bow into two separate groups :(
         def partition_fn(a, b):
             return any([
                 a in biconn and b in biconn and len(biconn) > 2
                 for biconn in self.biconns
             ])
-        partition = equivalence_classes(self.dg, partition_fn)
-        return _quotient_graph(self.dg, partition)
+        partition = equivalence_classes(self.g, partition_fn)
+        return _quotient_graph(self.g, partition)
 
+    # TODO: Make this class the actual quotient graph and make this a class
+    # method.
     def run(self):
         self._biconns = tuple(nx.biconnected_components(self.g))
-        self._dg = self._calculate_oriented_graph()
-        dfs_nodes = list(nx.dfs_preorder_nodes(self.dg))
         self._q = self._calculate_quotient_graph()
 
-        for nodes in list(nx.dfs_preorder_nodes(self.q, self.root)):
-            p_nodes = next(self.q.predecessors(nodes), None)
-            cls = RootNodeBlock if p_nodes is None else NodeBlock
-            self.q.nodes[nodes]['cls'] = cls
-            if nodes not in self.biconns:
-                nx.relabel_nodes(self.q, {nodes: list(nodes)[0]}, copy=False)
+        biconns_to_face_g = {}
+        q_nodes = sorted(self.q)
+        for q_node in q_nodes:
+            if q_node not in self.biconns:
+                pass
+                #self.q.nodes[q_node][LAYOUT_CLASS] = NodeBlock
+                #nx.relabel_nodes(self.q, {q_node: list(q_node)[0]}, copy=False)
             else:
 
-                # Get the root node. If there is no parent then pick the first
-                # node in the bunch, otherwise use the node connected to the
-                # previous block.
-                sorted_nodes = sorted(nodes, key=lambda n: dfs_nodes.index(n))
-                root_node = sorted_nodes[0]
-                if p_nodes is not None:
-                    in_edge = next(nx.edge_boundary(self.g, p_nodes, nodes))
-                    root_node = in_edge[1]
-
-                # Run the cyclic component face resolver, then add the resulting
-                # face graph to the quotient graph.
-                bg = EmbeddedBiconnGraph(self.g.subgraph(nodes))
+                # Run face detection and merge the resulting graph into the
+                # main graph.
+                bg = EmbeddedBiconnGraph(self.g.subgraph(q_node))
                 bg.run()
-                fg = bg.get_face_graph(root_node)
-                nx.set_node_attributes(fg, CyclicBlock, 'cls')
-                self.q.update(fg)
+                face_g = biconns_to_face_g[q_node] = bg.get_face_graph()
+                #nx.set_node_attributes(face_g, CyclicBlock, LAYOUT_CLASS)
+                self.q.update(face_g)
 
-                # Add the edge from the parent to the first node of the first
-                # face.
-                edges = list(self.q.edges(nodes))
-                self.q.remove_edges_from(edges)
-                root_face = next(filter(lambda n: not fg.in_edges(n), fg))#[0]
-                self.q.nodes[root_face]['cls'] = RootCyclicBlock
-                edges.insert(0, (nodes, root_face))
-                self.q.add_edges_from(edges)
-                nx.relabel_nodes(self.q, {nodes: root_node}, copy=False)
+                # Find adjacent edges in the biconn and find out which faces
+                # they hook into. These should all be single nodes or else they
+                # would be inside *this* biconn. This may change with bow ties
+                # however.
+                for nbr in self.q.neighbors(q_node):
+                    for face in face_g:
+
+                        # There should be only one edge between this biconn's
+                        # face and on original neighbour in the quotient graph,
+                        # otherwise they would have been in the same biconn.
+                        # Again... bow-ties...
+                        edge = next(nx.edge_boundary(self.g, face, nbr), None)
+                        if edge is not None:
+                            self.q.add_edge(face, nbr)
+
+                # Remove the original biconn from the graph.
+                self.q.remove_node(q_node)
+
+        # Find root node.
+        # Use the smallest face from the largest biconn.
+        root_node = q_nodes[0]
+        if biconns_to_face_g:
+            largest_biconn = sorted(biconns_to_face_g, key=lambda b: len(b))[0]
+            root_node = sorted(biconns_to_face_g[largest_biconn], key=lambda f: len(f))[0]
+
+
+
+
+
+        # Now orient the graph.
+        self._q = nx.bfs_tree(self.q, root_node)
+
+        # Create root node if necessary.
+        # DO THIS FOR ALL ROOT CYCLES
+        '''
+        if len(root_node) > 1:
+            new_root_node = sorted(root_node)[0]
+            new_root_node = frozenset([new_root_node])
+            self.q.add_edge(new_root_node, root_node)
+            root_node = new_root_node
+        print('\nroot_node:', root_node)
+        '''
+
+        for node in list(self.q):
+
+            if len(node) > 1:
+                if node == root_node:
+                    new_root_node = sorted(root_node)[0]
+                    new_root_node = frozenset([new_root_node])
+                    self.q.add_edge(new_root_node, root_node)
+                    root_node = new_root_node
+                else:
+                    p_node = next(self.q.predecessors(node), None)
+                    if len(p_node) < 2:
+                        print('*****do:', node)
+                        pp_node = list(p_node)[0]
+                        edge = next(nx.edge_boundary(self.g, node, (pp_node,)), None)
+                        face_root = list(filter(lambda n: n != pp_node, edge))[0]
+                        print('p_node:', p_node)
+                        print('face_root:', face_root)
+                        self.q.remove_edge(p_node, node)
+                        nx.add_path(self.q, (p_node, frozenset([face_root]), node))
+                        #self.q.add_edge(new_root_node, root_node)
+                        # print('face_root', face_root)
+                        #
+                        # out_edge = list(node.out_edges(face_root))[0]
+                        # print('out_edge', out_edge)
+                        # node.set_source_edge(out_edge)
+
+        print('\nroot_node:', root_node)
+
+
+        # Assign layout classes.
+        for node in self.q:
+            p_node = next(self.q.predecessors(node), None)
+            if p_node is None:
+                self.q.nodes[node][LAYOUT_CLASS] = RootNodeBlock
+            elif len(node) > 1:
+                if len(p_node) > 1:
+                    self.q.nodes[node][LAYOUT_CLASS] = CyclicBlock
+                else:
+                    self.q.nodes[node][LAYOUT_CLASS] = RootCyclicBlock
+            else:
+                self.q.nodes[node][LAYOUT_CLASS] = NodeBlock
+
+
+            # Set face leading edge.
+            # HAXXOR
+            if len(node) > 1:
+                print('node:', node)
+                print('p_node:', p_node)
+                if len(p_node) > 1:
+                    print('parent was face')
+                    #print(node.edges, p_node.edges)
+                    common = set(node.edges_forward()) & set(p_node.edges_reverse())
+                    out_edge = list(common)[0]
+                    node.set_source_edge(out_edge)
+                    print('set_source_edge:', out_edge)
+                else:
+
+                    # Issue happens if the previous node is a root node, ie it
+                    # falls on this face. As distict from an edges leading INTO
+                    # the face.
+                    print('parent was node')
+                    #print('is leading from node')
+                    p_node = list(p_node)[0]
+
+                    if p_node in node:
+                        out_edge = list(node.out_edges(p_node))[0]
+                        #print('----->', list(node.edges()), out_edge)
+                        print('set_source_edge:', out_edge)
+                        node.set_source_edge(out_edge)
+                        #print('NOW:', node.get_source_edge())
+                    # else:
+                    #     print('SHOULD NEVER GET HERE')
+                    #
+                    #     # Set the start edge to be the one that
+                    #     edge = next(nx.edge_boundary(self.g, node, (p_node,)), None)
+                    #     face_root = list(filter(lambda n: n != p_node, edge))
+                    #     print('face_root', face_root)
+                    #
+                    #     out_edge = list(node.out_edges(face_root))[0]
+                    #     print('out_edge', out_edge)
+                    #     node.set_source_edge(out_edge)
+
+
+        for node in list(self.q):
+            print(node, type(node), '->', self.q.nodes[node].get(LAYOUT_CLASS))

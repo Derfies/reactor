@@ -1,0 +1,76 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+<gexf xmlns = "http://www.gexf.net/1.2draft" version = "1.2"
+    xmlns:viz = "http://www.gexf.net/1.2draft/viz"
+    xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
+    <meta lastmodifieddate = "2020-10-07">
+        <creator>Qt Visual Graph Editor 0.5.4 (64bit)</creator>
+        <description></description>
+    </meta>
+    <graph mode="static" defaultedgetype="directed">
+    <attributes class="" mode="static">
+        <attribute id="labels.policy" title="labels.policy" type="integer">
+            <default>0</default>
+        </attribute>
+    </attributes>
+    <attributes class="node" mode="static">
+        <attribute id="_vis_" title="_vis_" type="liststring">
+            <default>label</default>
+        </attribute>
+        <attribute id="color" title="color" type="string">
+            <default>#ff00ff</default>
+        </attribute>
+        <attribute id="pos" title="pos" type="string">
+        </attribute>
+        <attribute id="shape" title="shape" type="string">
+            <default>disc</default>
+        </attribute>
+        <attribute id="size" title="size" type="float">
+            <default>11</default>
+        </attribute>
+        <attribute id="stroke.color" title="stroke.color" type="string">
+            <default>#000000</default>
+        </attribute>
+        <attribute id="stroke.size" title="stroke.size" type="double">
+            <default>1</default>
+        </attribute>
+        <attribute id="stroke.style" title="stroke.style" type="string">
+            <default>solid</default>
+        </attribute>
+    </attributes>
+    <attributes class="edge" mode="static">
+        <attribute id="_vis_" title="_vis_" type="liststring">
+            <default>label</default>
+        </attribute>
+        <attribute id="color" title="color" type="string">
+            <default>#a0a0a4</default>
+        </attribute>
+        <attribute id="direction" title="direction" type="string">
+            <default>directed</default>
+        </attribute>
+        <attribute id="style" title="style" type="string">
+            <default>solid</default>
+        </attribute>
+        <attribute id="weight" title="weight" type="double">
+            <default>1</default>
+        </attribute>
+    </attributes>
+    <nodes>
+        <node id="N1" label="">
+            <viz:position x="0" y="0"/>
+        </node>
+        <node id="N2" label="">
+            <viz:position x="0" y="0"/>
+        </node>
+        <node id="N3" label="">
+            <viz:position x="0" y="0"/>
+        </node>
+    </nodes>
+    <edges>
+        <edge id="E1" label="" source="N1" target="N2">
+        </edge>
+        <edge id="E2" label="" source="N2" target="N3">
+        </edge>
+    </edges>
+    </graph>
+</gexf>

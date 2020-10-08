@@ -6,6 +6,9 @@ SOURCE_EDGE = 'source_edge'
 
 class Face(nx.DiGraph):
 
+    def __str__(self):
+        return str(self.nodes)
+
     @classmethod
     def from_path(cls, nodes):
         face = cls()
@@ -17,7 +20,7 @@ class Face(nx.DiGraph):
         return self.graph.get(SOURCE_EDGE)
 
     def set_source_edge(self, edge):
-        assert edge in self.edges(), 'The edge {}-{} is not in the graph'.format(*edge)
+        assert edge in self.edges, 'The edge {}-{} is not in the graph'.format(*edge)
         self.graph[SOURCE_EDGE] = edge
 
     def edges_forward(self):

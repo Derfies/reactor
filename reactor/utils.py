@@ -68,13 +68,13 @@ def init_pyplot(figsize):
     # frame. We use tigher=True to make sure the data gets scaled to the full
     # extents of the axes.
     plt.tight_layout()
-    plt.autoscale(tight=True)
+    #plt.autoscale(tight=True)
     #return
 
 
 def draw_graph(g, pos=None):
     if pos is None:
-        pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
+        pos = nx.planar_layout(g)#, prog='neato')
     init_pyplot((5, 5))
     nx.draw_networkx(g, pos=pos)
     ax = plt.axes(frameon=False)

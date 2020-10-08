@@ -1,7 +1,9 @@
 import math
+import itertools as it
 
 import networkx as nx
 
+from reactor.const import POSITION
 from reactor.face import Face
 
 
@@ -42,7 +44,10 @@ class EmbeddedBiconnGraph(object):
         planar layouts as advertised, resulting in a borked planar embedding.
 
         """
-        return nx.planar_layout(self.g)
+
+        # TODO: Make this a switch
+        return nx.get_node_attributes(self.g, POSITION)
+        #return nx.planar_layout(self.g)
 
     def _calculate_planar_embedding(self):
         """
@@ -97,36 +102,38 @@ class EmbeddedBiconnGraph(object):
         )  # maximum cosine value
         return other, corner
 
-    def get_face_graph(self, root_node):
+    def get_face_graph(self):
 
+        def edge_relation(b, c):
+            c_edges = [tuple(reversed(e)) for e in c.edges]
+            return set(b.edges) & set(c_edges)
+
+        g = nx.Graph()
+        g.add_nodes_from(self._faces)
+        edges = filter(lambda x: edge_relation(*x), it.combinations(g, 2))
+        g.add_edges_from(edges)
+
+        return g
+
+    def _calculate_faces(self):
+        """
+        Return all faces for the graph using the planar embedding. Note that
+        this includes the exterior face of the graph. This should return all
+        faces with their nodes in the same rotation-wise order.
+        """
+        faces = []
         visited = set()
-        face_graph = nx.DiGraph()
-
-        # TODO: Remove recursive and use stack?
-        def recurse_edge(edge, p_face=None):
-
+        for edge in self.embedding.edges:
             if edge in visited:
-                return
-
-            # Get the nodes that make up the face. Nodes are guaranteed to be in
-            # edge order.
+                continue
             nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
-            face = Face.from_path(nodes)
-            face.set_source_edge(edge)    # Order from the input edge.
+            faces.append(Face.from_path(nodes))  # Nodes are in edge order.
 
-            if self.ext_hedge not in face.edges():
-                face_graph.add_node(face)
-                if p_face is not None:
-                    face_graph.add_edge(p_face, face)
-                for next_edge in face.edges_reverse():
-                    recurse_edge(next_edge, face)
+        # def filter_face(face):
+        #     ignore = any([self.g.edges[e].get(IGNORE) for e in face.edges])
+        #     return not(ignore or self.ext_hedge in face.edges)
 
-        edges = filter(lambda x: x not in self.ext_face.edges(), self.embedding.edges())
-        edges = sorted(edges, key=lambda x: (x[0] != root_node, x))
-        recurse_edge(edges[0])
-
-        # TODO: Reorder successors in face-complexity order.
-        return face_graph
+        return list(filter(lambda f: self.ext_hedge not in f.edges, faces))
 
     def run(self):
         self._pos = self._calculate_planar_layout()
@@ -134,6 +141,8 @@ class EmbeddedBiconnGraph(object):
         self._ext_hedge = self._calculate_external_face_half_edge()
         ext_nodes = self.embedding.traverse_face(*self.ext_hedge)
         self._ext_face = Face.from_path(ext_nodes)
+
+        self._faces = self._calculate_faces()
 
         # # Outright fail if any face is less than 4 edges. We can change this to
         # # try to insert new dummy nodes in the future.
