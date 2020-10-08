@@ -2,7 +2,7 @@ from operator import itemgetter
 
 import networkx as nx
 
-from layouter import Layouter
+from reactor.layouter import Layouter
 
 
 class MapGenerator(object):
@@ -19,7 +19,7 @@ class MapGenerator(object):
         self._g = nx.read_graphml(self.grid_path).to_undirected()
 
         # Ensure no node has a degree greater than 4.
-        max_degree = filter(lambda x: x[1] > 4, self._g.degree)
+        max_degree = list(filter(lambda x: x[1] > 4, self._g.degree))
         msg = 'Node(s): {} have degree greater than 4'
         assert not max_degree, msg.format(', '.join(map(itemgetter(0), max_degree)))
 

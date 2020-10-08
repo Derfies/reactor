@@ -2,7 +2,7 @@ import math
 
 import networkx as nx
 
-from face import Face
+from reactor.face import Face
 
 
 class EmbeddedBiconnGraph(object):
@@ -42,9 +42,7 @@ class EmbeddedBiconnGraph(object):
         planar layouts as advertised, resulting in a borked planar embedding.
 
         """
-        #return nx.spectral_layout(self.g)
-        #return nx.spring_layout(self.g, seed=1)
-        return nx.nx_agraph.graphviz_layout(self.g, prog='neato')
+        return nx.planar_layout(self.g)
 
     def _calculate_planar_embedding(self):
         """
@@ -72,9 +70,13 @@ class EmbeddedBiconnGraph(object):
         try:
             emd.check_structure()
         except nx.exception.NetworkXException:
-            import utils
+            from reactor import utils
             utils.draw_graph(self.g, self.pos)
             raise
+
+        # from reactor import utils
+        # utils.draw_graph(self.g, self.pos)
+
         return emd
 
     def _calculate_external_face_half_edge(self):
@@ -120,7 +122,7 @@ class EmbeddedBiconnGraph(object):
                     recurse_edge(next_edge, face)
 
         edges = filter(lambda x: x not in self.ext_face.edges(), self.embedding.edges())
-        edges = sorted(edges, key=lambda x: x[0] != root_node)
+        edges = sorted(edges, key=lambda x: (x[0] != root_node, x))
         recurse_edge(edges[0])
 
         # TODO: Reorder successors in face-complexity order.

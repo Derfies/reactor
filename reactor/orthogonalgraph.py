@@ -16,7 +16,7 @@ class OrthogonalGraph(nx.DiGraph):
         if existing_angles is None:
             return list(Angle)
         total = sum(existing_angles.values())
-        return filter(lambda a: a <= total, Angle)
+        return tuple(filter(lambda a: a <= total, Angle))
 
     # Rename to "get_outer_angle"?
     def get_explementary_angle(self, node):

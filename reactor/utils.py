@@ -4,7 +4,7 @@ import random
 import networkx as nx
 import matplotlib.pyplot as plt
 
-import const
+from reactor import const
 from reactor.geometry.vector import Vector2
 
 
@@ -41,9 +41,15 @@ def step(direction, length=1):
 
 
 def init_pyplot(figsize):
+    #import matplotlib as mpl
+    #mpl.style.use('classic')
 
     # Set pyplot dimensions.
     plt.figure(figsize=figsize)
+
+    #plt.minorticks_on()
+    #plt.majorticks_on()
+    #fig, ax = plt.subplots(figsize=figsize)
 
     # Then we set up our axes (the plot region, or the area in which we plot
     # things). Usually there is a thin border drawn around the axes, but we turn
@@ -51,6 +57,10 @@ def init_pyplot(figsize):
     # appear the same size.
 
     ax = plt.axes(frameon=False)
+    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    #ax.set_xticks(numpy.arange(0, 1, 0.1))
+    #ax.set_yticks(numpy.arange(0, 1., 0.1))
+    #ax.grid(True)
     ax.set_aspect('equal')
 
     # Even though our axes (plot region) are set to cover the whole image with
@@ -59,6 +69,7 @@ def init_pyplot(figsize):
     # extents of the axes.
     plt.tight_layout()
     plt.autoscale(tight=True)
+    #return
 
 
 def draw_graph(g, pos=None):
@@ -66,6 +77,8 @@ def draw_graph(g, pos=None):
         pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
     init_pyplot((5, 5))
     nx.draw_networkx(g, pos=pos)
+    ax = plt.axes(frameon=False)
+    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
     plt.show()
 
 
