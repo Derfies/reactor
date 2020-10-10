@@ -3,7 +3,7 @@ import networkx as nx
 from reactor.const import ANGLE, Angle
 
 
-class OrthogonalGraph(nx.DiGraph):
+class OrthogonalLayout(nx.DiGraph):
 
     def get_existing_angles(self, node):
         return nx.get_node_attributes(self, ANGLE).get(node)

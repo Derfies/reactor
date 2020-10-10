@@ -31,25 +31,24 @@ class BlockBase(object):
         return next(self.q.predecessors(self), None)
 
     @property
-    def pfoo(self):
+    def p_node(self):
         p_node = self.parent_block_node
-        return next(nx.edge_boundary(self.layouter._g, self.data, p_node.data))[-1]
+        return next(nx.edge_boundary(self.q._graph, self.data, p_node.data))[-1]
 
     @abc.abstractmethod
     def get_permutations(self):
         """"""
 
     def get_start_direction_permutations(self):
-        p_node = self.pfoo
 
         # Calculate valid edge directions.
         # Remove prev edge direction.
         # Remove sibling edge directions.
         dirs = set(Direction)
-        for in_edge in self.layout.in_edges(p_node):
+        for in_edge in self.layout.in_edges(self.p_node):
             dir = Direction.opposite(self.layout.edges[in_edge][DIRECTION])
             dirs.discard(dir)
-        for out_edge in self.layout.out_edges(p_node):
+        for out_edge in self.layout.out_edges(self.p_node):
             dirs.discard(self.layout.edges[out_edge].get(DIRECTION))
         return dirs
 

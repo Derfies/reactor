@@ -4,18 +4,21 @@ import itertools as it
 import networkx as nx
 
 from reactor.const import POSITION
-from reactor.face import Face
+from reactor.geometry.face import Face
 
 
-class EmbeddedBiconnGraph(object):
+class FaceAnalysis(object):
 
-    def __init__(self, g):
-        self._g = g         # Does this have to be di/graph?
+    def __init__(self, g, do_layout=False):
+        self._do_layout = do_layout
+        self._visited = set()
 
+        self._g = g
         self._pos = {}
         self._embedding = nx.PlanarEmbedding()
         self._ext_hedge = None
         self._ext_face = None
+        self._faces = tuple()
 
     @property
     def g(self):
@@ -37,17 +40,22 @@ class EmbeddedBiconnGraph(object):
     def ext_face(self):
         return self._ext_face
 
+    @property
+    def faces(self):
+        return self._faces
+
     def _calculate_planar_layout(self):
         """
-        Return a planar layout for the graph. Note that we're trialling several
-        different solutions here as some layout algorithms are not producing
-        planar layouts as advertised, resulting in a borked planar embedding.
+        Return a dictionary containing the positions of all nodes in the graph.
+        If the graph was read from file it may include positional data for all
+        nodes. If do_layout is False read this data from file otherwise perform
+        a planar layout. This may not give results as expected, so watch out!
 
         """
-
-        # TODO: Make this a switch
-        return nx.get_node_attributes(self.g, POSITION)
-        #return nx.planar_layout(self.g)
+        if self._do_layout:
+            return nx.get_node_attributes(self.g, POSITION)
+        else:
+            return nx.planar_layout(self.g)
 
     def _calculate_planar_embedding(self):
         """
@@ -72,16 +80,7 @@ class EmbeddedBiconnGraph(object):
             for neigh in neighes_sorted:
                 emd.add_half_edge_ccw(node, neigh, last)
                 last = neigh
-        try:
-            emd.check_structure()
-        except nx.exception.NetworkXException:
-            from reactor import utils
-            utils.draw_graph(self.g, self.pos)
-            raise
-
-        # from reactor import utils
-        # utils.draw_graph(self.g, self.pos)
-
+        emd.check_structure()
         return emd
 
     def _calculate_external_face_half_edge(self):
@@ -102,7 +101,52 @@ class EmbeddedBiconnGraph(object):
         )  # maximum cosine value
         return other, corner
 
+    def _get_edge_face(self, edge):
+        """
+
+        """
+        nodes = self.embedding.traverse_face(
+            *edge,
+            mark_half_edges=self._visited
+        )
+        return Face.from_path(nodes)
+
+    def _calculate_exterior_face(self):
+        """
+
+        """
+        return self._get_edge_face(self.ext_hedge)
+
+    def _calculate_interior_faces(self):
+        """
+        Return all faces for the graph using the planar embedding, exclusing the
+        exterior face. This should return all faces with their nodes in the same
+        rotation-wise order.
+
+        """
+        faces = []
+        for edge in self.embedding.edges:
+            if edge in self._visited:
+                continue
+            faces.append(self._get_edge_face(edge))
+        return faces
+
     def get_face_graph(self):
+        """
+
+        """
+        self._pos = self._calculate_planar_layout()
+
+        try:
+            self._embedding = self._calculate_planar_embedding()
+        except nx.exception.NetworkXException:
+            from reactor import utils
+            utils.draw_graph(self.g, self.pos)
+            raise
+
+        self._ext_hedge = self._calculate_external_face_half_edge()
+        self._ext_face = self._calculate_exterior_face()
+        self._faces = self._calculate_interior_faces()
 
         def edge_relation(b, c):
             c_edges = [tuple(reversed(e)) for e in c.edges]
@@ -112,41 +156,5 @@ class EmbeddedBiconnGraph(object):
         g.add_nodes_from(self._faces)
         edges = filter(lambda x: edge_relation(*x), it.combinations(g, 2))
         g.add_edges_from(edges)
-
+        nx.freeze(g)
         return g
-
-    def _calculate_faces(self):
-        """
-        Return all faces for the graph using the planar embedding. Note that
-        this includes the exterior face of the graph. This should return all
-        faces with their nodes in the same rotation-wise order.
-        """
-        faces = []
-        visited = set()
-        for edge in self.embedding.edges:
-            if edge in visited:
-                continue
-            nodes = self.embedding.traverse_face(*edge, mark_half_edges=visited)
-            faces.append(Face.from_path(nodes))  # Nodes are in edge order.
-
-        # def filter_face(face):
-        #     ignore = any([self.g.edges[e].get(IGNORE) for e in face.edges])
-        #     return not(ignore or self.ext_hedge in face.edges)
-
-        return list(filter(lambda f: self.ext_hedge not in f.edges, faces))
-
-    def run(self):
-        self._pos = self._calculate_planar_layout()
-        self._embedding = self._calculate_planar_embedding()
-        self._ext_hedge = self._calculate_external_face_half_edge()
-        ext_nodes = self.embedding.traverse_face(*self.ext_hedge)
-        self._ext_face = Face.from_path(ext_nodes)
-
-        self._faces = self._calculate_faces()
-
-        # # Outright fail if any face is less than 4 edges. We can change this to
-        # # try to insert new dummy nodes in the future.
-        # assert all([
-        #     len(face) >= 4
-        #     for face in self.faces
-        # ]), 'Cannot close polygon with less than 4 nodes'

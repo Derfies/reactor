@@ -9,17 +9,17 @@ LENGTH = 'length'
 
 class Angle(enum.IntEnum):
 
-    inside = 90
-    outside = -90
-    straight = 0
+    INSIDE = 90
+    OUTSIDE = -90
+    STRAIGHT = 0
 
 
 class Direction(enum.IntEnum):
 
-    up = 0
-    right = 1
-    down = 2
-    left = 3
+    UP = 0
+    RIGHT = 1
+    DOWN = 2
+    LEFT = 3
 
     @staticmethod
     def normalise(direction):
@@ -31,14 +31,8 @@ class Direction(enum.IntEnum):
 
     @staticmethod
     def xs():
-        return (Direction.left, Direction.right)
+        return Direction.LEFT, Direction.RIGHT
 
     @staticmethod
     def ys():
-        return (Direction.up, Direction.down)
-
-
-class SideState(enum.IntEnum):
-
-    unknown = 0
-    known = 2
+        return Direction.UP, Direction.DOWN

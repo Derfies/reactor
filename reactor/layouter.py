@@ -5,7 +5,7 @@ import networkx as nx
 
 from reactor.blocks.blockgraph import BlockGraph
 from reactor.const import POSITION
-from reactor.orthogonalgraph import OrthogonalGraph
+from reactor.orthogonallayout import OrthogonalLayout
 from reactor import utils
 
 
@@ -16,7 +16,8 @@ class Layouter(object):
 
         # TODO: In order to make truly abstract, need to make layout and block
         # graphs input args...
-        self.layout = OrthogonalGraph()
+        self.layout = OrthogonalLayout()
+        self.bg = BlockGraph(self._g)
 
     def _process_block(self, block):
         result = False
@@ -47,12 +48,13 @@ class Layouter(object):
         return result
 
     def run(self):
-        self.bg = BlockGraph(self._g)
+
         self.bg.run()
 
         # TODO: Move this into block graph.
         for node in list(self.bg.q):
-            layout = self.bg.q.nodes[node]['class'](node, self.bg.q, self)
+            layout_cls = self.bg.get_block_class(node)
+            layout = layout_cls(node, self.bg.q, self)
             nx.relabel_nodes(self.bg.q, {node: layout}, copy=False)
 
         self._process_block(self.bg.root)

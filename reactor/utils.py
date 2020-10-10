@@ -27,13 +27,13 @@ def get_random_direction(directions=None):
 
 def step(direction, length=1):
     pos = Vector2(0, 0)
-    if direction == const.Direction.up:
+    if direction == const.Direction.UP:
         pos[1] += length
-    elif direction == const.Direction.right:
+    elif direction == const.Direction.RIGHT:
         pos[0] += length
-    elif direction == const.Direction.down:
+    elif direction == const.Direction.DOWN:
         pos[1] -= length
-    elif direction == const.Direction.left:
+    elif direction == const.Direction.LEFT:
         pos[0] -= length
     else:
         raise Exception('Unknown direction: {}'.format(direction))

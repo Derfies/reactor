@@ -4,15 +4,15 @@ import itertools as it
 import networkx as nx
 
 from reactor.blocks.blockbase import BlockBase
-from reactor.const import POSITION, DIRECTION, Direction, LENGTH, SideState, ANGLE, Angle
-from reactor.orthogonalface import OrthogonalFace
+from reactor.const import POSITION, DIRECTION, Direction, LENGTH, ANGLE, Angle
+from reactor.orthogonalface import OrthogonalFace, SideState
 
 
 class NodeState(enum.IntEnum):
 
-    unknown = 0
-    free = 1
-    known = 2
+    UNKNOWN = 0
+    FREE = 1
+    KNOWN = 2
 
 
 class CyclicBlock(BlockBase):
@@ -28,11 +28,11 @@ class CyclicBlock(BlockBase):
         for node in nx.dfs_preorder_nodes(self.data):
             state_idx = len([e for e in common_edges if node in e])
             state = NodeState(state_idx)
-            if state == NodeState.known:
+            if state == NodeState.KNOWN:
                 angle_perms[node] = (self.layout.get_explementary_angle(node),)
-            elif state == NodeState.unknown:
+            elif state == NodeState.UNKNOWN:
                 angle_perms[node] = self.layout.get_possible_angles(node)
-            elif state == NodeState.free:
+            elif state == NodeState.FREE:
                 angle_perms[node] = tuple(Angle)
 
         # TODO: Check it this is ok...
@@ -71,21 +71,21 @@ class CyclicBlock(BlockBase):
                 # If one of the sides has a known length then we must use that
                 # length
                 max_length = max_side.proposed_length
-                if min_side.state == SideState.known:
+                if min_side.state == SideState.KNOWN:
                     max_length = min_side.length
-                elif max_side.state == SideState.known:
+                elif max_side.state == SideState.KNOWN:
                     max_length = max_side.length
 
                 # If the min side is unknown, split the remainder and divide it
                 # amongst the edges.
-                if min_side.state == SideState.unknown:
+                if min_side.state == SideState.UNKNOWN:
                     min_side_edge = (max_length - min_side.known_length) / float(min_side.num_unknown_edges)
                     for edge in min_side.g.edges:
                         oface.edges[edge][LENGTH] = min_side.g.edges[edge][LENGTH] or min_side_edge
 
                 # If the max side is unknown, split the remainder and divide it
                 # amongst the edges.
-                if max_side.state == SideState.unknown:
+                if max_side.state == SideState.UNKNOWN:
                     max_side_edge = (max_length - max_side.known_length) / float(max_side.num_unknown_edges)
                     for edge in max_side.g.edges:
                         oface.edges[edge][LENGTH] = max_side.g.edges[edge][LENGTH] or max_side_edge

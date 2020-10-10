@@ -6,7 +6,7 @@ from reactor.blocks.cyclicblock import CyclicBlock
 from reactor.blocks.nodeblock import NodeBlock
 from reactor.blocks.rootcyclicblock import RootCyclicBlock
 from reactor.blocks.rootnodeblock import RootNodeBlock
-from reactor.embeddedbiconngraph import EmbeddedBiconnGraph
+from reactor.faceanalysis import FaceAnalysis
 
 
 LAYOUT_CLASS = 'class'
@@ -62,7 +62,7 @@ class BlockGraph(object):
     def __init__(self, g):
         self._g = g
         self._biconns = ()
-        self._q = nx.DiGraph()   # Adj order is important!
+        self._q = nx.DiGraph()
 
     @property
     def g(self):
@@ -103,32 +103,32 @@ class BlockGraph(object):
         biconns_to_face_g = {}
         q_nodes = sorted(self.q)
         for q_node in q_nodes:
-            if q_node in self.biconns:
+            if q_node not in self.biconns:
+                continue
 
-                # Run face detection and merge the resulting graph into the
-                # main graph.
-                bg = EmbeddedBiconnGraph(self.g.subgraph(q_node))
-                bg.run()
-                face_g = biconns_to_face_g[q_node] = bg.get_face_graph()
-                self.q.update(face_g)
+            # Run face detection and merge the resulting graph into the
+            # main graph.
+            bg = FaceAnalysis(self.g.subgraph(q_node))
+            face_g = biconns_to_face_g[q_node] = bg.get_face_graph()
+            self.q.update(face_g)
 
-                # Find adjacent edges in the biconn and find out which faces
-                # they hook into. These should all be single nodes or else they
-                # would be inside *this* biconn. This may change with bow ties
-                # however.
-                for nbr in self.q.neighbors(q_node):
-                    for face in face_g:
+            # Find adjacent edges in the biconn and find out which faces
+            # they hook into. These should all be single nodes or else they
+            # would be inside *this* biconn. This may change with bow ties
+            # however.
+            for nbr in self.q.neighbors(q_node):
+                for face in face_g:
 
-                        # There should be only one edge between this biconn's
-                        # face and on original neighbour in the quotient graph,
-                        # otherwise they would have been in the same biconn.
-                        # Again... bow-ties...
-                        edge = next(nx.edge_boundary(self.g, face, nbr), None)
-                        if edge is not None:
-                            self.q.add_edge(face, nbr)
+                    # There should be only one edge between this biconn's
+                    # face and on original neighbour in the quotient graph,
+                    # otherwise they would have been in the same biconn.
+                    # Again... bow-ties...
+                    edge = next(nx.edge_boundary(self.g, face, nbr), None)
+                    if edge is not None:
+                        self.q.add_edge(face, nbr)
 
-                # Remove the original biconn from the graph.
-                self.q.remove_node(q_node)
+            # Remove the original biconn from the graph.
+            self.q.remove_node(q_node)
 
         # Find root node.
         # Use the smallest face from the largest biconn.
@@ -139,9 +139,9 @@ class BlockGraph(object):
 
         # Now orient the graph.
         self._q = nx.bfs_tree(self.q, root_node)
+        self._q._graph = self.g
 
         for node in list(self.q):
-
             if len(node) > 1:
                 if node == root_node:
                     new_root_node = sorted(root_node)[0]

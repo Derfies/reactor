@@ -7,11 +7,8 @@ from reactor.geometry.vector import Vector2
 
 class RootNodeBlock(BlockBase):
 
-    @property
-    def node(self):
-        return list(self.data)[0]
-
     def get_permutations(self):
+        node = list(self.data)[0]
         g = nx.DiGraph()
-        g.add_node(self.node, **{POSITION: Vector2(0, 0)})
+        g.add_node(node, **{POSITION: Vector2(0, 0)})
         return [g]

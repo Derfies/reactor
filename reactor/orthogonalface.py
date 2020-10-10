@@ -1,11 +1,18 @@
+import enum
 from collections import defaultdict
 
 import networkx as nx
 
 from reactor import utils
-from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION, SideState
-from reactor.face import Face
+from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION
+from reactor.geometry.face import Face
 from reactor.geometry.vector import Vector2
+
+
+class SideState(enum.IntEnum):
+
+    UNKNOWN = 0
+    KNOWN = 2
 
 
 class Side(object):
@@ -19,7 +26,7 @@ class Side(object):
 
     @property
     def state(self):
-        return SideState.unknown if self.num_unknown_edges else SideState.known
+        return SideState.UNKNOWN if self.num_unknown_edges else SideState.KNOWN
 
     @property
     def length(self):
@@ -40,12 +47,6 @@ class Side(object):
 
 class OrthogonalFace(Face):
 
-    """
-    TODO: Sometimes we store data by order, sometimes by dict. Seems confusing.
-
-    Directions should be easy to turn into a list.
-    """
-
     def __init__(self, face, angles, lengths, direction, offset):
         super(OrthogonalFace, self).__init__(face)
 
@@ -65,9 +66,9 @@ class OrthogonalFace(Face):
         for edge in self.edges_forward():
             yield edge, direction
             angle = self.nodes[edge[1]][ANGLE]
-            if angle == Angle.inside:
+            if angle == Angle.INSIDE:
                 direction += 1
-            elif angle == Angle.outside:
+            elif angle == Angle.OUTSIDE:
                 direction -= 1
             direction = Direction.normalise(direction)
 
