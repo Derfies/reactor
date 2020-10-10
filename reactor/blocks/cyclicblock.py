@@ -20,18 +20,18 @@ class CyclicBlock(BlockBase):
     def __str__(self):
         return self.__class__.__name__ + ' [' + str(list(self.data.edges)) + ']'
 
-    def get_angle_permutations(self):
+    def get_angle_permutations(self, layout):
 
         # Warning! These edges aren't guaranteed to be contiguous.
         angle_perms = {}
-        common_edges = tuple(self.layout.get_common_edges(self.data))
+        common_edges = tuple(layout.get_common_edges(self.data))
         for node in nx.dfs_preorder_nodes(self.data):
             state_idx = len([e for e in common_edges if node in e])
             state = NodeState(state_idx)
             if state == NodeState.KNOWN:
-                angle_perms[node] = (self.layout.get_explementary_angle(node),)
+                angle_perms[node] = (layout.get_explementary_angle(node),)
             elif state == NodeState.UNKNOWN:
-                angle_perms[node] = self.layout.get_possible_angles(node)
+                angle_perms[node] = layout.get_possible_angles(node)
             elif state == NodeState.FREE:
                 angle_perms[node] = tuple(Angle)
 
@@ -43,19 +43,19 @@ class CyclicBlock(BlockBase):
             if sum(instance) == 360:
                 yield dict(zip(keys, instance))
 
-    def get_face_permutations(self, start_dir):
+    def get_face_permutations(self, start_dir, layout):
 
         # There *must* be a common node already in the layout.
-        offset = self.layout.nodes[self.data.get_source_edge()[0]][POSITION]
+        offset = layout.nodes[self.data.get_source_edge()[0]][POSITION]
 
         # Pull out known edge lengths from the layout.
         lengths = {
-            edge: self.layout.edges.get((edge[1], edge[0]), {}).get(LENGTH)
+            edge: layout.edges.get((edge[1], edge[0]), {}).get(LENGTH)
             for edge in self.data.edges
         }
 
         ofaces = []
-        for angles in self.get_angle_permutations():
+        for angles in self.get_angle_permutations(layout):
 
             oface = OrthogonalFace(self.data, angles, lengths, start_dir, offset)
             ofaces.append(oface)
@@ -96,16 +96,16 @@ class CyclicBlock(BlockBase):
 
         return ofaces
 
-    def get_permutations(self):
-        edge = next(self.layout.get_common_edges(self.data))
-        dir_ = Direction.opposite(self.layout.edges[edge][DIRECTION])
-        return self.get_face_permutations(dir_)
+    def get_permutations(self, layout):
+        edge = next(layout.get_common_edges(self.data))
+        dir_ = Direction.opposite(layout.edges[edge][DIRECTION])
+        return self.get_face_permutations(dir_, layout)
 
-    def update_layout(self, g):
+    def update_layout(self, perm, layout):
 
         # Per node angle data is a dict that must be updated or else clobbered.
-        for node in g:
-            attr = self.layout.nodes.get(node, {}).pop(ANGLE, {})
-            attr.update({g: g.nodes[node].pop(ANGLE)})
-            g.nodes[node][ANGLE] = attr
-        super(CyclicBlock, self).update_layout(g)
+        for node in perm:
+            attr = layout.nodes.get(node, {}).pop(ANGLE, {})
+            attr.update({perm: perm.nodes[node].pop(ANGLE)})
+            perm.nodes[node][ANGLE] = attr
+        super(CyclicBlock, self).update_layout(perm, layout)

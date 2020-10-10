@@ -19,22 +19,22 @@ class Layouter(object):
         self.layout = OrthogonalLayout()
         self.bg = BlockGraph(self._g)
 
-    def _process_block(self, block):
+    def _process_block(self, q, block):
         result = False
-        perms = block.get_permutations()
+        perms = block.get_permutations(self.layout)
         random.shuffle(perms)
         for perm in perms:
 
             # Early-ing out when a child fails waaaaaaaay too early
             old_layout = copy.deepcopy(self.layout)
-            if not block.can_lay_out(perm):
+            if not block.can_lay_out(perm, self.layout):
                 continue
-            block.update_layout(perm)
+            block.update_layout(perm, self.layout)
 
             # Lay out children. If a single child cannot be laid out we consider
             # this whole block to have failed.
-            for child in self.bg.q.successors(block):
-                if not self._process_block(child):
+            for child in q.successors(block):   # TODO: make this part of block?
+                if not self._process_block(q, child):
                     break
             else:
                 result = True
@@ -48,15 +48,7 @@ class Layouter(object):
         return result
 
     def run(self):
-
-        self.bg.run()
-
-        # TODO: Move this into block graph.
-        for node in list(self.bg.q):
-            layout_cls = self.bg.get_block_class(node)
-            layout = layout_cls(node, self.bg.q, self)
-            nx.relabel_nodes(self.bg.q, {node: layout}, copy=False)
-
-        self._process_block(self.bg.root)
+        q, root = self.bg.run()
+        self._process_block(q, root)
         print('complete:', len(self._g) == len(self.layout))
 

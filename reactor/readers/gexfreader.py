@@ -1,3 +1,5 @@
+import networkx as nx
+
 from networkx.readwrite.gexf import GEXFReader as GEXFReader_
 
 from reactor.const import POSITION
@@ -20,5 +22,8 @@ class GEXFReader(GEXFReader_):
         for node in g:
             pos = g.nodes[node]['viz']['position']
             g.nodes[node][POSITION] = Vector2(pos['x'], pos['y'])
+
+        # Ensure graph cannot be modified.
+        nx.freeze(g)
 
         return g

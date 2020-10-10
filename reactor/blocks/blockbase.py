@@ -12,15 +12,9 @@ class BlockBase(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, data, q, layouter):
+    def __init__(self, data, g):
         self.data = data
-        self.q = q
-        self.layouter = layouter
-
-    # TODO: This feels kinda skeezy.
-    @property
-    def layout(self):
-        return self.layouter.layout
+        self.g = g
 
     def __str__(self):
         return self.__class__.__name__ + ' ' + str(self.data)
@@ -28,28 +22,29 @@ class BlockBase(object):
     # TODO: Rename this property
     @property
     def parent_block_node(self):
-        return next(self.q.predecessors(self), None)
+        return next(self.g.predecessors(self), None)
 
+    # TODO: Put heavy lifting into block graph
     @property
     def p_node(self):
         p_node = self.parent_block_node
-        return next(nx.edge_boundary(self.q._graph, self.data, p_node.data))[-1]
+        return next(nx.edge_boundary(self.g._graph, self.data, p_node.data))[-1]
 
     @abc.abstractmethod
-    def get_permutations(self):
+    def get_permutations(self, layout):
         """"""
 
-    def get_start_direction_permutations(self):
+    def get_start_direction_permutations(self, layout):
 
         # Calculate valid edge directions.
         # Remove prev edge direction.
         # Remove sibling edge directions.
         dirs = set(Direction)
-        for in_edge in self.layout.in_edges(self.p_node):
-            dir = Direction.opposite(self.layout.edges[in_edge][DIRECTION])
+        for in_edge in layout.in_edges(self.p_node):
+            dir = Direction.opposite(layout.edges[in_edge][DIRECTION])
             dirs.discard(dir)
-        for out_edge in self.layout.out_edges(self.p_node):
-            dirs.discard(self.layout.edges[out_edge].get(DIRECTION))
+        for out_edge in layout.out_edges(self.p_node):
+            dirs.discard(layout.edges[out_edge].get(DIRECTION))
         return dirs
 
     def edge_intersection(self, e1, g1, e2, g2):
@@ -66,11 +61,11 @@ class BlockBase(object):
         r2.normalise()
         return r1.intersects(r2) if set(e1) & set(e2) else r1.touches(r2)
 
-    def can_lay_out(self, perm):
+    def can_lay_out(self, perm, layout):
         return not any([
-            self.edge_intersection(e1, perm, e2, self.layout)
-            for e1, e2 in itertools.product(perm.edges, self.layout.edges)
+            self.edge_intersection(e1, perm, e2, layout)
+            for e1, e2 in itertools.product(perm.edges, layout.edges)
         ])
 
-    def update_layout(self, g):
-        self.layout.update(g)
+    def update_layout(self, perm, layout):
+        layout.update(perm)
