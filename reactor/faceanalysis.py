@@ -45,7 +45,7 @@ class FaceAnalysis(object):
         a planar layout. This may not give results as expected, so watch out!
 
         """
-        if self._do_layout:
+        if not self._do_layout:
             return nx.get_node_attributes(self.g, POSITION)
         else:
             return nx.planar_layout(self.g)
