@@ -5,7 +5,12 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from reactor import const
+from reactor.const import POSITION
 from reactor.geometry.vector import Vector2
+from reactor.map import Map
+
+
+MAP_SIZE = (10, 10)
 
 
 def get_node_position(g, node):
@@ -61,25 +66,36 @@ def init_pyplot(figsize):
     #ax.set_xticks(numpy.arange(0, 1, 0.1))
     #ax.set_yticks(numpy.arange(0, 1., 0.1))
     #ax.grid(True)
-    #ax.set_aspect('equal')
+    ax.set_aspect('equal')
 
     # Even though our axes (plot region) are set to cover the whole image with
     # [0,0,1,1], by default they leave padding between the plotted data and the
     # frame. We use tigher=True to make sure the data gets scaled to the full
     # extents of the axes.
-    #plt.tight_layout()
+    plt.tight_layout()
     #plt.autoscale(tight=True)
     #return
 
 
-def draw_graph(g, pos=None):
-    if pos is None:
-        pos = nx.planar_layout(g)#, prog='neato')
-    init_pyplot((5, 5))
-    nx.draw_networkx(g, pos=pos)
+def draw_map(map_):
+    pos = nx.get_node_attributes(map_.layout, POSITION)
+    if not pos:
+        pos = nx.planar_layout(map_.layout)
+    init_pyplot(MAP_SIZE)
+    nx.draw_networkx(map_.layout, pos=pos)
+    for room in map_.rooms:
+        room_pos = room.node_positions
+        nx.draw_networkx(room, pos=room_pos, node_size=0, with_labels=False,
+                         arrows=False, edge_color='grey')
     ax = plt.axes(frameon=False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
     plt.show()
+
+
+def draw_graph(g):
+    map_ = Map()
+    map_.layout = g
+    draw_map(map_)
 
 
 def save_graph(g, pos=None, save_path=None):

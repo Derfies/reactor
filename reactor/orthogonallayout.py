@@ -22,4 +22,9 @@ class OrthogonalLayout(nx.DiGraph):
     def get_explementary_angle(self, node):
         existing_angles = self.get_existing_angles(node)
         total = sum(map(lambda a: 180 - a, existing_angles.values()))
-        return Angle(180 - (360 - total))
+        try:
+            return Angle(180 - (360 - total))
+        except ValueError:
+            print(existing_angles)
+            print('Node:', node, 'has bad angle')
+            raise

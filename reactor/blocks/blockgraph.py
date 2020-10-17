@@ -3,15 +3,16 @@ import itertools as it
 import networkx as nx
 
 from reactor.blocks.edgeblock import EdgeBlock
-from reactor.layouters.edgelayouter import EdgeLayouter
 from reactor.blocks.faceblock import FaceBlock
+from reactor.blocks.rootblock import RootBlock
+from reactor.faceanalysis import FaceAnalysis
+from reactor.layouters.edgelayouter import EdgeLayouter
 from reactor.layouters.facelayouter import FaceLayouter
 from reactor.layouters.rootfacelayouter import RootFaceLayouter
-from reactor.blocks.rootblock import RootBlock
 from reactor.layouters.rootlayouter import RootLayouter
 
 
-from reactor.faceanalysis import FaceAnalysis
+LAYOUTER = 'layouter'
 
 
 class BlockGraph(nx.DiGraph):
@@ -20,7 +21,7 @@ class BlockGraph(nx.DiGraph):
         return next(self.predecessors(node), None)
 
     def get_layouter(self, node):
-        if self.nodes[node].get('layouter') is None:
+        if self.nodes[node].get(LAYOUTER) is None:
             if len(node) > 2:
                 if len(self.parent(node)) > 2:
                     cls = FaceLayouter
@@ -30,11 +31,15 @@ class BlockGraph(nx.DiGraph):
                 cls = EdgeLayouter
             else:
                 cls = RootLayouter
-            self.nodes[node]['layouter'] = cls(node, self)
-        return self.nodes[node]['layouter']
+            self.nodes[node][LAYOUTER] = cls(node, self)
+        return self.nodes[node][LAYOUTER]
 
 
 class BlockGraphCreator(object):
+
+    """
+    TODO: Merge with primary layouter class.
+    """
 
     def __init__(self, g):
         self._g = g

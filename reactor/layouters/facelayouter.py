@@ -109,3 +109,21 @@ class FaceLayouter(LayouterBase):
             attr.update({perm: perm.nodes[node].pop(ANGLE)})
             perm.nodes[node][ANGLE] = attr
         super(FaceLayouter, self).add_to_layout(perm, layout)
+
+    def remove_from_layout(self, layout):
+        super(FaceLayouter, self).remove_from_layout(layout)
+
+        # Remove face data.
+        for node in self.data:
+            perms = layout.nodes.get(node, {}).get(ANGLE, {})
+            for perm in list(perms.keys()):
+                if set(perm.nodes) == set(self.data.nodes):
+                    print(node, 'popped:', perm)
+                    perms.pop(perm)
+            #for layout_node in
+            #print(layout.nodes.get(node, {}))
+            #popped = layout.nodes.get(node, {}).pop(ANGLE, {}).pop(perm, None)
+            #if popped is not None:
+            #    print('&&&&&&&&&', popped)
+            #    raise
+        #for p
