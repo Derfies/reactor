@@ -17,9 +17,6 @@ class NodeState(enum.IntEnum):
 
 class FaceLayouter(LayouterBase):
 
-    # def __str__(self):
-    #     return self.__class__.__name__ + ' [' + str(list(self.data.edges)) + ']'
-
     def get_angle_permutations(self, layout):
 
         # Warning! These edges aren't guaranteed to be contiguous.
@@ -49,7 +46,7 @@ class FaceLayouter(LayouterBase):
     def get_face_permutations(self, start_dir, layout):
 
         # There *must* be a common node already in the layout.
-        offset = layout.nodes[self.data.get_source_edge()[0]][POSITION]
+        offset = layout.nodes[self.data.source_edge[0]][POSITION]
 
         # Pull out known edge lengths from the layout.
         lengths = {
@@ -94,16 +91,13 @@ class FaceLayouter(LayouterBase):
                         oface.edges[edge][LENGTH] = max_side.g.edges[edge][LENGTH] or max_side_edge
 
             # Final node positions.
-            for node, pos in oface.get_node_positions().items():
+            for node, pos in oface.node_positions.items():
                 oface.nodes[node][POSITION] = pos
 
         return ofaces
 
     def get_permutations(self, layout):
-
-        # Shouldn't this always be source edge?
-        edge = self.data.get_source_edge()
-        rev_edge = tuple(reversed(edge))
+        rev_edge = tuple(reversed(self.data.source_edge))
         dir_ = Direction.opposite(layout.edges[rev_edge][DIRECTION])
         return self.get_face_permutations(dir_, layout)
 

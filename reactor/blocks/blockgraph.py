@@ -81,9 +81,8 @@ class BlockGraphCreator(object):
                 # TODO: Always use subgraph?
                 g.add_node(EdgeBlock((biconn,)))
             else:
-                fa = FaceAnalysis(self.g.subgraph(biconn))
-                fa.run()
-                g.add_nodes_from(map(FaceBlock.from_path, fa.faces))
+                faces = FaceAnalysis(self.g.subgraph(biconn)).get_faces()
+                g.add_nodes_from(map(FaceBlock.from_path, faces))
 
         # Build edges.
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))

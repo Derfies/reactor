@@ -16,7 +16,6 @@ class FaceAnalysis(object):
         self._embedding = nx.PlanarEmbedding()
         self._ext_hedge = None
         self._ext_face = None
-        self._faces = tuple()
 
     @property
     def g(self):
@@ -37,10 +36,6 @@ class FaceAnalysis(object):
     @property
     def ext_face(self):
         return self._ext_face
-
-    @property
-    def faces(self):
-        return self._faces
 
     def _calculate_node_positions(self):
         """
@@ -127,9 +122,9 @@ class FaceAnalysis(object):
             if edge not in self._visited
         ]
 
-    def run(self):
+    def get_faces(self):
         self._pos = self._calculate_node_positions()
         self._embedding = self._calculate_planar_embedding()
         self._ext_hedge = self._calculate_external_face_half_edge()
         self._ext_face = self._calculate_exterior_face()
-        self._faces = self._calculate_interior_faces()
+        return self._calculate_interior_faces()

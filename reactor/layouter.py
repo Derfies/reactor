@@ -52,10 +52,6 @@ class Layouter(object):
                 break
             else:
 
-                # from reactor import utils
-                # pos = nx.get_node_attributes(self.layout, POSITION)
-                # utils.draw_graph(self.layout, pos)
-
                 # Move the cursor back to the parent.
                 parent = g.parent(blocks[i])
                 print('BACKTRACK:', blocks[i], 'TO:', parent)
@@ -75,6 +71,7 @@ class Layouter(object):
                             print('    REMOVE PERMS:', blocks[j])
                     j += 1
 
+                # Remove the failed blocks from the layout.
                 rem_blocks = nx.dfs_tree(g, blocks[i])
                 for block in rem_blocks:
                     olayouter = g.get_layouter(block)
@@ -84,9 +81,6 @@ class Layouter(object):
         self.backtracked = False
         bgc = BlockGraphCreator(self._g)
         bg = bgc.get_block_graph()
-        #root = next(filter(lambda n: not bg.in_edges(n), bg))
-
         self.bfs(bg)
         print('complete:', len(self._g) == len(self.layout))
         print('remainging:', set(self._g) - set(self.layout))
-

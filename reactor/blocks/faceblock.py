@@ -17,11 +17,11 @@ class FaceBlock(BlockBase):
         return face
 
     def __str__(self):
-        return str(list(self.edges_forward()))
+        return str(list(self.edges_forward))
 
     @property
     def root(self):
-        return self.get_source_edge()[0]
+        return self.source_edge[0]
 
     def is_adjacent(self, other):
         if isinstance(other, self.__class__):
@@ -31,23 +31,27 @@ class FaceBlock(BlockBase):
 
     def sort(self, parent):
         if isinstance(parent, self.__class__):
-            common = set(self.edges_forward()) & set(parent.edges_reverse())
-            self.set_source_edge(next(iter(common)))
+            common = set(self.edges_forward) & set(parent.edges_reverse)
+            self.source_edge = next(iter(common))
         else:
             common = set(self) & set(parent)
             source = next(iter(common))
             edge = next(filter(lambda e: e[0] == source, self.edges))
-            self.set_source_edge(edge)
+            self.source_edge = edge
 
-    def get_source_edge(self):
+    @property
+    def source_edge(self):
         return self.graph.get(SOURCE_EDGE)
 
-    def set_source_edge(self, edge):
+    @source_edge.setter
+    def source_edge(self, edge):
         assert edge in self.edges, 'The edge {}-{} is not in the graph'.format(*edge)
         self.graph[SOURCE_EDGE] = edge
 
+    @property
     def edges_forward(self):
-        return nx.edge_dfs(self, self.get_source_edge())
+        return nx.edge_dfs(self, self.source_edge)
 
+    @property
     def edges_reverse(self):
-        return iter([tuple(reversed(edge)) for edge in self.edges_forward()])
+        return iter([tuple(reversed(edge)) for edge in self.edges_forward])

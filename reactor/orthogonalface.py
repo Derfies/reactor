@@ -63,7 +63,7 @@ class OrthogonalFace(FaceBlock):
 
     def _edge_walk(self):
         direction = self.start_direction
-        for edge in self.edges_forward():
+        for edge in self.edges_forward:
             yield edge, direction
             angle = self.nodes[edge[1]][ANGLE]
             if angle == Angle.INSIDE:
@@ -81,7 +81,8 @@ class OrthogonalFace(FaceBlock):
             for dir_, edges in edges.items()
         }
 
-    def get_node_positions(self):
+    @property
+    def node_positions(self):
         positions = {}
         pos = Vector2(0, 0)
         for edge, direction in self._edge_walk():
