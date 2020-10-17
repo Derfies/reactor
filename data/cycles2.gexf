@@ -9,18 +9,22 @@
     </meta>
     <graph mode="static" defaultedgetype="directed">
     <attributes class="" mode="static">
+        <attribute id="comment" title="comment" type="string">
+            <default></default>
+        </attribute>
+        <attribute id="creator" title="creator" type="string">
+            <default>Qt Visual Graph Editor 0.5.4</default>
+        </attribute>
         <attribute id="labels.policy" title="labels.policy" type="integer">
             <default>0</default>
         </attribute>
     </attributes>
     <attributes class="node" mode="static">
         <attribute id="_vis_" title="_vis_" type="liststring">
-            <default>id|label</default>
+            <default>label</default>
         </attribute>
         <attribute id="color" title="color" type="string">
             <default>#ff00ff</default>
-        </attribute>
-        <attribute id="label" title="label" type="string">
         </attribute>
         <attribute id="pos" title="pos" type="string">
         </attribute>
@@ -50,8 +54,6 @@
         <attribute id="direction" title="direction" type="string">
             <default>directed</default>
         </attribute>
-        <attribute id="label" title="label" type="string">
-        </attribute>
         <attribute id="style" title="style" type="string">
             <default>solid</default>
         </attribute>
@@ -60,85 +62,49 @@
         </attribute>
     </attributes>
     <nodes>
+        <node id="N6" label="">
+            <viz:position x="75" y="-100"/>
+        </node>
         <node id="N1" label="">
-            <viz:position x="630" y="30"/>
-        </node>
-        <node id="N2" label="">
-            <viz:position x="590" y="30"/>
-        </node>
-        <node id="N3" label="">
-            <viz:position x="550" y="30"/>
-        </node>
-        <node id="N4" label="">
-            <viz:position x="510" y="30"/>
+            <viz:position x="-250" y="-225"/>
         </node>
         <node id="N5" label="">
-            <viz:position x="470" y="30"/>
+            <viz:position x="75" y="-200"/>
+        </node>
+        <node id="N2" label="">
+            <viz:position x="-25" y="-200"/>
+        </node>
+        <node id="N4" label="">
+            <viz:position x="-300" y="-75"/>
         </node>
         <node id="N8" label="">
-            <viz:position x="350" y="30"/>
-        </node>
-        <node id="N6" label="">
-            <viz:position x="430" y="30"/>
+            <viz:position x="275" y="-200"/>
         </node>
         <node id="N7" label="">
-            <viz:position x="390" y="30"/>
+            <viz:position x="250" y="-100"/>
         </node>
-        <node id="N9" label="">
-            <viz:position x="310" y="30"/>
-        </node>
-        <node id="N10" label="">
-            <viz:position x="270" y="30"/>
-        </node>
-        <node id="N11" label="">
-            <viz:position x="230" y="30"/>
-        </node>
-        <node id="N13" label="">
-            <viz:position x="150" y="30"/>
-        </node>
-        <node id="N16" label="">
-            <viz:position x="30" y="30"/>
-        </node>
-        <node id="N15" label="">
-            <viz:position x="70" y="30"/>
-        </node>
-        <node id="N14" label="">
-            <viz:position x="110" y="30"/>
-        </node>
-        <node id="N12" label="">
-            <viz:position x="190" y="30"/>
+        <node id="N3" label="">
+            <viz:position x="-100" y="-50"/>
         </node>
     </nodes>
     <edges>
-        <edge id="E1" label="" source="N1" target="N2" edgetype="directed">
+        <edge id="E6" label="" source="N5" target="N6">
         </edge>
-        <edge id="E6" label="" source="N6" target="N7" edgetype="directed">
+        <edge id="E2" label="" source="N2" target="N3">
         </edge>
-        <edge id="E2" label="" source="N2" target="N3" edgetype="directed">
+        <edge id="E4" label="" source="N4" target="N1">
         </edge>
-        <edge id="E4" label="" source="N4" target="N5" edgetype="directed">
+        <edge id="E7" label="" source="N6" target="N7">
         </edge>
-        <edge id="E7" label="" source="N7" target="N8" edgetype="directed">
+        <edge id="E5" label="" source="N2" target="N5">
         </edge>
-        <edge id="E5" label="" source="N5" target="N6" edgetype="directed">
+        <edge id="E1" label="" source="N1" target="N2">
         </edge>
-        <edge id="E3" label="" source="N3" target="N4" edgetype="directed">
+        <edge id="E8" label="" source="N5" target="N8">
         </edge>
-        <edge id="Copy1 of E6" label="" source="N14" target="N15" edgetype="directed">
+        <edge id="E3" label="" source="N3" target="N4">
         </edge>
-        <edge id="Copy1 of E3" label="" source="N11" target="N12" edgetype="directed">
-        </edge>
-        <edge id="Copy1 of E4" label="" source="N12" target="N13" edgetype="directed">
-        </edge>
-        <edge id="Copy1 of E7" label="" source="N15" target="N16" edgetype="directed">
-        </edge>
-        <edge id="Copy1 of E2" label="" source="N10" target="N11" edgetype="directed">
-        </edge>
-        <edge id="Copy1 of E5" label="" source="N13" target="N14" edgetype="directed">
-        </edge>
-        <edge id="Copy1 of E1" label="" source="N9" target="N10" edgetype="directed">
-        </edge>
-        <edge id="E8" label="" source="N8" target="N9" edgetype="directed">
+        <edge id="E9" label="" source="N8" target="N7">
         </edge>
     </edges>
     </graph>

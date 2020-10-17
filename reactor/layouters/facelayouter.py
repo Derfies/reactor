@@ -3,7 +3,7 @@ import itertools as it
 
 import networkx as nx
 
-from reactor.blocks.blockbase import BlockBase
+from reactor.layouters.layouterbase import LayouterBase
 from reactor.const import POSITION, DIRECTION, Direction, LENGTH, ANGLE, Angle
 from reactor.orthogonalface import OrthogonalFace, SideState
 
@@ -15,16 +15,17 @@ class NodeState(enum.IntEnum):
     KNOWN = 2
 
 
-class CyclicBlock(BlockBase):
+class FaceLayouter(LayouterBase):
 
-    def __str__(self):
-        return self.__class__.__name__ + ' [' + str(list(self.data.edges)) + ']'
+    # def __str__(self):
+    #     return self.__class__.__name__ + ' [' + str(list(self.data.edges)) + ']'
 
     def get_angle_permutations(self, layout):
 
         # Warning! These edges aren't guaranteed to be contiguous.
         angle_perms = {}
         common_edges = tuple(layout.get_common_edges(self.data))
+        #print('common_edges:', common_edges)
         for node in nx.dfs_preorder_nodes(self.data):
             state_idx = len([e for e in common_edges if node in e])
             state = NodeState(state_idx)
@@ -34,6 +35,8 @@ class CyclicBlock(BlockBase):
                 angle_perms[node] = layout.get_possible_angles(node)
             elif state == NodeState.FREE:
                 angle_perms[node] = tuple(Angle)
+
+        #print('angle_perms:', angle_perms)
 
         # TODO: Check it this is ok...
         # TODO: Not removing duplicates!
@@ -97,15 +100,18 @@ class CyclicBlock(BlockBase):
         return ofaces
 
     def get_permutations(self, layout):
-        edge = next(layout.get_common_edges(self.data))
-        dir_ = Direction.opposite(layout.edges[edge][DIRECTION])
+
+        # Shouldn't this always be source edge?
+        edge = self.data.get_source_edge()
+        rev_edge = tuple(reversed(edge))
+        dir_ = Direction.opposite(layout.edges[rev_edge][DIRECTION])
         return self.get_face_permutations(dir_, layout)
 
-    def update_layout(self, perm, layout):
+    def add_to_layout(self, perm, layout):
 
         # Per node angle data is a dict that must be updated or else clobbered.
         for node in perm:
             attr = layout.nodes.get(node, {}).pop(ANGLE, {})
             attr.update({perm: perm.nodes[node].pop(ANGLE)})
             perm.nodes[node][ANGLE] = attr
-        super(CyclicBlock, self).update_layout(perm, layout)
+        super(FaceLayouter, self).add_to_layout(perm, layout)

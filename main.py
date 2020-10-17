@@ -1,5 +1,5 @@
 import random
-random.seed(0)
+random.seed(8)
 
 import networkx as nx
 
@@ -10,7 +10,8 @@ from reactor.mapgenerator import MapGenerator
 
 # Remaining fails:
 # bow1
-GRID_PATH = 'data/reactor1.gexf'
+# cross1 - Weirdness with face calculations...?
+GRID_PATH = 'data/test12.gexf'
 
 
 if __name__ == '__main__':

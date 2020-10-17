@@ -10,7 +10,7 @@ from reactor.mapgenerator import MapGenerator
 
 
 NUM_PERMUTATIONS = 20
-GRID_PATH = 'data/reactor1.gexf'
+GRID_PATH = 'data/reactor5.gexf'
 
 
 if __name__ == '__main__':

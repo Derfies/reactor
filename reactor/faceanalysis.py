@@ -1,10 +1,8 @@
 import math
-import itertools as it
 
 import networkx as nx
 
 from reactor.const import POSITION
-from reactor.geometry.face import Face
 
 
 class FaceAnalysis(object):
@@ -44,7 +42,7 @@ class FaceAnalysis(object):
     def faces(self):
         return self._faces
 
-    def _calculate_planar_layout(self):
+    def _calculate_node_positions(self):
         """
         Return a dictionary containing the positions of all nodes in the graph.
         If the graph was read from file it may include positional data for all
@@ -72,12 +70,12 @@ class FaceAnalysis(object):
                     self.pos[neigh][1] - self.pos[node][1]
                 ) for neigh in self.g[node]
             }
-            neighes_sorted = sorted(
+            neighs_sorted = sorted(
                 self.g.adj[node],
                 key=lambda v: math.atan2(neigh_pos[v][1], neigh_pos[v][0])
             )  # counter clockwise
             last = None
-            for neigh in neighes_sorted:
+            for neigh in neighs_sorted:
                 emd.add_half_edge_ccw(node, neigh, last)
                 last = neigh
         emd.check_structure()
@@ -105,11 +103,10 @@ class FaceAnalysis(object):
         """
 
         """
-        nodes = self.embedding.traverse_face(
+        return tuple(self.embedding.traverse_face(
             *edge,
             mark_half_edges=self._visited
-        )
-        return Face.from_path(nodes)
+        ))
 
     def _calculate_exterior_face(self):
         """
@@ -124,37 +121,15 @@ class FaceAnalysis(object):
         rotation-wise order.
 
         """
-        faces = []
-        for edge in self.embedding.edges:
-            if edge in self._visited:
-                continue
-            faces.append(self._get_edge_face(edge))
-        return faces
+        return [
+            self._get_edge_face(edge)
+            for edge in self.embedding.edges
+            if edge not in self._visited
+        ]
 
-    def get_face_graph(self):
-        """
-
-        """
-        self._pos = self._calculate_planar_layout()
-
-        try:
-            self._embedding = self._calculate_planar_embedding()
-        except nx.exception.NetworkXException:
-            from reactor import utils
-            utils.draw_graph(self.g, self.pos)
-            raise
-
+    def run(self):
+        self._pos = self._calculate_node_positions()
+        self._embedding = self._calculate_planar_embedding()
         self._ext_hedge = self._calculate_external_face_half_edge()
         self._ext_face = self._calculate_exterior_face()
         self._faces = self._calculate_interior_faces()
-
-        def edge_relation(b, c):
-            c_edges = [tuple(reversed(e)) for e in c.edges]
-            return set(b.edges) & set(c_edges)
-
-        g = nx.Graph()
-        g.add_nodes_from(self._faces)
-        edges = filter(lambda x: edge_relation(*x), it.combinations(g, 2))
-        g.add_edges_from(edges)
-        nx.freeze(g)
-        return g

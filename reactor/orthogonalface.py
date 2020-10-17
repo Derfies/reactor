@@ -5,7 +5,7 @@ import networkx as nx
 
 from reactor import utils
 from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION
-from reactor.geometry.face import Face
+from reactor.blocks.faceblock import FaceBlock
 from reactor.geometry.vector import Vector2
 
 
@@ -45,7 +45,7 @@ class Side(object):
         return self.lengths.count(None)
 
 
-class OrthogonalFace(Face):
+class OrthogonalFace(FaceBlock):
 
     def __init__(self, face, angles, lengths, direction, offset):
         super(OrthogonalFace, self).__init__(face)

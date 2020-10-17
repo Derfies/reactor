@@ -1,12 +1,10 @@
-import copy
 import random
 
 import networkx as nx
 
-from reactor.blocks.blockgraph import BlockGraph
 from reactor.const import POSITION
+from reactor.blocks.blockgraph import BlockGraphCreator
 from reactor.orthogonallayout import OrthogonalLayout
-from reactor import utils
 
 
 class Layouter(object):
@@ -17,38 +15,78 @@ class Layouter(object):
         # TODO: In order to make truly abstract, need to make layout and block
         # graphs input args...
         self.layout = OrthogonalLayout()
-        self.bg = BlockGraph(self._g)
 
-    def _process_block(self, q, block):
-        result = False
-        perms = block.get_permutations(self.layout)
-        random.shuffle(perms)
-        for perm in perms:
+    def bfs(self, g):
+        blocks = list(g)
+        print('blocks:')
+        for b in blocks:
+            print('    ->', b)
 
-            # Early-ing out when a child fails waaaaaaaay too early
-            old_layout = copy.deepcopy(self.layout)
-            if not block.can_lay_out(perm, self.layout):
+        i = 0
+        while i < len(blocks):
+
+            layouter = g.get_layouter(blocks[i])
+            if layouter.done:
+                print('SKIPPING AS DONE:', blocks[i])
+                i += 1
                 continue
-            block.update_layout(perm, self.layout)
 
-            # Lay out children. If a single child cannot be laid out we consider
-            # this whole block to have failed.
-            for child in q.successors(block):   # TODO: make this part of block?
-                if not self._process_block(q, child):
-                    break
+            print('process ->', i, blocks[i], 'parent:', g.parent(blocks[i]))
+            if not layouter.permutations:# is None:
+                print('    creating new perms')
+                layouter.permutations = layouter.get_permutations(self.layout)
+                random.shuffle(layouter.permutations)
             else:
-                result = True
+                print('    using existing perms')
 
-            # Stop evaluating permutations on successful lay out.
-            if result:
+            while layouter.permutations:
+                perm = layouter.permutations.pop(0)
+                if not layouter.can_lay_out(perm, self.layout):
+                    print('    FAILED:', nx.get_node_attributes(perm, POSITION))
+                    continue
+                layouter.add_to_layout(perm, self.layout)
+                print('    SUCCESS:', list(perm.edges), nx.get_node_attributes(perm, POSITION))
+                layouter.done = True
+
+                i += 1
                 break
             else:
-                self.layout = old_layout
 
-        return result
+                # from reactor import utils
+                # pos = nx.get_node_attributes(self.layout, POSITION)
+                # utils.draw_graph(self.layout, pos)
+
+                # Move the cursor back to the parent.
+                parent = g.parent(blocks[i])
+                print('BACKTRACK:', blocks[i], 'TO:', parent)
+                while blocks[i] != parent:
+                    print('    REWIND:', blocks[i], i)
+                    i -= 1
+
+                # Mark all blocks under the parent as not done and remove
+                # their permutations.
+                j = i
+                while j < len(blocks):
+                    olayouter = g.get_layouter(blocks[j])
+                    if olayouter.done:
+                        olayouter.done = False
+                        if blocks[j] != blocks[i]:
+                            olayouter.permutations.clear()# = None
+                            print('    REMOVE PERMS:', blocks[j])
+                    j += 1
+
+                rem_blocks = nx.dfs_tree(g, blocks[i])
+                for block in rem_blocks:
+                    olayouter = g.get_layouter(block)
+                    olayouter.remove_from_layout(self.layout)
 
     def run(self):
-        q, root = self.bg.run()
-        self._process_block(q, root)
+        self.backtracked = False
+        bgc = BlockGraphCreator(self._g)
+        bg = bgc.get_block_graph()
+        #root = next(filter(lambda n: not bg.in_edges(n), bg))
+
+        self.bfs(bg)
         print('complete:', len(self._g) == len(self.layout))
+        print('remainging:', set(self._g) - set(self.layout))
 

@@ -61,13 +61,13 @@ def init_pyplot(figsize):
     #ax.set_xticks(numpy.arange(0, 1, 0.1))
     #ax.set_yticks(numpy.arange(0, 1., 0.1))
     #ax.grid(True)
-    ax.set_aspect('equal')
+    #ax.set_aspect('equal')
 
     # Even though our axes (plot region) are set to cover the whole image with
     # [0,0,1,1], by default they leave padding between the plotted data and the
     # frame. We use tigher=True to make sure the data gets scaled to the full
     # extents of the axes.
-    plt.tight_layout()
+    #plt.tight_layout()
     #plt.autoscale(tight=True)
     #return
 

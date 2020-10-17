@@ -1,14 +1,14 @@
 import networkx as nx
 
-from reactor.blocks.blockbase import BlockBase
+from reactor.layouters.layouterbase import LayouterBase
 from reactor.const import POSITION
 from reactor.geometry.vector import Vector2
 
 
-class RootNodeBlock(BlockBase):
+class RootLayouter(LayouterBase):
 
     def get_permutations(self, layout):
-        node = list(self.data)[0]
+        node = next(iter(self.data))
         g = nx.DiGraph()
         g.add_node(node, **{POSITION: Vector2(0, 0)})
         return [g]

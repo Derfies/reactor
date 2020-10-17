@@ -1,7 +1,7 @@
-from reactor.blocks.cyclicblock import CyclicBlock
+from reactor.layouters.facelayouter import FaceLayouter
 
 
-class RootCyclicBlock(CyclicBlock):
+class RootFaceLayouter(FaceLayouter):
 
     def get_permutations(self, layout):
         faces = []
