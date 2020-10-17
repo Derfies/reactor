@@ -1,5 +1,6 @@
 import os
 import random
+random.seed(0)
 
 import networkx as nx
 
@@ -8,8 +9,8 @@ from reactor.const import POSITION
 from reactor.mapgenerator import MapGenerator
 
 
-NUM_PERMUTATIONS = 10
-GRID_PATH = 'data/reactor2.graphml'
+NUM_PERMUTATIONS = 20
+GRID_PATH = 'data/reactor5.gexf'
 
 
 if __name__ == '__main__':

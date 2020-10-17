@@ -1,11 +1,18 @@
+import enum
 from collections import defaultdict
 
 import networkx as nx
 
 from reactor import utils
-from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION, SideState
-from reactor.face import Face
+from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION
+from reactor.blocks.faceblock import FaceBlock
 from reactor.geometry.vector import Vector2
+
+
+class SideState(enum.IntEnum):
+
+    UNKNOWN = 0
+    KNOWN = 2
 
 
 class Side(object):
@@ -15,11 +22,11 @@ class Side(object):
 
     @property
     def lengths(self):
-        return [self.g.edges[e].get(LENGTH) for e in self.g.edges()]
+        return [self.g.edges[e].get(LENGTH) for e in self.g.edges]
 
     @property
     def state(self):
-        return SideState.unknown if self.num_unknown_edges else SideState.known
+        return SideState.UNKNOWN if self.num_unknown_edges else SideState.KNOWN
 
     @property
     def length(self):
@@ -38,13 +45,7 @@ class Side(object):
         return self.lengths.count(None)
 
 
-class OrthogonalFace(Face):
-
-    """
-    TODO: Sometimes we store data by order, sometimes by dict. Seems confusing.
-
-    Directions should be easy to turn into a list.
-    """
+class OrthogonalFace(FaceBlock):
 
     def __init__(self, face, angles, lengths, direction, offset):
         super(OrthogonalFace, self).__init__(face)
@@ -62,25 +63,26 @@ class OrthogonalFace(Face):
 
     def _edge_walk(self):
         direction = self.start_direction
-        for edge in self.edges_forward():
+        for edge in self.edges_forward:
             yield edge, direction
             angle = self.nodes[edge[1]][ANGLE]
-            if angle == Angle.inside:
+            if angle == Angle.INSIDE:
                 direction += 1
-            elif angle == Angle.outside:
+            elif angle == Angle.OUTSIDE:
                 direction -= 1
             direction = Direction.normalise(direction)
 
     def _calculate_sides(self):
         edges = defaultdict(list)
-        for edge in self.edges():
+        for edge in self.edges:
             edges[self.edges[edge][DIRECTION]].append(edge)
         return {
             dir_: Side(nx.DiGraph(self).edge_subgraph(edges))
             for dir_, edges in edges.items()
         }
 
-    def get_node_positions(self):
+    @property
+    def node_positions(self):
         positions = {}
         pos = Vector2(0, 0)
         for edge, direction in self._edge_walk():

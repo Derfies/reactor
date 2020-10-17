@@ -1,162 +1,110 @@
+import itertools as it
+
 import networkx as nx
-from networkx.algorithms.minors import _quotient_graph
-from networkx.utils import arbitrary_element
 
-from reactor.blocks.cyclicblock import CyclicBlock
-from reactor.blocks.nodeblock import NodeBlock
-from reactor.blocks.rootcyclicblock import RootCyclicBlock
-from reactor.blocks.rootnodeblock import RootNodeBlock
-from reactor.embeddedbiconngraph import EmbeddedBiconnGraph
-
-
-def equivalence_classes(iterable, relation):
-    """Returns the set of equivalence classes of the given `iterable` under
-    the specified equivalence relation.
-
-    `relation` must be a Boolean-valued function that takes two argument. It
-    must represent an equivalence relation (that is, the relation induced by
-    the function must be reflexive, symmetric, and transitive).
-
-    The return value is a set of sets. It is a partition of the elements of
-    `iterable`; duplicate elements will be ignored so it makes the most sense
-    for `iterable` to be a :class:`set`.
-
-    """
-    # For simplicity of implementation, we initialize the return value as a
-    # list of lists, then convert it to a set of sets at the end of the
-    # function.
-    blocks = []
-    # Determine the equivalence class for each element of the iterable.
-    for y in iterable:
-        # Each element y must be in *exactly one* equivalence class.
-        #
-        # Each block is guaranteed to be non-empty
-        for block in blocks:
-            x = arbitrary_element(block)
-            if relation(x, y):
-                block.append(y)
-                break
-        else:
-            # If the element y is not part of any known equivalence class, it
-            # must be in its own, so we create a new singleton equivalence
-            # class for it.
-            blocks.append([y])
-
-    # HAXXOR
-    seen = set()
-    seen_add = seen.add
-    frozen_sets = []
-    for block in blocks:
-        frozen_set = frozenset(block)
-        if not (frozen_set in seen or seen_add(frozen_set)):
-            frozen_sets.append(frozen_set)
-    return frozen_sets
+from reactor.blocks.edgeblock import EdgeBlock
+from reactor.layouters.edgelayouter import EdgeLayouter
+from reactor.blocks.faceblock import FaceBlock
+from reactor.layouters.facelayouter import FaceLayouter
+from reactor.layouters.rootfacelayouter import RootFaceLayouter
+from reactor.blocks.rootblock import RootBlock
+from reactor.layouters.rootlayouter import RootLayouter
 
 
-class BlockGraph(object):
+from reactor.faceanalysis import FaceAnalysis
+
+
+class BlockGraph(nx.DiGraph):
+
+    def parent(self, node):
+        return next(self.predecessors(node), None)
+
+    def get_layouter(self, node):
+        if self.nodes[node].get('layouter') is None:
+            if len(node) > 2:
+                if len(self.parent(node)) > 2:
+                    cls = FaceLayouter
+                else:
+                    cls = RootFaceLayouter
+            elif len(node) > 1:
+                cls = EdgeLayouter
+            else:
+                cls = RootLayouter
+            self.nodes[node]['layouter'] = cls(node, self)
+        return self.nodes[node]['layouter']
+
+
+class BlockGraphCreator(object):
 
     def __init__(self, g):
         self._g = g
-        self._biconns = ()
-        self._dg = nx.DiGraph()
-        self._q = nx.DiGraph()   # Adj order is important!
 
     @property
     def g(self):
         return self._g
 
-    @property
-    def biconns(self):
-        return self._biconns
+    def _sort_nodes(self, nodes):
+        """
+        Sort criteria:
+        - Prioritise faces
+        - Priortise smaller faces
+        - Sorted tuple
 
-    @property
-    def dg(self):
-        return self._dg
+        """
+        return sorted(nodes, key=lambda n: (len(n) < 3, len(n), sorted(n)))
 
-    @property
-    def q(self):
-        return self._q
+    def bfs_tree(self, g, source, reverse=False, depth_limit=None, sort_neighbors=None):
+        t = BlockGraph()
+        t.add_node(source)
+        edges_gen = nx.bfs_edges(
+            g,
+            source,
+            reverse=reverse,
+            depth_limit=depth_limit,
+            sort_neighbors=sort_neighbors,
+        )
+        t.add_edges_from(edges_gen)
+        return t
 
-    @property
-    def root(self):
-        return next(filter(lambda n: not self.q.in_edges(n), self.q))#[0]
+    # TODO: Make this class the actual quotient graph and make this a class
+    # method.
+    def get_block_graph(self):
 
-    def get_block_class(self, block):
-        return self.q.nodes[block].get('cls')
+        # Split the input graph into biconnected components. Each biconn will
+        # become a node in the block graph.
+        g = nx.Graph()
 
-    def _calculate_oriented_graph(self):
+        # Build nodes.
+        for biconn in nx.biconnected_components(self.g):
+            if len(biconn) < 3:
 
-        # Use a node from the largest biconnected component as the source. This
-        # will hopefully process a larger chunk of faces / permutations first.
-        biconns = sorted(self.biconns, key=lambda b: (len(b), b), reverse=True)
-
-        source = None
-        if biconns:
-            source = sorted(biconns[0])[0]
-
-        # BROKEN - this source isn't working!!!
-
-        # TODO: Do we still need to do this anymore?
-        # Yes? because dfs on the resulting quotient graph is going to be hard
-        # Yes? Because each block still needs to know it's parent
-        # dg = self.g.to_directed()
-        # edge_dfs = list(nx.edge_dfs(self.g, source))#, 'N5')) # HAXXOR
-        # del_edges = filter(lambda e: e not in edge_dfs, dg.edges())
-        # dg.remove_edges_from(del_edges)
-
-        # TODO: Bow graphs do not work. They share a node but they're ending up
-        # in two different frozen sets.
-        # NO
-        dg = nx.dfs_tree(self.g, source)
-
-        return dg
-
-    def _calculate_quotient_graph(self):
-        def partition_fn(a, b):
-            return any([
-                a in biconn and b in biconn and len(biconn) > 2
-                for biconn in self.biconns
-            ])
-        partition = equivalence_classes(self.dg, partition_fn)
-        return _quotient_graph(self.dg, partition)
-
-    def run(self):
-        self._biconns = tuple(nx.biconnected_components(self.g))
-        self._dg = self._calculate_oriented_graph()
-        dfs_nodes = list(nx.dfs_preorder_nodes(self.dg))
-        self._q = self._calculate_quotient_graph()
-
-        for nodes in list(nx.dfs_preorder_nodes(self.q, self.root)):
-            p_nodes = next(self.q.predecessors(nodes), None)
-            cls = RootNodeBlock if p_nodes is None else NodeBlock
-            self.q.nodes[nodes]['cls'] = cls
-            if nodes not in self.biconns:
-                nx.relabel_nodes(self.q, {nodes: list(nodes)[0]}, copy=False)
+                # TODO: Always use subgraph?
+                g.add_node(EdgeBlock((biconn,)))
             else:
+                faces = FaceAnalysis(self.g.subgraph(biconn)).get_faces()
+                g.add_nodes_from(map(FaceBlock.from_path, faces))
 
-                # Get the root node. If there is no parent then pick the first
-                # node in the bunch, otherwise use the node connected to the
-                # previous block.
-                sorted_nodes = sorted(nodes, key=lambda n: dfs_nodes.index(n))
-                root_node = sorted_nodes[0]
-                if p_nodes is not None:
-                    in_edge = next(nx.edge_boundary(self.g, p_nodes, nodes))
-                    root_node = in_edge[1]
+        # Build edges.
+        edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
+        g.add_edges_from(edges)
 
-                # Run the cyclic component face resolver, then add the resulting
-                # face graph to the quotient graph.
-                bg = EmbeddedBiconnGraph(self.g.subgraph(nodes))
-                bg.run()
-                fg = bg.get_face_graph(root_node)
-                nx.set_node_attributes(fg, CyclicBlock, 'cls')
-                self.q.update(fg)
+        # Find root node.
+        sorted_nodes = self._sort_nodes(g)
+        root = sorted_nodes[0]
 
-                # Add the edge from the parent to the first node of the first
-                # face.
-                edges = list(self.q.edges(nodes))
-                self.q.remove_edges_from(edges)
-                root_face = next(filter(lambda n: not fg.in_edges(n), fg))#[0]
-                self.q.nodes[root_face]['cls'] = RootCyclicBlock
-                edges.insert(0, (nodes, root_face))
-                self.q.add_edges_from(edges)
-                nx.relabel_nodes(self.q, {nodes: root_node}, copy=False)
+        # Put a super root behind the root node. This will place the very first
+        # node at the origin.
+        super_root = RootBlock()
+        super_root.add_node(sorted(root)[0])
+        g.add_edge(super_root, root)
+
+        # Orient graph. Sort neighbours so that faces are visited first from
+        # smallest to largest, then other biconns.
+        g = self.bfs_tree(g, super_root, sort_neighbors=self._sort_nodes)
+
+        # Sort nodes.
+        for node in g:
+            p_node = g.parent(node)
+            node.sort(p_node)
+
+        return g

@@ -3,6 +3,7 @@ from operator import itemgetter
 import networkx as nx
 
 from reactor.layouter import Layouter
+from reactor.readers.gexfreader import GEXFReader
 
 
 class MapGenerator(object):
@@ -16,7 +17,7 @@ class MapGenerator(object):
         return self._g
 
     def load_graph(self):
-        self._g = nx.read_graphml(self.grid_path).to_undirected()
+        self._g = GEXFReader()(self.grid_path).to_undirected()
 
         # Ensure no node has a degree greater than 4.
         max_degree = list(filter(lambda x: x[1] > 4, self._g.degree))

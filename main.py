@@ -1,5 +1,5 @@
 import random
-random.seed(3)
+random.seed(8)
 
 import networkx as nx
 
@@ -10,9 +10,8 @@ from reactor.mapgenerator import MapGenerator
 
 # Remaining fails:
 # bow1
-# single_node1
-# tree_and_cycle2 (needs leading edge permutations)
-GRID_PATH = 'data/reactor4.graphml'
+# cross1 - Weirdness with face calculations...?
+GRID_PATH = 'data/test12.gexf'
 
 
 if __name__ == '__main__':
