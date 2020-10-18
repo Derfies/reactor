@@ -77,7 +77,7 @@ def init_pyplot(figsize):
     #return
 
 
-def draw_map(map_):
+def draw_map(map_, save_path=None):
     pos = nx.get_node_attributes(map_.layout, POSITION)
     if not pos:
         pos = nx.planar_layout(map_.layout)
@@ -86,24 +86,19 @@ def draw_map(map_):
     for room in map_.rooms:
         room_pos = room.node_positions
         nx.draw_networkx(room, pos=room_pos, node_size=0, with_labels=False,
-                         arrows=False, edge_color='grey')
+                         arrows=False, edge_color='grey', width=4)
     ax = plt.axes(frameon=False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    plt.show()
+    if save_path is None:
+        plt.show()
+    else:
+        dir_path = os.path.split(save_path)[0]
+        if not os.path.isdir(dir_path):
+            os.makedirs(dir_path)
+        plt.savefig(save_path)
 
 
 def draw_graph(g):
     map_ = Map()
     map_.layout = g
     draw_map(map_)
-
-
-def save_graph(g, pos=None, save_path=None):
-    if pos is None:
-        pos = nx.nx_agraph.graphviz_layout(g, prog='neato')
-    init_pyplot((10, 10))
-    nx.draw_networkx(g, pos=pos)
-    dir_path = os.path.split(save_path)[0]
-    if not os.path.isdir(dir_path):
-        os.makedirs(dir_path)
-    plt.savefig(save_path)

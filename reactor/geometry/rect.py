@@ -18,6 +18,10 @@ class Rect(object):
     def height(self):
         return abs(self.p2.y - self.p1.y)
 
+    @property
+    def centre(self):
+        return (self.p1 + self.p2) / 2
+
     def intersects(self, other):
         return (
             self.p1.x < other.p2.x and
