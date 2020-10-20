@@ -1,25 +1,17 @@
 import random
-random.seed(8)
-
-import networkx as nx
+random.seed(0)
 
 from reactor import utils
-from reactor.const import POSITION
 from reactor.mapgenerator import MapGenerator
 
 
 # Remaining fails:
 # bow1
-# cross1 - Weirdness with face calculations...?
-GRID_PATH = 'data/test12.gexf'
+# single_node1
+GRID_PATH = 'data/tree1.gexf'
 
 
 if __name__ == '__main__':
-
-    # Initialise a map generator using a path to a node graph file, then run it.
     gen = MapGenerator(GRID_PATH)
-    gen.run()
-
-    # Show result.
-    pos = nx.get_node_attributes(gen.layouter.layout, POSITION)
-    utils.draw_graph(gen.layouter.layout, pos)
+    map_ = gen.run()
+    utils.draw_map(map_)

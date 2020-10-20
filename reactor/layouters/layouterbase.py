@@ -57,8 +57,6 @@ class LayouterBase(object):
         layout.update(perm)
 
     def remove_from_layout(self, layout):
-
-        # TODO: Remove face data...?
         layout.remove_edges_from(self.data.edges)
         rem_nodes = []
         for node in self.data:

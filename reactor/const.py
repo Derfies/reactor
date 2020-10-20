@@ -5,6 +5,7 @@ ANGLE = 'angle'
 DIRECTION = 'direction'
 POSITION = 'position'
 LENGTH = 'length'
+WEIGHT = 'weight'
 
 
 class Angle(enum.IntEnum):

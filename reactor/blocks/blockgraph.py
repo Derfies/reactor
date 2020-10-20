@@ -3,15 +3,16 @@ import itertools as it
 import networkx as nx
 
 from reactor.blocks.edgeblock import EdgeBlock
-from reactor.layouters.edgelayouter import EdgeLayouter
 from reactor.blocks.faceblock import FaceBlock
+from reactor.blocks.rootblock import RootBlock
+from reactor.faceanalysis import FaceAnalysis
+from reactor.layouters.edgelayouter import EdgeLayouter
 from reactor.layouters.facelayouter import FaceLayouter
 from reactor.layouters.rootfacelayouter import RootFaceLayouter
-from reactor.blocks.rootblock import RootBlock
 from reactor.layouters.rootlayouter import RootLayouter
 
 
-from reactor.faceanalysis import FaceAnalysis
+LAYOUTER = 'layouter'
 
 
 class BlockGraph(nx.DiGraph):
@@ -20,7 +21,7 @@ class BlockGraph(nx.DiGraph):
         return next(self.predecessors(node), None)
 
     def get_layouter(self, node):
-        if self.nodes[node].get('layouter') is None:
+        if self.nodes[node].get(LAYOUTER) is None:
             if len(node) > 2:
                 if len(self.parent(node)) > 2:
                     cls = FaceLayouter
@@ -30,11 +31,15 @@ class BlockGraph(nx.DiGraph):
                 cls = EdgeLayouter
             else:
                 cls = RootLayouter
-            self.nodes[node]['layouter'] = cls(node, self)
-        return self.nodes[node]['layouter']
+            self.nodes[node][LAYOUTER] = cls(node, self)
+        return self.nodes[node][LAYOUTER]
 
 
 class BlockGraphCreator(object):
+
+    """
+    TODO: Merge with primary layouter class.
+    """
 
     def __init__(self, g):
         self._g = g
@@ -76,12 +81,11 @@ class BlockGraphCreator(object):
 
         # Build nodes.
         for biconn in nx.biconnected_components(self.g):
+            sg = self.g.subgraph(biconn)
             if len(biconn) < 3:
-
-                # TODO: Always use subgraph?
-                g.add_node(EdgeBlock((biconn,)))
+                g.add_node(EdgeBlock(sg))
             else:
-                faces = FaceAnalysis(self.g.subgraph(biconn)).get_faces()
+                faces = FaceAnalysis(sg).get_faces()
                 g.add_nodes_from(map(FaceBlock.from_path, faces))
 
         # Build edges.
@@ -94,8 +98,7 @@ class BlockGraphCreator(object):
 
         # Put a super root behind the root node. This will place the very first
         # node at the origin.
-        super_root = RootBlock()
-        super_root.add_node(sorted(root)[0])
+        super_root = RootBlock(self.g.subgraph([sorted(root)[0]]))
         g.add_edge(super_root, root)
 
         # Orient graph. Sort neighbours so that faces are visited first from

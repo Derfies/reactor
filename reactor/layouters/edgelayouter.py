@@ -24,9 +24,10 @@ class EdgeLayouter(LayouterBase):
         p_pos = layout.nodes[head][POSITION]
         perms = []
         for dir_, length in itertools.product(dirs, lengths):
-            g = nx.DiGraph()
-            g.add_edge(head, tail, **{DIRECTION: dir_})
-            g.nodes[head][POSITION] = p_pos
-            g.nodes[tail][POSITION] = p_pos + utils.step(dir_, length)
-            perms.append(g)
+            perm = nx.DiGraph()
+            edge_data = dict(self.data.edge_data, **{DIRECTION: dir_})
+            perm.add_edge(head, tail, **edge_data)
+            perm.nodes[head][POSITION] = p_pos
+            perm.nodes[tail][POSITION] = p_pos + utils.step(dir_, length)
+            perms.append(perm)
         return perms

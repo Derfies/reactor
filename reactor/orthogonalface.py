@@ -47,11 +47,11 @@ class Side(object):
 
 class OrthogonalFace(FaceBlock):
 
-    def __init__(self, face, angles, lengths, direction, offset):
+    def __init__(self, face, angles, lengths, direction, offset=None):
         super(OrthogonalFace, self).__init__(face)
 
         self.start_direction = direction
-        self.offset = offset
+        self.offset = offset if offset is not None else Vector2(0, 0)
 
         # Set node and edge data.
         nx.set_node_attributes(self, angles, ANGLE)
