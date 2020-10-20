@@ -5,7 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from reactor import const
-from reactor.const import POSITION
+from reactor.const import POSITION, WEIGHT
 from reactor.geometry.vector import Vector2
 from reactor.map import Map
 
@@ -82,13 +82,23 @@ def draw_map(map_, save_path=None):
     if not pos:
         pos = nx.planar_layout(map_.layout)
     init_pyplot(MAP_SIZE)
-    nx.draw_networkx(map_.layout, pos=pos)
+
+    # Draw the map.
+    edge_weights = [
+        map_.layout.edges[edge].get(WEIGHT, 1)
+        for edge in map_.layout.edges
+    ]
+    nx.draw_networkx(map_.layout, pos=pos, width=edge_weights)
     for room in map_.rooms:
         room_pos = room.node_positions
         nx.draw_networkx(room, pos=room_pos, node_size=0, with_labels=False,
                          arrows=False, edge_color='grey', width=4)
+
+    # Fix up axes ticks.
     ax = plt.axes(frameon=False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+
+    # Show window or save to disk.
     if save_path is None:
         plt.show()
     else:

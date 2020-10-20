@@ -3,7 +3,7 @@
     xmlns:viz = "http://www.gexf.net/1.2draft/viz"
     xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
-    <meta lastmodifieddate = "2020-10-07">
+    <meta lastmodifieddate = "2020-10-20">
         <creator>Qt Visual Graph Editor 0.5.4 (64bit)</creator>
         <description></description>
     </meta>
@@ -19,6 +19,8 @@
         </attribute>
         <attribute id="color" title="color" type="string">
             <default>#ff00ff</default>
+        </attribute>
+        <attribute id="label" title="label" type="string">
         </attribute>
         <attribute id="pos" title="pos" type="string">
         </attribute>
@@ -47,6 +49,8 @@
         </attribute>
         <attribute id="direction" title="direction" type="string">
             <default>directed</default>
+        </attribute>
+        <attribute id="label" title="label" type="string">
         </attribute>
         <attribute id="style" title="style" type="string">
             <default>solid</default>
@@ -115,41 +119,65 @@
         </node>
     </nodes>
     <edges>
-        <edge id="E1" label="" source="N1" target="N2">
+        <edge id="E1" label="" source="N1" target="N2" edgetype="directed">
         </edge>
-        <edge id="E2" label="" source="N2" target="N3">
+        <edge id="E2" label="" source="N2" target="N3" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E3" label="" source="N2" target="N4">
+        <edge id="E3" label="" source="N2" target="N4" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E4" label="" source="N3" target="N5">
+        <edge id="E4" label="" source="N3" target="N5" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E10" label="" source="N4" target="N11">
+        <edge id="E10" label="" source="N4" target="N11" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E12" label="" source="N4" target="N13">
+        <edge id="E12" label="" source="N4" target="N13" edgetype="directed">
         </edge>
-        <edge id="E19" label="" source="N16" target="N20">
+        <edge id="E19" label="" source="N16" target="N20" edgetype="directed">
         </edge>
-        <edge id="E18" label="" source="N15" target="N19">
+        <edge id="E18" label="" source="N15" target="N19" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E11" label="" source="N8" target="N12">
+        <edge id="E11" label="" source="N8" target="N12" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E17" label="" source="N3" target="N18">
+        <edge id="E17" label="" source="N3" target="N18" edgetype="directed">
         </edge>
-        <edge id="E6" label="" source="N4" target="N7">
+        <edge id="E6" label="" source="N4" target="N7" edgetype="directed">
         </edge>
-        <edge id="E16" label="" source="N6" target="N17">
+        <edge id="E16" label="" source="N6" target="N17" edgetype="directed">
         </edge>
-        <edge id="E9" label="" source="N2" target="N10">
+        <edge id="E9" label="" source="N2" target="N10" edgetype="directed">
         </edge>
-        <edge id="E8" label="" source="N5" target="N9">
+        <edge id="E8" label="" source="N5" target="N9" edgetype="directed">
         </edge>
-        <edge id="E14" label="" source="N11" target="N15">
+        <edge id="E14" label="" source="N11" target="N15" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E5" label="" source="N1" target="N6">
+        <edge id="E5" label="" source="N1" target="N6" edgetype="directed">
         </edge>
-        <edge id="E7" label="" source="N5" target="N8">
+        <edge id="E7" label="" source="N5" target="N8" edgetype="directed">
+            <attvalues>
+                <attvalue for="weight" value="5"/>
+            </attvalues>
         </edge>
-        <edge id="E15" label="" source="N15" target="N16">
+        <edge id="E15" label="" source="N15" target="N16" edgetype="directed">
         </edge>
     </edges>
     </graph>

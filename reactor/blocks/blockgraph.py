@@ -81,12 +81,11 @@ class BlockGraphCreator(object):
 
         # Build nodes.
         for biconn in nx.biconnected_components(self.g):
+            sg = self.g.subgraph(biconn)
             if len(biconn) < 3:
-
-                # TODO: Always use subgraph?
-                g.add_node(EdgeBlock((biconn,)))
+                g.add_node(EdgeBlock(sg))
             else:
-                faces = FaceAnalysis(self.g.subgraph(biconn)).get_faces()
+                faces = FaceAnalysis(sg).get_faces()
                 g.add_nodes_from(map(FaceBlock.from_path, faces))
 
         # Build edges.
@@ -99,8 +98,7 @@ class BlockGraphCreator(object):
 
         # Put a super root behind the root node. This will place the very first
         # node at the origin.
-        super_root = RootBlock()
-        super_root.add_node(sorted(root)[0])
+        super_root = RootBlock(self.g.subgraph([sorted(root)[0]]))
         g.add_edge(super_root, root)
 
         # Orient graph. Sort neighbours so that faces are visited first from

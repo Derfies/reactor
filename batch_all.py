@@ -28,13 +28,15 @@ if __name__ == '__main__':
             # Set random seed and run map generator.
             random.seed(i)
             gen = MapGenerator(grid_path)
-            gen.run()
+            try:
+                map_ = gen.run()
+            except:
+                continue
 
             # Resolve output path name.
             dir_name = os.path.splitext(os.path.split(grid_path)[-1])[0]
             file_name = '{0:03d}'.format(i)
             file_path = os.path.join('output', dir_name, file_name) + '.png'
 
-            # Save graph to file.
-            pos = nx.get_node_attributes(gen.layouter.layout, POSITION)
-            utils.save_graph(gen.layouter.layout, pos, file_path)
+            # Save map to file.
+            utils.draw_map(map_, file_path)
