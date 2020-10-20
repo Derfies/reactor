@@ -9,10 +9,12 @@ SOURCE_EDGE = 'source_edge'
 class FaceBlock(BlockBase):
 
     @classmethod
-    def from_path(cls, nodes):
+    def from_path(cls, nodes, subgraph=None):
         face = cls()
         nx.add_path(face, nodes)
         face.add_edge(nodes[-1], nodes[0])
+        if subgraph is not None:
+            face._update_attributes(subgraph)
         nx.freeze(face)
         return face
 
