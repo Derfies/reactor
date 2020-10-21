@@ -2,6 +2,7 @@ import random
 from collections import deque
 
 import networkx as nx
+from simple_settings import settings
 
 from reactor import utils
 from reactor.blocks.faceblock import FaceBlock
@@ -9,13 +10,6 @@ from reactor.const import Angle, Direction, POSITION, WEIGHT
 from reactor.geometry.rect import Rect
 from reactor.geometry.vector import Vector2
 from reactor.orthogonalface import OrthogonalFace
-
-
-ROOM_CHANCE = 1
-ROOM_MIN_WIDTH = 3
-ROOM_MAX_WIDTH = 5
-ROOM_MIN_HEIGHT = 3
-ROOM_MAX_HEIGHT = 5
 
 
 class RoomPlacer:
@@ -69,8 +63,8 @@ class RoomPlacer:
             if random.random() <= room_chance:
                 room = Rect(pos[node] - Vector2(0.5, 0.5), pos[node] + Vector2(0.5, 0.5))
                 self.rooms[node] = room
-                self.widths[node] = random.randrange(ROOM_MIN_WIDTH, ROOM_MAX_WIDTH)
-                self.heights[node] = random.randrange(ROOM_MIN_HEIGHT, ROOM_MAX_HEIGHT)
+                self.widths[node] = random.randrange(settings.ROOM_MIN_WIDTH, settings.ROOM_MAX_WIDTH)
+                self.heights[node] = random.randrange(settings.ROOM_MIN_HEIGHT, settings.ROOM_MAX_HEIGHT)
 
         # Now attempt to grow rooms.
         nodes = deque(self._g.nodes)

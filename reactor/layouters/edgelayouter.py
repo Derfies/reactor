@@ -1,14 +1,11 @@
 import itertools
 
 import networkx as nx
+from simple_settings import settings
 
 from reactor import utils
 from reactor.layouters.layouterbase import LayouterBase
 from reactor.const import POSITION, DIRECTION
-
-
-MIN_LENGTH = 1
-MAX_LENGTH = 3
 
 
 class EdgeLayouter(LayouterBase):
@@ -17,7 +14,7 @@ class EdgeLayouter(LayouterBase):
 
         # Collect valid step direction and lengths.
         dirs = self.get_start_direction_permutations(layout)
-        lengths = range(MIN_LENGTH, MAX_LENGTH + 1)
+        lengths = range(settings.MIN_LENGTH, settings.MAX_LENGTH + 1)
 
         # Create permutations from direction and length values.
         head, tail = self.data.edge
