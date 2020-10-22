@@ -50,6 +50,10 @@ class OrthogonalFace(FaceBlock):
     def __init__(self, face, angles, lengths, direction, offset=None):
         super(OrthogonalFace, self).__init__(face)
 
+        # Important! Set the source edge the same as the given face.
+        if face.source_edge is not None:
+            self.source_edge = face.source_edge
+
         self.start_direction = direction
         self.offset = offset if offset is not None else Vector2(0, 0)
 

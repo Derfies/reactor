@@ -1,5 +1,3 @@
-import networkx as nx
-
 from reactor.blocks.blockbase import BlockBase
 
 

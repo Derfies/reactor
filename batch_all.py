@@ -1,10 +1,7 @@
 import os
 import random
 
-import networkx as nx
-
 from reactor import utils
-from reactor.const import POSITION
 from reactor.mapgenerator import MapGenerator
 
 

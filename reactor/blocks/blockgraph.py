@@ -85,8 +85,9 @@ class BlockGraphCreator(object):
             if len(biconn) < 3:
                 g.add_node(EdgeBlock(sg))
             else:
-                faces = FaceAnalysis(sg).get_faces()
-                g.add_nodes_from(map(FaceBlock.from_path, faces))
+                for face in FaceAnalysis(sg).get_faces():
+                    fsg = self.g.subgraph(face)
+                    g.add_node(FaceBlock.from_path(face, fsg))
 
         # Build edges.
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
