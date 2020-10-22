@@ -5,8 +5,11 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from reactor import const
+from reactor.blocks.faceblock import FaceBlock
 from reactor.const import POSITION, WEIGHT
+from reactor.geometry.rect import Rect
 from reactor.geometry.vector import Vector2
+from reactor.orthogonalface import OrthogonalFace
 from reactor.map import Map
 
 
@@ -77,6 +80,19 @@ def init_pyplot(figsize):
     #return
 
 
+def draw_rect(rect, **kwargs):
+    """Converts a rect to a graph so it can be drawn."""
+    face = FaceBlock.from_path((1, 2, 3, 4))
+    angles = {n: const.Angle.INSIDE for n in face}
+    lengths = {}
+    lengths[(1, 2)] = lengths[(3, 4)] = rect.height
+    lengths[(2, 3)] = lengths[(4, 1)] = rect.width
+    direction = const.Direction.UP
+    g = OrthogonalFace(face, angles, lengths, direction, rect.p1)
+    kwargs['pos'] = g.node_positions
+    nx.draw_networkx(g, **kwargs)
+
+
 def draw_map(map_, save_path=None):
     pos = nx.get_node_attributes(map_.layout, POSITION)
     if not pos:
@@ -90,9 +106,16 @@ def draw_map(map_, save_path=None):
     ]
     nx.draw_networkx(map_.layout, pos=pos, width=edge_weights)
     for room in map_.rooms:
-        room_pos = room.node_positions
-        nx.draw_networkx(room, pos=room_pos, node_size=0, with_labels=False,
-                         arrows=False, edge_color='grey', width=4)
+        draw_rect(room, node_size=0, with_labels=False, arrows=False,
+                  edge_color='grey', width=4)
+
+    # Test drawing thick edges.
+    for edge in map_.layout.edges:
+        r1 = Rect(*get_edge_positions(map_.layout, edge))
+        r1.normalise()
+        r1.inflate(0.3)
+        draw_rect(r1, node_size=0, with_labels=False, arrows=False,
+                  edge_color='black', width=1)
 
     # Fix up axes ticks.
     ax = plt.axes(frameon=False)

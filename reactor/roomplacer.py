@@ -98,17 +98,5 @@ class RoomPlacer:
             # If the room hasn't changed then it's grown to its maximum size.
             if changed and (room.width < self.widths[node] and room.height < self.heights[node]):
                 nodes.append(node)
-
-        # Convert to polygons.
-        for node in self._g.nodes:
-            room = self.rooms.get(node)
-            if room is None:
-                continue
-
-            f = FaceBlock.from_path((1, 2, 3, 4))
-            angles = {n: Angle.INSIDE for n in f}
-            lengths = {}
-            lengths[(1, 2)] = lengths[(3, 4)] = room.height
-            lengths[(2, 3)] = lengths[(4, 1)] = room.width
-            direction = Direction.UP
-            self._map.rooms.append(OrthogonalFace(f, angles, lengths, direction, room.p1))
+            else:
+                self._map.rooms.append(room)

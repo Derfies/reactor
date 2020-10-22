@@ -47,3 +47,9 @@ class Rect(object):
             y1, y2 = y2, y1
         self.p1 = Vector2(x1, y1)
         self.p2 = Vector2(x2, y2)
+
+    def inflate(self, d):
+        self.p1.x -= d
+        self.p1.y -= d
+        self.p2.x += d
+        self.p2.y += d
