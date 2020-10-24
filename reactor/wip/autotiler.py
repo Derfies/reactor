@@ -1,7 +1,7 @@
 import os
 import sys
 import random
-random.seed(0)
+random.seed(2)
 sys.path.append(os.getcwd())
 
 import pyglet
@@ -12,10 +12,15 @@ from reactor.geometry.vector import Vector2
 from reactor.mapgenerator import MapGenerator
 
 
-GRID_PATH = 'data/reactor3.gexf'
-TILE_SIZE = Vector2(48, 48)
-MAP_WIDTH = 40
-MAP_HEIGHT = 40
+GRID_PATH = 'data/tree1.gexf'
+TILE_PATH = 'data/grass.png'
+TILE_SIZE = Vector2(16, 16)
+MAP_WIDTH = 60
+MAP_HEIGHT = 60
+ROW_GUTTER = 0#4
+COL_GUTTER = 0#4
+WINDOW_WIDTH = 500
+WINDOW_HEIGHT = 500
 
 
 def get_rects(map_):
@@ -24,10 +29,10 @@ def get_rects(map_):
     min_x = 0
     min_y = 0
 
-    # for room in map_.rooms:
-    #     rects.append(room)
-    #     min_x = min(min_x, room.p1.x)
-    #     min_y = min(min_y, room.p1.y)
+    for room in map_.rooms:
+        rects.append(room)
+        min_x = min(min_x, room.p1.x)
+        min_y = min(min_y, room.p1.y)
 
     # Test drawing thick edges.
     for edge in map_.layout.edges:
@@ -124,22 +129,21 @@ pyglet.gl.glBlendFunc(
     pyglet.gl.GL_SRC_ALPHA,
     pyglet.gl.GL_ONE_MINUS_SRC_ALPHA
 )
+pyglet.gl.glTexParameteri(pyglet.gl.GL_TEXTURE_2D, pyglet.gl.GL_TEXTURE_MAG_FILTER, pyglet.gl.GL_NEAREST)
 
 
-window = pyglet.window.Window(width=1000, height=1000)
+window = pyglet.window.Window(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
 
-image_path = 'data/Dynamic_Tile_sheet.png'
-image = pyglet.image.load(image_path)
+
+image = pyglet.image.load(TILE_PATH)
 sprite = pyglet.sprite.Sprite(image)
 
-explosion_seq = pyglet.image.ImageGrid(image, 4, 4, row_padding=4, column_padding=4)
+explosion_seq = pyglet.image.ImageGrid(image, 4, 4, row_padding=ROW_GUTTER, column_padding=COL_GUTTER)
 sprites = []
 for i in range(16):
     frame = explosion_seq[i]
     sprite = pyglet.sprite.Sprite(frame)
     sprites.append(sprite)
-
-
     sprite.scale_x = TILE_SIZE.x / sprite.width
     sprite.scale_y = TILE_SIZE.y / sprite.height
 
@@ -157,9 +161,9 @@ def on_draw():
     pyglet.gl.glClearColor(0.5, 0.5, 0.5, 0)
     window.clear()
 
-    sprite.x = 300
-    sprite.y = 200
-    sprite.draw()
+    # sprite.x = 300
+    # sprite.y = 200
+    # sprite.draw()
 
     for x in range(len(map_)):
         for y in range(len(map_[x])):

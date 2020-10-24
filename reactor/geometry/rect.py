@@ -53,3 +53,6 @@ class Rect(object):
         self.p1.y -= d
         self.p2.x += d
         self.p2.y += d
+
+    def contains_point(self, p):
+        return self.p1.x <= p.x <= self.p2.x and self.p1.y <= p.y <= self.p2.y
