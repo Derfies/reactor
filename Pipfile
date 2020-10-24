@@ -9,6 +9,7 @@ verify_ssl = true
 matplotlib = "==3.3.2"
 networkx = "==2.5"
 simple-settings = "==1.0.0"
+pyglet = "==1.5.8"
 
 [requires]
 python_version = "3.8"
