@@ -5,7 +5,7 @@ from simple_settings import settings
 
 from reactor import utils
 from reactor.layouters.layouterbase import LayouterBase
-from reactor.const import POSITION, DIRECTION
+from reactor.const import POSITION, DIRECTION, WEIGHT
 
 
 class EdgeLayouter(LayouterBase):
@@ -14,7 +14,13 @@ class EdgeLayouter(LayouterBase):
 
         # Collect valid step direction and lengths.
         dirs = self.get_start_direction_permutations(layout)
-        lengths = range(settings.MIN_LENGTH, settings.MAX_LENGTH + 1)
+        edge_weight = self.data.edge_data.get(WEIGHT, 1)
+        edge_settings = settings.EDGE_WEIGHTS[edge_weight]
+        lengths = range(
+            edge_settings['MIN_LENGTH'],
+            edge_settings['MAX_LENGTH'] + 1,
+            edge_settings['STEP_LENGTH']
+        )
 
         # Create permutations from direction and length values.
         head, tail = self.data.edge

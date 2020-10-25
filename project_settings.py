@@ -1,8 +1,42 @@
-MIN_LENGTH = 1
-MAX_LENGTH = 3
-
-ROOM_CHANCE = 1
-ROOM_MIN_WIDTH = 3
-ROOM_MAX_WIDTH = 5
-ROOM_MIN_HEIGHT = 3
-ROOM_MAX_HEIGHT = 5
+EDGE_WEIGHTS = {
+    1: {
+        'MIN_LENGTH': 2,
+        'MAX_LENGTH': 6,
+        'STEP_LENGTH': 2,
+        'ROOM_CHANCE': 1,
+        'ROOM_MIN_WIDTH': 6,
+        'ROOM_MAX_WIDTH': 10,
+        'ROOM_MIN_HEIGHT': 6,
+        'ROOM_MAX_HEIGHT': 10,
+    },
+    2: {
+        'MIN_LENGTH': 2,
+        'MAX_LENGTH': 6,
+        'STEP_LENGTH': 2,
+        'ROOM_CHANCE': 1,
+        'ROOM_MIN_WIDTH': 3,
+        'ROOM_MAX_WIDTH': 5,
+        'ROOM_MIN_HEIGHT': 3,
+        'ROOM_MAX_HEIGHT': 5,
+    },
+    3: {
+        'MIN_LENGTH': 2,
+        'MAX_LENGTH': 6,
+        'STEP_LENGTH': 2,
+        'ROOM_CHANCE': 0,
+        # 'ROOM_MIN_WIDTH': 6,
+        # 'ROOM_MAX_WIDTH': 10,
+        # 'ROOM_MIN_HEIGHT': 6,
+        # 'ROOM_MAX_HEIGHT': 10,
+    },
+    5: {
+        'MIN_LENGTH': 2,
+        'MAX_LENGTH': 6,
+        'STEP_LENGTH': 2,
+        'ROOM_CHANCE': 0,
+        # 'ROOM_MIN_WIDTH': 6,
+        # 'ROOM_MAX_WIDTH': 10,
+        # 'ROOM_MIN_HEIGHT': 6,
+        # 'ROOM_MAX_HEIGHT': 10,
+    },
+}

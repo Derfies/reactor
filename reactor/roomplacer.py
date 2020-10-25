@@ -5,11 +5,29 @@ import networkx as nx
 from simple_settings import settings
 
 from reactor import utils
-from reactor.blocks.faceblock import FaceBlock
-from reactor.const import Angle, Direction, POSITION, WEIGHT
+from reactor.const import Direction, POSITION, WEIGHT
 from reactor.geometry.rect import Rect
 from reactor.geometry.vector import Vector2
-from reactor.orthogonalface import OrthogonalFace
+
+
+class Room(Rect):
+
+    def __init__(self, pos, g, node):
+        super(Room, self).__init__(pos - Vector2(0.5, 0.5), pos + Vector2(0.5, 0.5))
+
+        edge_weight = max([
+            g.edges[edge].get(WEIGHT, 1)
+            for edge in g.edges(node)]
+        )
+        edge_settings = settings.EDGE_WEIGHTS[edge_weight]
+        self.max_width = random.randrange(
+            edge_settings['ROOM_MIN_WIDTH'],
+            edge_settings['ROOM_MAX_WIDTH']
+        )
+        self.max_height = random.randrange(
+            edge_settings['ROOM_MIN_HEIGHT'],
+            edge_settings['ROOM_MAX_HEIGHT']
+        )
 
 
 class RoomPlacer:
@@ -50,21 +68,18 @@ class RoomPlacer:
 
     def run(self):
 
-        self.widths = {}
-        self.heights = {}
-
         # Build rooms on all nodes at unit dimensions.
         pos = nx.get_node_attributes(self._map.layout, POSITION)
         for node in self._g.nodes:
 
+            # Edge weight for a node is the max of all incident edges.
+            edge_weight = max([self._g.edges[edge].get(WEIGHT, 1) for edge in self._g.edges(node)])
+            edge_settings = settings.EDGE_WEIGHTS[edge_weight]
+
             # TODO: Clean this up and put into settings somewhere. This tells us
             # to use different room chances per edge weight.
-            room_chance = 0 if any([self._g.edges[edge].get(WEIGHT, 1) > 1 for edge in self._g.edges(node)]) else 1
-            if random.random() <= room_chance:
-                room = Rect(pos[node] - Vector2(0.5, 0.5), pos[node] + Vector2(0.5, 0.5))
-                self.rooms[node] = room
-                self.widths[node] = random.randrange(settings.ROOM_MIN_WIDTH, settings.ROOM_MAX_WIDTH)
-                self.heights[node] = random.randrange(settings.ROOM_MIN_HEIGHT, settings.ROOM_MAX_HEIGHT)
+            if random.random() <= edge_settings['ROOM_CHANCE']:
+                self.rooms[node] = Room(pos[node], self._g, node)
 
         # Now attempt to grow rooms.
         nodes = deque(self._g.nodes)
@@ -80,23 +95,26 @@ class RoomPlacer:
             random.shuffle(directions)
             for direction in directions:
                 test_room = Rect(room.p1.copy(), room.p2.copy())
-                if direction == Direction.UP and room.height < self.heights[node]:
+                if direction == Direction.UP and room.height < room.max_height:
                     test_room.p2[1] += 1
-                elif direction == Direction.RIGHT and room.width < self.widths[node]:
+                elif direction == Direction.RIGHT and room.width < room.max_width:
                     test_room.p2[0] += 1
-                elif direction == Direction.DOWN and room.height < self.heights[node]:
+                elif direction == Direction.DOWN and room.height < room.max_height:
                     test_room.p1[1] -= 1
-                elif direction == Direction.LEFT and room.width < self.widths[node]:
+                elif direction == Direction.LEFT and room.width < room.max_width:
                     test_room.p1[0] -= 1
 
                 # If there were no collisions, make the test room the actual
                 # room.
                 if self.can_place(node, test_room):
-                    room = self.rooms[node] = test_room
+                    room.p1.x = test_room.p1.x
+                    room.p1.y = test_room.p1.y
+                    room.p2.x = test_room.p2.x
+                    room.p2.y = test_room.p2.y
                     changed = True
 
             # If the room hasn't changed then it's grown to its maximum size.
-            if changed and (room.width < self.widths[node] and room.height < self.heights[node]):
+            if changed and (room.width < room.max_width and room.height < room.max_height):
                 nodes.append(node)
             else:
                 self._map.rooms.append(room)
