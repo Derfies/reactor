@@ -3,11 +3,15 @@ import random
 
 import networkx as nx
 
-from reactor.blocks.blockgraph import BlockGraph
+#from reactor.blocks.blockgraph import BlockGraph
 from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
+from reactor.layouters.edgelayouter import EdgeLayouter
+from reactor.layouters.facelayouter import FaceLayouter
+from reactor.layouters.rootfacelayouter import RootFaceLayouter
+from reactor.layouters.rootlayouter import RootLayouter
 
 
 class Layouter(object):
@@ -30,17 +34,27 @@ class Layouter(object):
         """
         return sorted(nodes, key=lambda n: (len(n) < 3, len(n), sorted(n)))
 
-    def bfs_tree(self, g, source, reverse=False, depth_limit=None, sort_neighbors=None):
-        t = BlockGraph()
-        t.add_node(source)
-        edges_gen = nx.bfs_edges(
-            g,
-            source,
-            reverse=reverse,
-            depth_limit=depth_limit,
-            sort_neighbors=sort_neighbors,
-        )
-        t.add_edges_from(edges_gen)
+    def get_layouter(self, g, node):
+        if len(node) > 2:
+            parent = next(g.predecessors(node))
+            if len(parent) > 2:
+                return FaceLayouter(node)
+            else:
+                return RootFaceLayouter(node)
+        elif len(node) > 1:
+            return EdgeLayouter(node)
+        else:
+            return RootLayouter(node)
+
+    def bfs_tree(self, g, source, sort_neighbors):
+        g1 = nx.bfs_tree(g, source, sort_neighbors=sort_neighbors)
+        layouters = {
+            node: self.get_layouter(g1, node)
+            for node in g1
+        }
+        t = nx.DiGraph()
+        for head, tail in g1.edges:
+            t.add_edge(layouters[head], layouters[tail])
         return t
 
     # TODO: Make this class the actual quotient graph and make this a class
@@ -65,95 +79,80 @@ class Layouter(object):
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
         g.add_edges_from(edges)
 
-        # Find root node.
+        # Find the root node and put a super root behind it. This will place the
+        # very first node at the origin.
         sorted_nodes = self._sort_nodes(g)
         root = sorted_nodes[0]
-
-        # Put a super root behind the root node. This will place the very first
-        # node at the origin.
         super_root = RootBlock(self.g.subgraph([sorted(root)[0]]))
         g.add_edge(super_root, root)
 
         # Orient graph. Sort neighbours so that faces are visited first from
         # smallest to largest, then other biconns.
-        g = self.bfs_tree(g, super_root, sort_neighbors=self._sort_nodes)
+        g = self.bfs_tree(g, super_root, self._sort_nodes)
 
         # Sort nodes.
+        # TODO: Can possibly merge with function above?
         for node in g:
-            p_node = g.parent(node)
-            node.sort(p_node)
+            parent = next(g.predecessors(node), None)
+            if parent is not None:
+                parent = parent.data
+            node.data.sort(parent)
 
         return g
 
-    def bfs(self, g):
-        blocks = list(g)
-        #print('blocks:')
-        #for b in blocks:
-        #    #print('    ->', b)
+    def layout_graph(self, g):
 
         i = 0
-        while i < len(blocks):
+        layouters = list(g)
+        while i < len(layouters):
 
-            layouter = g.get_layouter(blocks[i])
-            if layouter.done:
-                #print('SKIPPING AS DONE:', blocks[i])
+            if layouters[i].done:
                 i += 1
                 continue
 
-            #print('process ->', i, blocks[i], 'parent:', g.parent(blocks[i]))
-            if not layouter.permutations:# is None:
-                #print('    creating new perms')
-                #try:
-                layouter.permutations = layouter.get_permutations(self._map.layout)
-                # except:
-                #     from reactor import utils
-                #     pos = nx.get_node_attributes(self.layout, POSITION)
-                #     utils.draw_graph(self.layout, pos)
-                #     raise
-                random.shuffle(layouter.permutations)
-            #else:
-                #print('    using existing perms')
+            if not layouters[i].permutations:
+                layouters[i].calculate_permutations(self._map.layout)
 
-            while layouter.permutations:
-                perm = layouter.permutations.pop(0)
-                if not layouter.can_lay_out(perm, self._map):
+            while layouters[i].permutations:
+                perm = layouters[i].permutations.pop()
+                if not layouters[i].can_lay_out(perm, self._map.layout):
                     #print('    FAILED:', nx.get_node_attributes(perm, POSITION))
                     continue
-                layouter.add_to_layout(perm, self._map.layout)
+                layouters[i].add_to_layout(perm, self._map.layout)
                 #print('    SUCCESS:', list(perm.edges), nx.get_node_attributes(perm, POSITION))
-                layouter.done = True
+                layouters[i].done = True
 
                 i += 1
                 break
             else:
 
                 # Move the cursor back to the parent.
-                parent = g.parent(blocks[i])
-                #print('BACKTRACK:', blocks[i], 'TO:', parent)
-                while blocks[i] != parent:
-                    #print('    REWIND:', blocks[i], i)
+                parent = next(g.predecessors(layouters[i]))
+                while layouters[i] != parent:
                     i -= 1
 
-                # Mark all blocks under the parent as not done and remove
+                # Mark all layouters under the parent as not done and remove
                 # their permutations.
-                j = i
-                while j < len(blocks):
-                    olayouter = g.get_layouter(blocks[j])
-                    if olayouter.done:
-                        olayouter.done = False
-                        if blocks[j] != blocks[i]:
-                            olayouter.permutations.clear()
-                            #print('    REMOVE PERMS:', blocks[j])
-                    j += 1
+                # This doesn't seem right... shouldn't we only we marking the
+                # tree under the parent that failed as not done...?
+                # j = i
+                # while j < len(layouters):
+                #     if layouters[j].done:
+                #         layouters[j].done = False
+                #         if layouters[j] != layouters[i]:
+                #             layouters[j].permutations.clear()
+                #             #print('    REMOVE PERMS:', layouters[j])
+                #     j += 1
 
-                # Remove the failed blocks from the layout.
-                rem_blocks = nx.dfs_tree(g, blocks[i])
-                for block in rem_blocks:
-                    olayouter = g.get_layouter(block)
-                    olayouter.remove_from_layout(self._map.layout)
+                # Remove the failed layouters from the layout.
+                for layouter in nx.dfs_tree(g, layouters[i]):
+                    layouter.done = False
+                    layouter.remove_from_layout(self._map.layout)
+
+                    if layouter != layouters[i]:
+                        layouter.permutations.clear()
 
     def run(self):
-        bg = self.get_block_graph()
-        self.bfs(bg)
+        self.layout_graph(self.get_block_graph())
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))

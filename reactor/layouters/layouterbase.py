@@ -1,8 +1,8 @@
 import abc
 import itertools
+import random
 
 from reactor import utils
-from reactor.geometry.rect import Rect
 from reactor.const import DIRECTION, Direction
 
 
@@ -10,15 +10,18 @@ class LayouterBase(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, data, g):
+    def __init__(self, data):
         self.data = data
-        self.g = g
         self.done = False
-        self.permutations = None
+        self.permutations = []
 
     @abc.abstractmethod
     def get_permutations(self, layout):
         """"""
+
+    def calculate_permutations(self, g):
+        self.permutations = self.get_permutations(g)
+        random.shuffle(self.permutations)
 
     def get_start_direction_permutations(self, layout):
 
@@ -33,20 +36,20 @@ class LayouterBase(object):
             dirs.discard(layout.edges[out_edge].get(DIRECTION))
         return dirs
 
-    def can_lay_out(self, perm, map_):
+    def can_lay_out(self, perm, layout):
 
         # Create the list of edges to test collision against. Discard any edge
         # that shares at least one node - this stops edges from intersecting
         # with themselves (in the case of adjacent faces) and edges from
         # intersecting with their parents (in the edge of contiguous edges).
-        test_edges = set(map_.layout.edges)
-        for e1, e2 in itertools.product(perm.edges, map_.layout.edges):
+        test_edges = set(layout.edges)
+        for e1, e2 in itertools.product(perm.edges, layout.edges):
             if set(e1) & set(e2):
                 test_edges.discard(e2)
 
         for e1, e2 in itertools.product(perm.edges, test_edges):
             r1 = utils.get_edge_rect(perm, e1)
-            r2 = utils.get_edge_rect(map_.layout, e2)
+            r2 = utils.get_edge_rect(layout, e2)
             if r1.intersects(r2):
                 return False
 
