@@ -69,7 +69,7 @@ class FaceLayouter(LayouterBase):
                     min_side, max_side = max_side, min_side
 
                 # If one of the sides has a known length then we must use that
-                # length
+                # length.
                 max_length = max_side.proposed_length
                 if min_side.state == SideState.KNOWN:
                     max_length = min_side.length

@@ -36,4 +36,5 @@ if __name__ == '__main__':
             file_path = os.path.join('output', dir_name, file_name) + '.png'
 
             # Save map to file.
+            print('saving:', file_path)
             utils.draw_map(map_, file_path)

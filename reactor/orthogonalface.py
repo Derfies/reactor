@@ -1,10 +1,12 @@
 import enum
+import random
 from collections import defaultdict
 
 import networkx as nx
+from simple_settings import settings
 
 from reactor import utils
-from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION
+from reactor.const import Direction, Angle, ANGLE, LENGTH, DIRECTION, WEIGHT
 from reactor.blocks.faceblock import FaceBlock
 from reactor.geometry.vector import Vector2
 
@@ -19,6 +21,18 @@ class Side(object):
 
     def __init__(self, g):
         self.g = g
+
+        # Cache some random edge lengths.
+        # TODO: We do this in a few places. Still need to find a home for this.
+        self.rand_edges = []
+        for edge in self.g.edges:
+            edge_weight = self.g.edges[edge].get(WEIGHT, 1)
+            edge_settings = settings.EDGE_WEIGHTS[edge_weight]
+            self.rand_edges.append(random.randrange(
+                edge_settings['MIN_LENGTH'],
+                edge_settings['MAX_LENGTH'] + 1,
+                edge_settings['STEP_LENGTH'])
+            )
 
     @property
     def lengths(self):
@@ -38,7 +52,7 @@ class Side(object):
 
     @property
     def proposed_length(self):
-        return sum([l or 1 for l in self.lengths])
+        return sum([l or self.rand_edges[i] for i, l in enumerate(self.lengths)])
 
     @property
     def num_unknown_edges(self):

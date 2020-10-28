@@ -33,25 +33,24 @@ class LayouterBase(object):
             dirs.discard(layout.edges[out_edge].get(DIRECTION))
         return dirs
 
-    def edge_intersection(self, e1, g1, e2, g2):
-        """
-        Still has a weird smell about it. If the edges being compared share a
-        node then do an intersection test, otherwise do a touch test.
+    def can_lay_out(self, perm, map_):
 
-        TODO: Move to utils?
+        # Create the list of edges to test collision against. Discard any edge
+        # that shares at least one node - this stops edges from intersecting
+        # with themselves (in the case of adjacent faces) and edges from
+        # intersecting with their parents (in the edge of contiguous edges).
+        test_edges = set(map_.layout.edges)
+        for e1, e2 in itertools.product(perm.edges, map_.layout.edges):
+            if set(e1) & set(e2):
+                test_edges.discard(e2)
 
-        """
-        r1 = Rect(*utils.get_edge_positions(g1, e1))
-        r1.normalise()
-        r2 = Rect(*utils.get_edge_positions(g2, e2))
-        r2.normalise()
-        return r1.intersects(r2) if set(e1) & set(e2) else r1.touches(r2)
+        for e1, e2 in itertools.product(perm.edges, test_edges):
+            r1 = utils.get_edge_rect(perm, e1)
+            r2 = utils.get_edge_rect(map_.layout, e2)
+            if r1.intersects(r2):
+                return False
 
-    def can_lay_out(self, perm, layout):
-        return not any([
-            self.edge_intersection(e1, perm, e2, layout)
-            for e1, e2 in itertools.product(perm.edges, layout.edges)
-        ])
+        return True
 
     def add_to_layout(self, perm, layout):
         layout.update(perm)

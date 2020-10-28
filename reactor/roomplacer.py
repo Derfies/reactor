@@ -37,20 +37,21 @@ class RoomPlacer:
         self._map = map_
         self.rooms = {}
 
+    @property
+    def g(self):
+        return self._g
+
     def can_place(self, node, room):
 
-        collides = False
-
-        # Thest that the given room doesn't intersect with any other room.
+        # Test that the given room doesn't intersect with any other room.
         for onode in self._map.layout.nodes:
             if node == onode:
                 continue
             oroom = self.rooms.get(onode)
             if oroom is None:
                 continue
-            collides = collides or room.intersects(oroom)
-            if collides:
-                break
+            if room.intersects(oroom):
+                return False
 
         # Check that the room doesn't intersect any edges on the graph (aside
         # from the in / out edges of the node it belongs to.
@@ -58,31 +59,29 @@ class RoomPlacer:
         edges -= set(self._map.layout.in_edges(node))
         edges -= set(self._map.layout.out_edges(node))
         for edge in edges:
-            edge_rect = Rect(*utils.get_edge_positions(self._map.layout, edge))
-            edge_rect.normalise()
-            collides = collides or room.intersects(edge_rect)
-            if collides:
-                break
+            edge_rect = utils.get_edge_rect(self._map.layout, edge)
+            if room.intersects(edge_rect):
+                return False
 
-        return not collides
+        return True
 
     def run(self):
 
         # Build rooms on all nodes at unit dimensions.
         pos = nx.get_node_attributes(self._map.layout, POSITION)
-        for node in self._g.nodes:
+        for node in self.g.nodes:
 
             # Edge weight for a node is the max of all incident edges.
-            edge_weight = max([self._g.edges[edge].get(WEIGHT, 1) for edge in self._g.edges(node)])
+            edge_weight = max([self.g.edges[edge].get(WEIGHT, 1) for edge in self.g.edges(node)])
             edge_settings = settings.EDGE_WEIGHTS[edge_weight]
 
             # TODO: Clean this up and put into settings somewhere. This tells us
             # to use different room chances per edge weight.
             if random.random() <= edge_settings['ROOM_CHANCE']:
-                self.rooms[node] = Room(pos[node], self._g, node)
+                self.rooms[node] = Room(pos[node], self.g, node)
 
         # Now attempt to grow rooms.
-        nodes = deque(self._g.nodes)
+        nodes = deque(self.g.nodes)
         while nodes:
             node = nodes.popleft()
             room = self.rooms.get(node)

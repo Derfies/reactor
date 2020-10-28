@@ -1,12 +1,13 @@
 import os
 import random
 
-import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
+from simple_settings import settings
 
 from reactor import const
 from reactor.blocks.faceblock import FaceBlock
-from reactor.const import POSITION, WEIGHT
+from reactor.const import POSITION, WEIGHT, WIDTH
 from reactor.geometry.rect import Rect
 from reactor.geometry.vector import Vector2
 from reactor.orthogonalface import OrthogonalFace
@@ -25,6 +26,20 @@ def get_edge_positions(g, edge):
         get_node_position(g, edge[0]),
         get_node_position(g, edge[1])
     )
+
+
+def get_edge_rect(g, edge):
+    rect = Rect(*get_edge_positions(g, edge))
+    rect.normalise()
+    edge_weight = g.edges[edge].get(WEIGHT, 1)
+    edge_settings = settings.EDGE_WEIGHTS[edge_weight]
+    edge_width = edge_settings.get(WIDTH, 1)
+    rect.inflate(edge_width / 2.0)
+    return rect
+
+
+def get_edge_rects(g):
+    return [get_edge_rect(g, edge) for edge in g.edges]
 
 
 def get_random_direction(directions=None):
@@ -110,12 +125,9 @@ def draw_map(map_, save_path=None):
                   edge_color='grey', width=4)
 
     # Test drawing thick edges.
-    for edge in map_.layout.edges:
-        r1 = Rect(*get_edge_positions(map_.layout, edge))
-        r1.normalise()
-        r1.inflate(0.3)
-        draw_rect(r1, node_size=0, with_labels=False, arrows=False,
-                  edge_color='black', width=1)
+    for edge_rect in get_edge_rects(map_.layout):
+        draw_rect(edge_rect, node_size=0, with_labels=False, arrows=False,
+                  edge_color='green', width=1)
 
     # Fix up axes ticks.
     ax = plt.axes(frameon=False)
