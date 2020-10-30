@@ -109,24 +109,16 @@ class Layouter(object):
                 i += 1
                 continue
 
-            print('PROCESS:', i, list(layouters[i].data.edges))
-
-            # Problem is here. If a child fails and we go back to parent, we
-            # just regenerate the permutations again, which we already know
-            # failed.
-            # Dont always regenerate.
-            # Only generate when we hit this guy for the first time, not when
-            # we've returned here after a child failed.
+            #print('PROCESS:', i, list(layouters[i].data.edges))
             layouters[i].init_permutations()
-            print('    NUM PERMS:', len(layouters[i].permutations))
+            #print('    NUM PERMS:', len(layouters[i].permutations))
 
             while layouters[i].permutations:
                 perm = layouters[i].permutations.pop()
                 if not layouters[i].can_lay_out(perm):
-                    print('    FAILED:', nx.get_node_attributes(perm, POSITION))
+                    #print('    FAILED:', nx.get_node_attributes(perm, POSITION))
                     continue
                 layouters[i].add_to_layout(perm)
-                print('    SUCCESS:', nx.get_node_attributes(perm, POSITION))
                 i += 1
                 break
             else:
@@ -136,18 +128,18 @@ class Layouter(object):
                 while layouters[i] != parent:
                     i -= 1
 
-                print('    REMOVING FROM:', list(layouters[i].data.edges))
+                #print('    REMOVING FROM:', list(layouters[i].data.edges))
 
                 # Mark all layouters under the parent as not done and remove
                 # their permutations.
                 # Remove the failed layouters from the layout.
                 for layouter in nx.dfs_tree(g, layouters[i]):
                     if layouter.done:
-                        print('    REMOVING:', list(layouter.data.edges))
+                        #print('    REMOVING:', list(layouter.data.edges))
                         layouter.remove_from_layout()
-                        if layouter != layouters[i]:
-                            print('    CLEARING:', list(layouter.data.edges))
-                            layouter.permutations.clear()
+                    if layouter != layouters[i]:
+                        #print('    CLEARING:', list(layouter.data.edges))
+                        layouter.permutations = None
 
     def run(self):
         self.layout_graph(self.get_block_graph())

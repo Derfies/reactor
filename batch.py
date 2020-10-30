@@ -18,7 +18,8 @@ if __name__ == '__main__':
         gen = MapGenerator(GRID_PATH)
         try:
             map_ = gen.run()
-        except:
+        except Exception as e:
+            print(e)
             continue
 
         # Resolve output path name.

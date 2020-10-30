@@ -13,7 +13,7 @@ class LayouterBase(object):
     def __init__(self, data, layout):
         self.data = data
         self.current_perm = None
-        self.permutations = []
+        self.permutations = None
         self.layout = layout
 
     @property
@@ -25,7 +25,7 @@ class LayouterBase(object):
         """"""
 
     def init_permutations(self):
-        if not self.permutations:
+        if self.permutations is None:
             self.permutations = self.get_permutations()
             random.shuffle(self.permutations)
 
@@ -51,6 +51,9 @@ class LayouterBase(object):
         test_edges = set(self.layout.edges)
         for e1, e2 in itertools.product(perm.edges, self.layout.edges):
             if set(e1) & set(e2):
+
+                # BUG - Won't stop faces with hairpin turns. See space hulk
+                # IE faces with colinear edges that aren't adjacent.
                 test_edges.discard(e2)
 
         for e1, e2 in itertools.product(perm.edges, test_edges):
