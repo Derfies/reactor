@@ -10,10 +10,10 @@ from reactor.const import POSITION, DIRECTION, WEIGHT
 
 class EdgeLayouter(LayouterBase):
 
-    def get_permutations(self, layout):
+    def get_permutations(self):
 
         # Collect valid step direction and lengths.
-        dirs = self.get_start_direction_permutations(layout)
+        dirs = self.get_start_direction_permutations()
         edge_weight = self.data.edge_data.get(WEIGHT, 1)
         edge_settings = settings.EDGE_WEIGHTS[edge_weight]
         lengths = range(
@@ -24,7 +24,7 @@ class EdgeLayouter(LayouterBase):
 
         # Create permutations from direction and length values.
         head, tail = self.data.edge
-        p_pos = layout.nodes[head][POSITION]
+        p_pos = self.layout.nodes[head][POSITION]
         perms = []
         for dir_, length in itertools.product(dirs, lengths):
             perm = nx.DiGraph()

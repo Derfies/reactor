@@ -7,7 +7,7 @@ from reactor.geometry.vector import Vector2
 
 class RootLayouter(LayouterBase):
 
-    def get_permutations(self, layout):
+    def get_permutations(self):
         node = next(iter(self.data))
         g = nx.DiGraph()
         g.add_node(node, **{POSITION: Vector2(0, 0)})

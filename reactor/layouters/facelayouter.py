@@ -17,19 +17,19 @@ class NodeState(enum.IntEnum):
 
 class FaceLayouter(LayouterBase):
 
-    def get_angle_permutations(self, layout):
+    def get_angle_permutations(self):
 
         # Warning! These edges aren't guaranteed to be contiguous.
         angle_perms = {}
-        common_edges = tuple(layout.get_common_edges(self.data))
+        common_edges = tuple(self.layout.get_common_edges(self.data))
         #print('common_edges:', common_edges)
         for node in nx.dfs_preorder_nodes(self.data):
             state_idx = len([e for e in common_edges if node in e])
             state = NodeState(state_idx)
             if state == NodeState.KNOWN:
-                angle_perms[node] = (layout.get_explementary_angle(node),)
+                angle_perms[node] = (self.layout.get_explementary_angle(node),)
             elif state == NodeState.UNKNOWN:
-                angle_perms[node] = layout.get_possible_angles(node)
+                angle_perms[node] = self.layout.get_possible_angles(node)
             elif state == NodeState.FREE:
                 angle_perms[node] = tuple(Angle)
 
@@ -43,19 +43,19 @@ class FaceLayouter(LayouterBase):
             if sum(instance) == 360:
                 yield dict(zip(keys, instance))
 
-    def get_face_permutations(self, start_dir, layout):
+    def get_face_permutations(self, start_dir):
 
         # There *must* be a common node already in the layout.
-        offset = layout.nodes[self.data.source_edge[0]][POSITION]
+        offset = self.layout.nodes[self.data.source_edge[0]][POSITION]
 
         # Pull out known edge lengths from the layout.
         lengths = {
-            edge: layout.edges.get((edge[1], edge[0]), {}).get(LENGTH)
+            edge: self.layout.edges.get((edge[1], edge[0]), {}).get(LENGTH)
             for edge in self.data.edges
         }
 
         ofaces = []
-        for angles in self.get_angle_permutations(layout):
+        for angles in self.get_angle_permutations():
 
             oface = OrthogonalFace(self.data, angles, lengths, start_dir, offset)
             ofaces.append(oface)
@@ -96,34 +96,27 @@ class FaceLayouter(LayouterBase):
 
         return ofaces
 
-    def get_permutations(self, layout):
+    def get_permutations(self):
         rev_edge = tuple(reversed(self.data.source_edge))
-        dir_ = Direction.opposite(layout.edges[rev_edge][DIRECTION])
-        return self.get_face_permutations(dir_, layout)
+        dir_ = Direction.opposite(self.layout.edges[rev_edge][DIRECTION])
+        return self.get_face_permutations(dir_)
 
-    def add_to_layout(self, perm, layout):
+    def add_to_layout(self, perm):
 
         # Per node angle data is a dict that must be updated or else clobbered.
         for node in perm:
-            attr = layout.nodes.get(node, {}).pop(ANGLE, {})
+            attr = self.layout.nodes.get(node, {}).pop(ANGLE, {})
             attr.update({perm: perm.nodes[node].pop(ANGLE)})
             perm.nodes[node][ANGLE] = attr
-        super(FaceLayouter, self).add_to_layout(perm, layout)
 
-    def remove_from_layout(self, layout):
-        super(FaceLayouter, self).remove_from_layout(layout)
+        super(FaceLayouter, self).add_to_layout(perm)
 
-        # Remove face data.
-        for node in self.data:
-            perms = layout.nodes.get(node, {}).get(ANGLE, {})
-            for perm in list(perms.keys()):
-                if set(perm.nodes) == set(self.data.nodes):
-                    print(node, 'popped:', perm)
-                    perms.pop(perm)
-            #for layout_node in
-            #print(layout.nodes.get(node, {}))
-            #popped = layout.nodes.get(node, {}).pop(ANGLE, {}).pop(perm, None)
-            #if popped is not None:
-            #    print('&&&&&&&&&', popped)
-            #    raise
-        #for p
+    def remove_from_layout(self):
+
+        # Remove per node angle data.
+        if self.current_perm is not None:
+            for node in self.current_perm:
+                del self.layout.nodes.get(node, {}).get(ANGLE, {})[self.current_perm]
+
+        super(FaceLayouter, self).remove_from_layout()
+

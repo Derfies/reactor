@@ -17,7 +17,7 @@ if __name__ == '__main__':
     grid_names = filter(lambda x: os.path.splitext(x)[-1] == GRID_EXTN, all_names)
     ok_names = list(filter(lambda x: os.path.splitext(x)[0] not in KNOWN_ISSUES, grid_names))
 
-    ok_names = ok_names[ok_names.index('tree3.gexf'):]
+    ok_names = ok_names[ok_names.index('tree1.gexf'):]
     for grid_name in ok_names:
         grid_path = os.path.join(DIR_PATH, grid_name)
         for i in range(NUM_PERMUTATIONS):
@@ -27,7 +27,8 @@ if __name__ == '__main__':
             gen = MapGenerator(grid_path)
             try:
                 map_ = gen.run()
-            except:
+            except Exception as e:
+                print(e)
                 continue
 
             # Resolve output path name.
