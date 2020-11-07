@@ -1,6 +1,22 @@
+import os
+import sys
+import random
+random.seed(2)
+sys.path.append(os.getcwd())
+
 import pygame as pg
 
+from reactor import utils
+from reactor.geometry.rect import Rect
+from reactor.geometry.vector import Vector2
+from reactor.mapgenerator import MapGenerator
 
+
+GRID_PATH = 'data/reactor1.gexf'
+MAP_WIDTH = 60
+MAP_HEIGHT = 60
+WINDOW_WIDTH = 1024
+WINDOW_HEIGHT = 1024
 TILESIZE_W = 32
 TILESIZE_H = 32
 BLUE = (72, 215, 216) # sea blue for the background
@@ -56,6 +72,64 @@ TILE_MAP = {
 }
 
 
+def get_rects(map_):
+    rects = []
+
+    min_x = 0
+    min_y = 0
+
+    # for room in map_.rooms:
+    #     rects.append(room)
+    #     min_x = min(min_x, room.p1.x)
+    #     min_y = min(min_y, room.p1.y)
+
+    # Test drawing thick edges.
+    for edge in map_.layout.edges:
+        rect = Rect(*utils.get_edge_positions(map_.layout, edge))
+        rect.normalise()
+        rect.inflate(0.5)
+        rects.append(rect)
+
+        min_x = min(min_x, rect.p1.x)
+        min_y = min(min_y, rect.p1.y)
+
+    print('min_x:', min_x)
+    print('min_y:', min_y)
+
+    # Offset all rects.
+    for rect in rects:
+        rect.p1.x -= min_x + 0
+        rect.p2.x -= min_x + 0
+        rect.p1.y -= min_y + 0
+        rect.p2.y -= min_y + 0
+
+        print('after:', rect)
+
+    for rect in rects:
+        rect.p1.x += 1
+        rect.p2.x += 1
+        rect.p1.y += 1
+        rect.p2.y += 1
+
+    return rects
+
+
+def build_map(width, height, rects):
+    map_ = []
+    for x in range(width):
+        row = []
+        for y in range(height):
+            point = Vector2(x + 0.5, y + 0.5)
+            point_within = False
+            for r in rects:
+                point_within = point_within or r.contains_point(point)
+                if point_within:
+                    break
+            row.append(point_within)
+        map_.append(row)
+    return map_
+
+
 def add_bin(a, b):
     # adds two binary strings together
     return bin(int(a, 2) + int(b, 2))
@@ -70,7 +144,7 @@ class Game:
     
     def __init__(self):
         pg.init()
-        self.screen = pg.display.set_mode((512, 512))
+        self.screen = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         self.clock = pg.time.Clock()
         self.show_grid = False
         
@@ -86,27 +160,11 @@ class Game:
                  TILESIZE_W, TILESIZE_H)
             self.tileset.append(self.tileset_image.subsurface(r))
         
-        # array of data that constructs the map
-        self.map_data = [
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            [0,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0],
-            [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
-            [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
-            [0,0,1,1,0,1,1,1,1,1,1,1,1,1,0,0],
-            [0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0],
-            [0,1,1,1,1,1,0,0,1,1,0,1,1,0,0,0],
-            [0,1,1,1,1,1,1,1,1,1,0,1,1,0,0,0],
-            [0,0,1,1,1,1,1,1,1,1,1,0,1,0,0,0],
-            [0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
-            [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
-            [0,0,0,1,0,0,1,1,1,0,0,0,0,1,0,0],
-            [0,0,1,1,1,0,1,1,1,1,1,1,0,1,0,0],
-            [0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        ]
-        
     def construct_map(self):
+
+        gen = MapGenerator(GRID_PATH)
+        self.map_data = build_map(MAP_WIDTH, MAP_HEIGHT, get_rects(gen.run()))
+
         # create an empty surface for the map
         self.map_image = pg.Surface((len(self.map_data) * TILESIZE_W,
                                      len(self.map_data[0] * TILESIZE_H)))
@@ -162,14 +220,9 @@ class Game:
         tile_y = int(mpos[1] / TILESIZE_H)
         if tile_y == len(self.map_data) - 1 or tile_x == len(self.map_data[0]) - 1:
             return
-        
+
         if self.mouse_pressed[0]:
             # left mouse pressed
-            self.map_data[tile_y][tile_x] = 1
-            self.construct_map()
-        if self.mouse_pressed[2]:
-            # right mouse pressed
-            self.map_data[tile_y][tile_x] = 0
             self.construct_map()
     
     def draw(self):
