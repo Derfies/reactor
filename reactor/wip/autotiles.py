@@ -1,36 +1,86 @@
 import pygame as pg
-import traceback
+
 
 TILESIZE_W = 32
 TILESIZE_H = 32
+BLUE = (72, 215, 216) # sea blue for the background
+# bitmask-to-base10 values and the corresponding tile index
+TILE_MAP = {
+    2 : 1,
+    8 : 2, 
+    10 : 3, 
+    11 : 4, 
+    16 : 5, 
+    18 : 6, 
+    22 : 7, 
+    24 : 8,
+    26 : 9, 
+    27 : 10, 
+    30 : 11, 
+    31 : 12, 
+    64 : 13,
+    66 : 14, 
+    72 : 15, 
+    74 : 16, 
+    75 : 17, 
+    80 : 18, 
+    82 : 19, 
+    86 : 20, 
+    88 : 21, 
+    90 : 22, 
+    91 : 23, 
+    94 : 24, 
+    95 : 25, 
+    104 : 26, 
+    106 : 27, 
+    107 : 28, 
+    120 : 29, 
+    122 : 30, 
+    123 : 31, 
+    126 : 32, 
+    127 : 33, 
+    208 : 34, 
+    210 : 35, 
+    214 : 36, 
+    216 : 37, 
+    218 : 38, 
+    219 : 39, 
+    222 : 40, 
+    223 : 41, 
+    248 : 42,
+    250 : 43, 
+    251 : 44, 
+    254 : 45, 
+    255 : 46, 
+    0 : 47
+}
+
 
 def add_bin(a, b):
     # adds two binary strings together
     return bin(int(a, 2) + int(b, 2))
+
 
 def bool_list_to_mask(bools):
     mask_string = ''.join(['{:d}'.format(b) for b in bools])
     return int(mask_string, 2)
 
 
-BLUE = (72, 215, 216) # sea blue for the background
-
-
-class Game():
+class Game:
+    
     def __init__(self):
         pg.init()
         self.screen = pg.display.set_mode((512, 512))
         self.clock = pg.time.Clock()
-        
         self.show_grid = False
         
         # load tileset
         self.tileset_image = pg.image.load('data/autotiles.png').convert()
         tiles_w = int(self.tileset_image.get_width() / TILESIZE_W)
         tiles_h = int(self.tileset_image.get_height() / TILESIZE_H)
-        
-        self.tileset = []
+
         # load tiles as subsurfaces from a tileset image
+        self.tileset = []
         for i in range(tiles_w * tiles_h):
             r = (i % tiles_w * TILESIZE_W, int(i / tiles_w) * TILESIZE_H,
                  TILESIZE_W, TILESIZE_H)
@@ -38,75 +88,23 @@ class Game():
         
         # array of data that constructs the map
         self.map_data = [
-                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                [0,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0],
-                [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
-                [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
-                [0,0,1,1,0,1,1,1,1,1,1,1,1,1,0,0],
-                [0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0],
-                [0,1,1,1,1,1,0,0,1,1,0,1,1,0,0,0],
-                [0,1,1,1,1,1,1,1,1,1,0,1,1,0,0,0],
-                [0,0,1,1,1,1,1,1,1,1,1,0,1,0,0,0],
-                [0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
-                [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
-                [0,0,0,1,0,0,1,1,1,0,0,0,0,1,0,0],
-                [0,0,1,1,1,0,1,1,1,1,1,1,0,1,0,0],
-                [0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-                ]
-
-        # bitmask-to-base10 values and the corresponding tile index
-        self.tile_dict = {
-                        2 : 1,
-                        8 : 2, 
-                        10 : 3, 
-                        11 : 4, 
-                        16 : 5, 
-                        18 : 6, 
-                        22 : 7, 
-                        24 : 8,
-                        26 : 9, 
-                        27 : 10, 
-                        30 : 11, 
-                        31 : 12, 
-                        64 : 13,
-                        66 : 14, 
-                        72 : 15, 
-                        74 : 16, 
-                        75 : 17, 
-                        80 : 18, 
-                        82 : 19, 
-                        86 : 20, 
-                        88 : 21, 
-                        90 : 22, 
-                        91 : 23, 
-                        94 : 24, 
-                        95 : 25, 
-                        104 : 26, 
-                        106 : 27, 
-                        107 : 28, 
-                        120 : 29, 
-                        122 : 30, 
-                        123 : 31, 
-                        126 : 32, 
-                        127 : 33, 
-                        208 : 34, 
-                        210 : 35, 
-                        214 : 36, 
-                        216 : 37, 
-                        218 : 38, 
-                        219 : 39, 
-                        222 : 40, 
-                        223 : 41, 
-                        248 : 42,
-                        250 : 43, 
-                        251 : 44, 
-                        254 : 45, 
-                        255 : 46, 
-                        0 : 47
-                          }
-
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,1,0,1,1,1,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,0],
+            [0,0,1,1,0,1,1,1,1,1,1,1,1,1,0,0],
+            [0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0],
+            [0,1,1,1,1,1,0,0,1,1,0,1,1,0,0,0],
+            [0,1,1,1,1,1,1,1,1,1,0,1,1,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,0,1,0,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,1,1,1,0,0,0,0,1,0,0],
+            [0,0,1,1,1,0,1,1,1,1,1,1,0,1,0,0],
+            [0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        ]
         
     def construct_map(self):
         # create an empty surface for the map
@@ -148,7 +146,7 @@ class Game():
                         
                     key = bool_list_to_mask(bitmask)
                     try:
-                        self.map_image.blit(self.tileset[self.tile_dict[key]],
+                        self.map_image.blit(self.tileset[TILE_MAP[key]],
                                        (x * TILESIZE_W, y * TILESIZE_H))
                     except KeyError:
                         # fail safe in case the calculated bitmask is wrong
@@ -158,10 +156,8 @@ class Game():
                         s.fill(pg.Color('red'))
                         self.map_image.blit(s, (x * TILESIZE_W, y * TILESIZE_H))
                         
-    
     def update(self):
         mpos = pg.mouse.get_pos()
-        
         tile_x = int(mpos[0] / TILESIZE_W)
         tile_y = int(mpos[1] / TILESIZE_H)
         if tile_y == len(self.map_data) - 1 or tile_x == len(self.map_data[0]) - 1:
@@ -175,7 +171,6 @@ class Game():
             # right mouse pressed
             self.map_data[tile_y][tile_x] = 0
             self.construct_map()
-            
     
     def draw(self):
         self.screen.fill(pg.Color('black'))
@@ -196,7 +191,6 @@ class Game():
                 pg.draw.line(self.screen, color, start, end)
         
         pg.display.update()
-        
         
     def run(self):
         self.construct_map()
@@ -221,12 +215,9 @@ class Game():
         
         pg.quit()
         
-        
 
 if __name__ == '__main__':
-    try:
-        g = Game()
-        g.run()
-    except:
-        traceback.print_exc()
-        pg.quit()
+    g = Game()
+    g.run()
+    pg.quit()
+
