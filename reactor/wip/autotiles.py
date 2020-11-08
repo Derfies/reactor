@@ -1,22 +1,21 @@
 import os
 import sys
 import random
-random.seed(2)
+random.seed(0)
 sys.path.append(os.getcwd())
 
 import pygame as pg
 
 from reactor import utils
-from reactor.geometry.rect import Rect
 from reactor.geometry.vector import Vector2
 from reactor.mapgenerator import MapGenerator
 
 
-GRID_PATH = 'data/reactor1.gexf'
+GRID_PATH = 'data/reactor5.gexf'
 MAP_WIDTH = 60
 MAP_HEIGHT = 60
-WINDOW_WIDTH = 1024
-WINDOW_HEIGHT = 1024
+WINDOW_WIDTH = 1920
+WINDOW_HEIGHT = 1400
 TILESIZE_W = 32
 TILESIZE_H = 32
 BLUE = (72, 215, 216) # sea blue for the background
@@ -70,64 +69,88 @@ TILE_MAP = {
     255 : 46, 
     0 : 47
 }
+SAMPLE_OFFSET = Vector2(0.5, 0.5)
 
 
-def get_rects(map_):
-    rects = []
+class TileMap:
 
-    min_x = 0
-    min_y = 0
+    def __init__(self):
+        gen = MapGenerator(GRID_PATH)
+        self.map = gen.run()
+        self.min_x = 0
+        self.min_y = 0
+        self.room_rects = self.get_room_rects()
+        self.edge_rects = self.get_edge_rects()
+        self.rects = self.room_rects + self.edge_rects
+        self.offset_rects(self.rects)
 
-    # for room in map_.rooms:
-    #     rects.append(room)
-    #     min_x = min(min_x, room.p1.x)
-    #     min_y = min(min_y, room.p1.y)
+    def get_edge_rects(self):
+        rects = []
+        for edge in self.map.layout.edges:
+            rect = utils.get_edge_rect(self.map.layout, edge)
+            rects.append(rect)
+            self.min_x = min(self.min_x, rect.p1.x)
+            self.min_y = min(self.min_y, rect.p1.y)
 
-    # Test drawing thick edges.
-    for edge in map_.layout.edges:
-        rect = Rect(*utils.get_edge_positions(map_.layout, edge))
-        rect.normalise()
-        rect.inflate(0.5)
-        rects.append(rect)
+        return rects
 
-        min_x = min(min_x, rect.p1.x)
-        min_y = min(min_y, rect.p1.y)
+    def get_room_rects(self):
+        rects = []
+        for room in self.map.rooms:
+            rects.append(room)
+            self.min_x = min(self.min_x, room.p1.x)
+            self.min_y = min(self.min_y, room.p1.y)
+        return rects
 
-    print('min_x:', min_x)
-    print('min_y:', min_y)
+    def offset_rects(self, rects):
 
-    # Offset all rects.
-    for rect in rects:
-        rect.p1.x -= min_x + 0
-        rect.p2.x -= min_x + 0
-        rect.p1.y -= min_y + 0
-        rect.p2.y -= min_y + 0
+        # Offset all rects.
+        for rect in rects:
+            rect.p1.x -= self.min_x + 0
+            rect.p2.x -= self.min_x + 0
+            rect.p1.y -= self.min_y + 0
+            rect.p2.y -= self.min_y + 0
 
-        print('after:', rect)
+        # Move away from the edge of the draw area.
+        for rect in rects:
+            rect.p1.x += 1
+            rect.p2.x += 1
+            rect.p1.y += 1
+            rect.p2.y += 1
 
-    for rect in rects:
-        rect.p1.x += 1
-        rect.p2.x += 1
-        rect.p1.y += 1
-        rect.p2.y += 1
+    def get_intersecting_rooms(self, y, x):
+        p = Vector2(x, y) + SAMPLE_OFFSET
+        return {
+            r
+            for r in self.room_rects
+            if r.contains_point(p)
+        }
 
-    return rects
+    def get_intersecting_edges(self, y, x):
+        p = Vector2(x, y) + SAMPLE_OFFSET
+        return {
+            r
+            for r in self.edge_rects
+            if r.contains_point(p)
+        }
 
+    def test_point(self, y, x):
+        p = Vector2(x, y) + SAMPLE_OFFSET
+        for r in self.rects:
+            if r.contains_point(p):
+                return True
+        return False
 
-def build_map(width, height, rects):
-    map_ = []
-    for x in range(width):
-        row = []
-        for y in range(height):
-            point = Vector2(x + 0.5, y + 0.5)
-            point_within = False
-            for r in rects:
-                point_within = point_within or r.contains_point(point)
-                if point_within:
-                    break
-            row.append(point_within)
-        map_.append(row)
-    return map_
+    def test_point2(self, y, x, other_edge_rects, room_rects):
+        has_rooms = len(room_rects) > 0
+        rooms_same = self.get_intersecting_rooms(y, x) == room_rects
+        edge_rects = self.get_intersecting_edges(y, x)
+        #edges_same = edge_rects == other_edge_rects
+        return has_rooms and rooms_same or edge_rects & other_edge_rects#rooms_same and edges_same
+        # if rooms_same:
+        #     return True
+        # else:
+        #     return rooms_same and edges_same
 
 
 def add_bin(a, b):
@@ -145,6 +168,7 @@ class Game:
     def __init__(self):
         pg.init()
         self.screen = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        #self.screen = pg.display.set_mode((0, 0), pg.FULLSCREEN)
         self.clock = pg.time.Clock()
         self.show_grid = False
         
@@ -162,50 +186,65 @@ class Game:
         
     def construct_map(self):
 
-        gen = MapGenerator(GRID_PATH)
-        self.map_data = build_map(MAP_WIDTH, MAP_HEIGHT, get_rects(gen.run()))
-
-        # create an empty surface for the map
-        self.map_image = pg.Surface((len(self.map_data) * TILESIZE_W,
-                                     len(self.map_data[0] * TILESIZE_H)))
+        # Create an empty surface for the map.
+        self.map_image = pg.Surface((
+            MAP_WIDTH * TILESIZE_W,
+            MAP_HEIGHT * TILESIZE_H
+        ))
         self.map_image.fill(BLUE)
         
-        # loop through the map data array and blit the corresponding tile
-        for y in range(len(self.map_data)):
-            for x in range(len(self.map_data[y])):
+        # Loop through the map data array and blit the corresponding tile.
+        tile_map = TileMap()
+        for y in range(MAP_WIDTH):
+            for x in range(MAP_HEIGHT):
+
                 # x and y are flipped because I loop through the vertical
                 # component (columns) first
-                if self.map_data[y][x]:
+                if tile_map.test_point(y, x):
+
                     # calculate the bitmask if the tile is 1 (land)
-                    bitmask = [False]*8
+                    bitmask = [False] * 8
+
+                    edge_rects = tile_map.get_intersecting_edges(y, x)
+                    room_rects = tile_map.get_intersecting_rooms(y, x)
+                    
                     # loop over all neighbor tiles
-                    if self.map_data[y - 1][x - 1]:
+                    if tile_map.test_point2(y - 1, x - 1, edge_rects, room_rects):
                         # check adjacent tiles to the west and south
                         # this is done to reduce the possible index values to 48 in total
-                        if self.map_data[y - 1][x] and self.map_data[y][x - 1]:
+                        if tile_map.test_point2(y - 1, x, edge_rects, room_rects) and tile_map.test_point2(y, x - 1, edge_rects, room_rects):
                             bitmask[7] = True
-                    if self.map_data[y - 1][x]:
+
+                    if tile_map.test_point2(y - 1, x, edge_rects, room_rects):
                         bitmask[6] = True
-                    if self.map_data[y - 1][x + 1]:
-                        if self.map_data[y - 1][x] and self.map_data[y][x + 1]:
+
+                    if tile_map.test_point2(y - 1, x + 1, edge_rects, room_rects):
+                        if tile_map.test_point2(y - 1, x, edge_rects, room_rects) and tile_map.test_point2(y, x + 1, edge_rects, room_rects):
                             bitmask[5] = True
-                    if self.map_data[y][x - 1]:
+
+                    if tile_map.test_point2(y, x - 1, edge_rects, room_rects):
                             bitmask[4] = True
-                    if self.map_data[y][x + 1]:
+
+                    if tile_map.test_point2(y, x + 1, edge_rects, room_rects):
                         bitmask[3] = True
-                    if self.map_data[y + 1][x - 1]:
-                        if self.map_data[y + 1][x] and self.map_data[y][x - 1]:
+
+                    if tile_map.test_point2(y + 1, x - 1, edge_rects, room_rects):
+                        if tile_map.test_point2(y + 1, x, edge_rects, room_rects) and tile_map.test_point2(y, x - 1, edge_rects, room_rects):
                             bitmask[2] = True
-                    if self.map_data[y + 1][x]:
+
+                    if tile_map.test_point2(y + 1, x, edge_rects, room_rects):
                         bitmask[1] = True
-                    if self.map_data[y + 1][x + 1]:
-                        if self.map_data[y + 1][x] and self.map_data[y][x + 1]:
+
+                    if tile_map.test_point2(y + 1, x + 1, edge_rects, room_rects):
+                        if tile_map.test_point2(y + 1, x, edge_rects, room_rects) and tile_map.test_point2(y, x + 1, edge_rects, room_rects):
                             bitmask[0] = True
                         
                     key = bool_list_to_mask(bitmask)
                     try:
-                        self.map_image.blit(self.tileset[TILE_MAP[key]],
-                                       (x * TILESIZE_W, y * TILESIZE_H))
+                        self.map_image.blit(
+                            self.tileset[TILE_MAP[key]],
+                            (x * TILESIZE_W, y * TILESIZE_H)
+                        )
                     except KeyError:
                         # fail safe in case the calculated bitmask is wrong
                         # this is only for bugfixing
@@ -215,11 +254,6 @@ class Game:
                         self.map_image.blit(s, (x * TILESIZE_W, y * TILESIZE_H))
                         
     def update(self):
-        mpos = pg.mouse.get_pos()
-        tile_x = int(mpos[0] / TILESIZE_W)
-        tile_y = int(mpos[1] / TILESIZE_H)
-        if tile_y == len(self.map_data) - 1 or tile_x == len(self.map_data[0]) - 1:
-            return
 
         if self.mouse_pressed[0]:
             # left mouse pressed
@@ -260,6 +294,8 @@ class Game:
                 elif event.type == pg.KEYDOWN:
                     if event.key == pg.K_g:
                         self.show_grid = not self.show_grid
+                    # else:
+                    #     self.running = False
                     
             self.clock.tick(30)
             
