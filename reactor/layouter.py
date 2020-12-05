@@ -99,7 +99,7 @@ class Layouter(object):
 
         return g
 
-    def layout_graph(self, g):
+    def layout_block_graph(self, g):
 
         i = 0
         layouters = list(g)
@@ -142,6 +142,6 @@ class Layouter(object):
                         layouter.permutations = None
 
     def run(self):
-        self.layout_graph(self.get_block_graph())
+        self.layout_block_graph(self.get_block_graph())
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))
