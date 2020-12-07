@@ -1,6 +1,8 @@
-import math
+# https://github.com/mikolalysenko/rectangle-decomposition
 import functools
+import math
 from collections import namedtuple
+from dataclasses import dataclass
 
 from intervaltree import IntervalTree, Interval
 
@@ -17,30 +19,26 @@ class Vertex:
         self.visited = False
 
 
-IntervalData = namedtuple('IntervalData', [
-    'start',
-    'end',
-    'direction',
-    'data'
-])
+@dataclass
+class IntervalData:
+
+    start: Vertex
+    end: Vertex
+    direction: int
+    number: int
 
 
-# # TODO: Replace with Interval?
-# class Segment:
-#
-#     def __init__(self, start, end, direction):
-#         a = start.point[direction ^ 1]
-#         b = end.point[direction ^ 1]
-#         if a < b:
-#             self[0] = a
-#             self[1] = b
-#         else:
-#             self[0] = b
-#             self[1] = a
-#         self.start = start
-#         self.end = end
-#         self.direction = direction
-#         self.number = -1
+def create_interval(start, stop, direction):
+    a = start.point[direction ^ 1]
+    b = stop.point[direction ^ 1]
+    if a < b:
+        begin = a
+        end = b
+    else:
+        begin = b
+        end = a
+    data = IntervalData(start, stop, direction, -1)
+    return Interval(begin, end, data)
 
 
 def test_segment(a, b, tree, direction):
@@ -48,7 +46,7 @@ def test_segment(a, b, tree, direction):
     bx = b.point[direction ^ 1]
 
     for s in tree.at(a.point[direction]):
-        x = s.start.point[direction ^ 1]
+        x = s.data.start.point[direction ^ 1]
         if ax < x < bx:
             return False
     return True
@@ -75,7 +73,7 @@ def get_diagonals(vertices, paths, direction, tree):
         b = concave[i]
         if a.point[direction] == b.point[direction]:
             if a.path == b.path:
-                n = paths[a.path].length
+                n = len(paths[a.path])
                 d = (a.index - b.index + n) % n
                 if d == 1 or d == n - 1:
                     continue
@@ -83,7 +81,7 @@ def get_diagonals(vertices, paths, direction, tree):
             if test_segment(a, b, tree, direction):
 
                 # Check orientation of diagonal.
-                diagonals.append(Segment(a, b, direction))
+                diagonals.append(create_interval(a, b, direction))
 
     return diagonals
 
@@ -107,31 +105,32 @@ def find_splitters(hdiagonals, vdiagonals):
 
     # Then tag and convert edge format.
     for i in range(len(hdiagonals)):
-        hdiagonals[i].number = i
+        hdiagonals[i].data.number = i
 
     for i in range(len(vdiagonals)):
-        vdiagonals[i].number = i
+        vdiagonals[i].data.number = i
 
     edges = map(lambda c: [c[0].number, c[1].number], crossings)
 
     # Find independent set.
     # TODO: Replace.
-    selected = bipartiteIndependentSet(
-        hdiagonals.length,
-        vdiagonals.length,
-        edges
-    )
+    # selected = bipartiteIndependentSet(
+    #     hdiagonals.length,
+    #     vdiagonals.length,
+    #     edges
+    # )
+    selected = []
 
     # Convert into result format.
     result = []
-    ptr = 0
-    for i in range(len(selected[0])):
-        ptr += 1
-        result[ptr] = hdiagonals[selected[0][i]]
-
-    for i in range(len(selected[1])):
-        ptr += 1
-        result[ptr] = vdiagonals[selected[1][i]]
+    # ptr = 0
+    # for i in range(len(selected[0])):
+    #     ptr += 1
+    #     result[ptr] = hdiagonals[selected[0][i]]
+    #
+    # for i in range(len(selected[1])):
+    #     ptr += 1
+    #     result[ptr] = vdiagonals[selected[1][i]]
 
     # Done.
     return result
@@ -237,9 +236,9 @@ def split_concave(vertices):
     for v in vertices:
         if v.next.point[1] == v.point[1]:
             if v.next.point[0] < v.point[0]:
-                left_segments.append(Segment(v, v.next, 1))
+                left_segments.append(create_interval(v, v.next, 1))
             else:
-                right_segments.append(Segment(v, v.next, 1))
+                right_segments.append(create_interval(v, v.next, 1))
 
     left_tree = IntervalTree(left_segments)
     right_tree = IntervalTree(right_segments)
@@ -260,14 +259,14 @@ def split_concave(vertices):
         closest_distance = math.inf * direction
         if direction < 0:
             for h in right_tree.at(v.point[0]):
-                x = h.start.point[1]
-                if x < y and x > closest_distance:
+                x = h.data.start.point[1]
+                if closest_distance < x < y:
                     closest_distance = x
                     closest_segment = h
         else:
             for h in left_tree.at(v.point[0]):
-                x = h.start.point[1]
-                if x > y and x < closest_distance:
+                x = h.data.start.point[1]
+                if y < x < closest_distance:
                     closest_distance = x
                     closest_segment = h
 
@@ -279,10 +278,10 @@ def split_concave(vertices):
         v.concave = False
 
         # Split vertices.
-        split_a.prev = closest_segment.start
-        closest_segment.start.next = split_a
-        split_b.next = closest_segment.end
-        closest_segment.end.prev = split_b
+        split_a.prev = closest_segment.data.start
+        closest_segment.data.start.next = split_a
+        split_b.next = closest_segment.data.end
+        closest_segment.data.end.prev = split_b
 
         # Update segment tree.
         if direction < 0:
@@ -292,12 +291,13 @@ def split_concave(vertices):
 
         tree.remove(closest_segment)
 
-        # TODO: Change to interval.
-        tree.add(Segment(closest_segment.start, split_a, 1))
-        tree.add(Segment(split_b, closest_segment.end, 1))
+        if closest_segment.data.start.point[direction ^ 1] - split_a.point[direction ^ 1]:
+            tree.add(create_interval(closest_segment.data.start, split_a, 1))
+        if closest_segment.data.end.point[direction ^ 1] - split_b.point[direction ^ 1]:
+            tree.add(create_interval(split_b, closest_segment.data.end, 1))
 
         # Append vertices.
-        vertices.append(split_a, split_b)
+        vertices.extend((split_a, split_b))
 
         # Cut v, 2 different cases.
         if v.prev.point[0] == v.point[0]:
@@ -407,9 +407,9 @@ def decompose_region(paths, clockwise=False):
             a = p[j]
             b = p[(j + 1) % len(p)]
             if a.point[0] == b.point[0]:
-                h_segments.append(Segment(a, b, 0))
+                h_segments.append(create_interval(a, b, 0))
             else:
-                v_segments.append(Segment(a, b, 1))
+                v_segments.append(create_interval(a, b, 1))
 
             if clockwise:
                 a.prev = b
