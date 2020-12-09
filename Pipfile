@@ -11,6 +11,7 @@ networkx = "==2.5"
 simple-settings = "==1.0.0"
 pyglet = "==1.5.8"
 intervaltree = "==3.1.0"
+numpy = "==1.19.3"
 
 [requires]
 python_version = "3.8"

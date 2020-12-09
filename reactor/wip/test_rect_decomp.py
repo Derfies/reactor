@@ -5,12 +5,12 @@ from rect_decomp import decompose_region
 
 class Tests(unittest.TestCase):
 
-    def verify_decomp(self, paths, ccw, expected=None):
+    def _verify_decomp(self, paths, ccw, expected=None):
         rectangles = decompose_region(paths, ccw)
         if expected is not None:
             self.assertEqual(len(rectangles), expected)
 
-        # Compute area for polygon and check each path is covered by an edgeo of 
+        # Compute area for polygon and check each path is covered by an edge.
         area = 0.0
         for i in range(len(paths)):
             for j in range(len(paths[i])):
@@ -31,6 +31,30 @@ class Tests(unittest.TestCase):
 
         self.assertEqual(boxarea, area)
 
+    def _test(self, paths, ccw, expected):
+
+        # Check all 4 orientations.
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                npaths = list(map(
+                    lambda p: list(map(
+                        lambda v: [sx * v[0], sy * v[1]],
+                        p
+                    )),
+                    paths
+                ))
+                nccw = not ccw if sx * sy < 0 else ccw
+                self._verify_decomp(npaths, nccw, expected)
+
+    def test_0(self):
+
+        # *-*
+        # | |
+        # *-*
+        self._test([
+            [[0, 0], [0, 1], [1, 1], [1, 0]]
+        ], True, 1)
+
     def test_1(self):
 
         # *-*
@@ -38,7 +62,7 @@ class Tests(unittest.TestCase):
         # * |
         # | |
         # *-*
-        self.verify_decomp([
+        self._test([
             [[0, 0], [0, 1], [0, 2], [1, 2], [1, 0]]
         ], True, 1)
 
@@ -49,7 +73,7 @@ class Tests(unittest.TestCase):
         # *-*-*
         # | |
         # *-*
-        self.verify_decomp([
+        self._test([
             [[0, 0], [0, 1], [1, 1], [1, 0]],
             [[1, 1], [1, 2], [2, 2], [2, 1]]
         ], True, 2)
@@ -63,7 +87,7 @@ class Tests(unittest.TestCase):
         # | *-* |
         # |     |
         # *-----*
-        self.verify_decomp([
+        self._test([
             [[0, 0], [3, 0], [3, 3], [1, 3], [1, 2], [2, 2], [2, 1], [1, 1],
              [1, 2], [0, 2]]
         ], False, 4)
@@ -79,7 +103,7 @@ class Tests(unittest.TestCase):
         # | *-*   |
         # |       |
         # *-------*
-        self.verify_decomp([
+        self._test([
             [[1, 1], [1, 2], [2, 2], [2, 1]],
             [[0, 0], [4, 0], [4, 4], [1, 4], [1, 3], [0, 3]]
         ], False, 4)
@@ -107,7 +131,7 @@ class Tests(unittest.TestCase):
             [2, 0],
             [1, 0]
         ]
-        self.verify_decomp([plus], True, 3)
+        self._test([plus], True, 3)
 
     def test_zigzag(self):
 
@@ -126,7 +150,7 @@ class Tests(unittest.TestCase):
             [3, 0],
             [1, 0]
         ]
-        self.verify_decomp([zig_zag], True, 2)
+        self._test([zig_zag], True, 2)
 
     def test_bump(self):
 
@@ -145,7 +169,7 @@ class Tests(unittest.TestCase):
             [3, 1],
             [3, 0]
         ]
-        self.verify_decomp([bump], True, 2)
+        self._test([bump], True, 2)
 
     def test_bracket(self):
 
@@ -162,7 +186,7 @@ class Tests(unittest.TestCase):
             [2, 2],
             [2, 0]
         ]
-        self.verify_decomp([bracket], True, 2)
+        self._test([bracket], True, 2)
 
 
 if __name__ == '__main__':

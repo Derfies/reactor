@@ -1,10 +1,10 @@
 # https://github.com/mikolalysenko/rectangle-decomposition
 import functools
 import math
-from collections import namedtuple
 from dataclasses import dataclass
 
 from intervaltree import IntervalTree, Interval
+import networkx as nx
 
 
 class Vertex:
@@ -17,6 +17,12 @@ class Vertex:
         self.next = None
         self.prev = None
         self.visited = False
+
+    def __str__(self):
+        str_ = 'Vertex {\n'
+        str_ += '    point: ' + str(self.point) + '\n'
+        str_ += '}'
+        return str_
 
 
 @dataclass
@@ -38,18 +44,17 @@ def create_interval(start, stop, direction):
         begin = b
         end = a
     data = IntervalData(start, stop, direction, -1)
-    return Interval(begin, end, data)
+    return Interval(begin, end + 1, data)
 
 
 def test_segment(a, b, tree, direction):
     ax = a.point[direction ^ 1]
     bx = b.point[direction ^ 1]
-
     for s in tree.at(a.point[direction]):
         x = s.data.start.point[direction ^ 1]
         if ax < x < bx:
-            return False
-    return True
+            return True
+    return False
 
 
 def get_diagonals(vertices, paths, direction, tree):
@@ -68,7 +73,7 @@ def get_diagonals(vertices, paths, direction, tree):
     concave.sort(key=cmp)
 
     diagonals = []
-    for i in range(len(concave)):
+    for i in range(1, len(concave)):
         a = concave[i - 1]
         b = concave[i]
         if a.point[direction] == b.point[direction]:
@@ -77,8 +82,7 @@ def get_diagonals(vertices, paths, direction, tree):
                 d = (a.index - b.index + n) % n
                 if d == 1 or d == n - 1:
                     continue
-
-            if test_segment(a, b, tree, direction):
+            if not test_segment(a, b, tree, direction):
 
                 # Check orientation of diagonal.
                 diagonals.append(create_interval(a, b, direction))
@@ -91,8 +95,8 @@ def find_crossings(hdiagonals, vdiagonals):
     htree = IntervalTree(hdiagonals)
     crossings = []
     for v in vdiagonals:
-        for h in htree.at(v.start.point[1]):
-            x = h.start.point[0]
+        for h in htree.at(v.data.start.point[1]):
+            x = h.data.start.point[0]
             if v[0] <= x <= v[1]:
                 crossings.append([h, v])
     return crossings
@@ -104,43 +108,43 @@ def find_splitters(hdiagonals, vdiagonals):
     crossings = find_crossings(hdiagonals, vdiagonals)
 
     # Then tag and convert edge format.
+    top_nodes = []
+    g = nx.Graph()
     for i in range(len(hdiagonals)):
         hdiagonals[i].data.number = i
+        g.add_node(i)
+        top_nodes.append(i)
 
     for i in range(len(vdiagonals)):
-        vdiagonals[i].data.number = i
+        vdiagonals[i].data.number = i + len(hdiagonals)
+        g.add_node(i + len(hdiagonals))
 
-    edges = map(lambda c: [c[0].number, c[1].number], crossings)
+    edges = list(map(lambda c: [c[0].data.number, c[1].data.number], crossings))
+    g.add_edges_from(edges)
 
-    # Find independent set.
-    # TODO: Replace.
-    # selected = bipartiteIndependentSet(
-    #     hdiagonals.length,
-    #     vdiagonals.length,
-    #     edges
-    # )
-    selected = []
+    result = []
+    if not g:
+        return result
+
+    matching = nx.bipartite.maximum_matching(g, top_nodes=top_nodes)
+    vertex_cover = nx.bipartite.to_vertex_cover(g, matching, top_nodes=top_nodes)
+    independent_set = set(g) - vertex_cover
 
     # Convert into result format.
-    result = []
-    # ptr = 0
-    # for i in range(len(selected[0])):
-    #     ptr += 1
-    #     result[ptr] = hdiagonals[selected[0][i]]
-    #
-    # for i in range(len(selected[1])):
-    #     ptr += 1
-    #     result[ptr] = vdiagonals[selected[1][i]]
+    for s in independent_set:
+        if s < len(hdiagonals):
+            result.append(hdiagonals[s])
+        else:
+            result.append(vdiagonals[s - len(hdiagonals)])
 
-    # Done.
     return result
 
 
 def split_segment(segment):
 
     # Store references.
-    a = segment.start
-    b = segment.end
+    a = segment.data.start
+    b = segment.data.end
     pa = a.prev
     na = a.next
     pb = b.prev
@@ -151,8 +155,8 @@ def split_segment(segment):
     b.concave = False
 
     # Compute orientation.
-    ao = pa.point[segment.direction] == a.point[segment.direction]
-    bo = pb.point[segment.direction] == b.point[segment.direction]
+    ao = pa.point[segment.data.direction] == a.point[segment.data.direction]
+    bo = pb.point[segment.data.direction] == b.point[segment.data.direction]
 
     if ao and bo:
 
@@ -400,16 +404,16 @@ def decompose_region(paths, clockwise=False):
             vertices.append(vtx)
 
     # Next build interval trees for segments, link vertices into a list
-    h_segments = []
-    v_segments = []
+    hsegments = []
+    vsegments = []
     for p in npaths:
         for j in range(len(p)):
             a = p[j]
             b = p[(j + 1) % len(p)]
             if a.point[0] == b.point[0]:
-                h_segments.append(create_interval(a, b, 0))
+                hsegments.append(create_interval(a, b, 0))
             else:
-                v_segments.append(create_interval(a, b, 1))
+                vsegments.append(create_interval(a, b, 1))
 
             if clockwise:
                 a.prev = b
@@ -418,15 +422,15 @@ def decompose_region(paths, clockwise=False):
                 a.next = b
                 b.prev = a
 
-    h_tree = IntervalTree(h_segments)
-    v_tree = IntervalTree(v_segments)
+    htree = IntervalTree(hsegments)
+    vtree = IntervalTree(vsegments)
 
     # Find horizontal and vertical diagonals
-    h_diagonals = get_diagonals(vertices, npaths, 0, v_tree)
-    v_diagonals = get_diagonals(vertices, npaths, 1, h_tree)
+    hdiagonals = get_diagonals(vertices, npaths, 0, vtree)
+    vdiagonals = get_diagonals(vertices, npaths, 1, htree)
 
     # Find all splitting edges.
-    splitters = find_splitters(h_diagonals, v_diagonals)
+    splitters = find_splitters(hdiagonals, vdiagonals)
 
     # Cut all the splitting diagonals.
     for splitter in splitters:
@@ -440,16 +444,37 @@ def decompose_region(paths, clockwise=False):
 
 
 if __name__ == '__main__':
-    region = [
-        [
-            [1, 1], [1, 2], [2, 2], [2, 1]
-        ],
-        [
-            [0, 0], [4, 0], [4, 4], [1, 4], [1, 3], [0, 3]
-        ]
-    ]
+
+    import os
+    import sys
+    import matplotlib.pyplot as plt
+    sys.path.append(os.getcwd())
+
+    from reactor import utils
+    from reactor.geometry.rect import Rect
+    from reactor.geometry.vector import Vector2
+
+
+    sys.path.append(os.getcwd())
+    region = [[
+        [0, 0],
+        [0, 1],
+        [1, 1],
+        [1, 2],
+        [2, 2],
+        [2, 0]
+    ]]
 
     # Next, extract rectangles
-    rectangles = decompose_region(region)
+    rectangles = decompose_region(region, True)
+    print('OUTPUT')
+    for rect in rectangles:
+        print('    rect:', rect)
 
-    print(rectangles)
+    # Plot result.
+    utils.init_pyplot((10,10))
+    for points in rectangles:
+        p1, p2 = Vector2(points[0][0], points[0][1]), Vector2(points[1][0], points[1][1])
+        r = Rect(p1, p2)
+        utils.draw_rect(r)
+    plt.show()
