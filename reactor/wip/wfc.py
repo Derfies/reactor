@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import sparse
+import colorama
 
 
 UP = (0, 1)
@@ -15,6 +16,15 @@ INPUT_MATRIX = [
     ['C', 'S', 'S', 'C'],
     ['S', 'S', 'S', 'S'],
     ['S', 'S', 'S', 'S'],
+]
+INPUT_MATRIX2 = [
+    ['A', 'A', 'A', 'A'],
+    ['A', 'A', 'A', 'A'],
+    ['A', 'A', 'A', 'A'],
+    ['A', 'C', 'C', 'A'],
+    ['C', 'B', 'B', 'C'],
+    ['C', 'B', 'B', 'C'],
+    ['A', 'C', 'C', 'A'],
 ]
 
 
@@ -35,19 +45,24 @@ def valid_dirs(cur_co_ord, matrix_size):
     return dirs
 
 
+def render_colors(wave, colors, tiles):
+    for x in range(wave.shape[1]):
+        output_row = []
+        for y in range(wave.shape[2]):
+            states = wf.wave[(slice(None), *(x, y))]
+            index = np.argmax(states)
+            val = tiles[index]
+            color = colors[val]
+            output_row.append(color + val + colorama.Style.RESET_ALL)
+        print(''.join(output_row))
+
+
 class Wavefunction:
 
     def __init__(self, size, compatibilities, weights):
-
         self.adj = compatibilities
-        print('compatibilities')
-        print(self.adj)
-
         self.weights = weights
-        print('weights:', self.weights)
-
         shape = (len(self.weights),) + size
-        print('shape:', shape)
         self.wave = np.ones(shape, dtype=bool)
 
     def is_collapsed(self):
@@ -61,6 +76,7 @@ class Wavefunction:
         size = len(matrix), len(matrix[0])
         weights = {}
 
+        # TODO: Split into two functions..?
         by_dirs = {}
         for x, row in enumerate(matrix):
             for y, tile in enumerate(row):
@@ -83,7 +99,6 @@ class Wavefunction:
                 m[index, other_index] = 1
 
             adj_matrices[dir_] = sparse.csr_matrix(m)
-
 
         return cls(output_size, adj_matrices, weights)
 
@@ -138,30 +153,21 @@ class Wavefunction:
                 last_count = self.wave.sum()
 
 
-wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (30, 30))
-print('\nwave:')
-print(wf.wave)
-
-#print('is_collapsed:', wf.is_collapsed())
-
+# TODO: Put into function
+wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
 while not wf.is_collapsed():
     coords = wf.get_min_entropy_coords()
-    #print('\ncoords:', coords)
-
     wf.collapse(coords)
-    #print('\nwave:')
-    #print(wf.wave)
     wf.propagate()
-    #print('\nwave:')
-    # print('-' * 35)
-    # print(wf.wave)
 
 
+colors = {
+    'L': colorama.Fore.GREEN,
+    'S': colorama.Fore.BLUE,
+    'C': colorama.Fore.YELLOW,
+    'A': colorama.Fore.CYAN,
+    'B': colorama.Fore.MAGENTA,
+}
 
-for x in range(wf.wave.shape[1]):
-    output_row = []
-    for y in range(wf.wave.shape[2]):
-        states = wf.wave[(slice(None), *(x, y))]
-        #print('states:', np.argmax(states))
-        output_row.append(str(np.argmax(states)))
-    print(''.join(output_row))
+render_colors(wf.wave, colors,list(wf.weights.keys()))
+
