@@ -38,21 +38,30 @@ def valid_dirs(cur_co_ord, matrix_size):
 class Wavefunction:
 
     def __init__(self, size, compatibilities, weights):
-        self.compatibilities = compatibilities
-        #self.tiles = list(weights.keys())
-        #print('tiles:', self.tiles)
+
+        self.adj = compatibilities
+        print('compatibilities')
+        print(self.adj)
+
         self.weights = weights
         print('weights:', self.weights)
+
         shape = (len(self.weights),) + size
+        print('shape:', shape)
         self.wave = np.ones(shape, dtype=bool)
 
-        self.adj = self.make_adj(self.compatibilities, self.tiles)
+    def is_collapsed(self):
+        num_states = np.count_nonzero(self.wave, axis=0)
+        unresolved = num_states > 1
+        return not np.any(unresolved)
         
     @classmethod
-    def create_from_input_matrix(cls, matrix, size):
+    def create_from_input_matrix(cls, matrix, output_size):
         compatibilities = set()
         size = len(matrix), len(matrix[0])
         weights = {}
+
+        by_dirs = {}
         for x, row in enumerate(matrix):
             for y, tile in enumerate(row):
                 weights.setdefault(tile, 0)
@@ -60,33 +69,25 @@ class Wavefunction:
                 for d in valid_dirs((x, y), size):
                     other_tile = matrix[x + d[0]][y + d[1]]
                     compatibilities.add((tile, other_tile, d))
-        return cls(size, compatibilities, weights)
-        
-    def make_adj(self, compatibilities, patterns):
+                    by_dirs.setdefault(d, []).append((tile, other_tile))
 
-        # MERGE WITH ABOVE
-        print('patterns:', patterns)
-
-        by_dirs = {}
-        for c in compatibilities:
-            cur_tile, other_tile, d = c
-            by_dirs.setdefault(d, []).append((cur_tile, other_tile))
-
-        num_patterns = len(patterns)
+        tiles = list(weights.keys())
+        num_tiles = len(tiles)
         adj_matrices = {}
         for dir_, rules in by_dirs.items():
-            m = np.zeros((num_patterns, num_patterns), dtype=bool)
+            m = np.zeros((num_tiles, num_tiles), dtype=bool)
             for rule in rules:
-                cur_tile, other_tile = rule
-                cur_index = patterns.index(cur_tile)
-                other_index = patterns.index(other_tile)
-                m[cur_index, other_index] = 1
+                tile, other_tile = rule
+                index = tiles.index(tile)
+                other_index = tiles.index(other_tile)
+                m[index, other_index] = 1
 
             adj_matrices[dir_] = sparse.csr_matrix(m)
 
-        return adj_matrices
 
-    def min_entropy_coords(self):
+        return cls(output_size, adj_matrices, weights)
+
+    def get_min_entropy_coords(self):
         num_states = np.count_nonzero(self.wave, axis=0)
         unresolved = num_states > 1
         rand = np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
@@ -113,7 +114,7 @@ class Wavefunction:
         states[:] = False
         states[index] = True
 
-    def propagate(self, adj):
+    def propagate(self):
         last_count = self.wave.sum()
         while True:
             supports = {}
@@ -123,12 +124,12 @@ class Wavefunction:
                 mode='constant',
                 constant_values=True
             )
-            for d in adj:
+            for d in self.adj:
                 dx, dy = d
                 shifted = padded[:, 1 + dx: 1 + self.wave.shape[1] + dx, 1 + dy: 1 + self.wave.shape[2] + dy]
-                supports[d] = (adj[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
+                supports[d] = (self.adj[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
 
-            for d in adj:
+            for d in self.adj:
                 self.wave *= supports[d]
 
             if self.wave.sum() == last_count:
@@ -137,14 +138,30 @@ class Wavefunction:
                 last_count = self.wave.sum()
 
 
-wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (3, 3))
+wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (30, 30))
 print('\nwave:')
 print(wf.wave)
-coords = wf.min_entropy_coords()
-print('coords:', coords)
-wf.collapse(coords)
-print('\nwave:')
-print(wf.wave)
-wf.propagate(wf.adj)
-print('\nwave:')
-print(wf.wave)
+
+#print('is_collapsed:', wf.is_collapsed())
+
+while not wf.is_collapsed():
+    coords = wf.get_min_entropy_coords()
+    #print('\ncoords:', coords)
+
+    wf.collapse(coords)
+    #print('\nwave:')
+    #print(wf.wave)
+    wf.propagate()
+    #print('\nwave:')
+    # print('-' * 35)
+    # print(wf.wave)
+
+
+
+for x in range(wf.wave.shape[1]):
+    output_row = []
+    for y in range(wf.wave.shape[2]):
+        states = wf.wave[(slice(None), *(x, y))]
+        #print('states:', np.argmax(states))
+        output_row.append(str(np.argmax(states)))
+    print(''.join(output_row))
