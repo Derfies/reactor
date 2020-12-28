@@ -28,8 +28,8 @@ INPUT_MATRIX2 = [
 ]
 
 
-def valid_dirs(cur_co_ord, matrix_size):
-    x, y = cur_co_ord
+def valid_dirs(coord, matrix_size):
+    x, y = coord
     width, height = matrix_size
     dirs = []
 
@@ -59,48 +59,49 @@ def render_colors(wave, colors, tiles):
 
 class Wavefunction:
 
-    def __init__(self, size, compatibilities, weights):
-        self.adj = compatibilities
-        self.weights = weights
-        shape = (len(self.weights),) + size
-        self.wave = np.ones(shape, dtype=bool)
+    def __init__(self, shape, weights, compatibilities):
 
-    def is_collapsed(self):
-        num_states = np.count_nonzero(self.wave, axis=0)
-        unresolved = num_states > 1
-        return not np.any(unresolved)
-        
-    @classmethod
-    def create_from_input_matrix(cls, matrix, output_size):
-        compatibilities = set()
-        size = len(matrix), len(matrix[0])
-        weights = {}
+        tiles, weights = zip(*weights.items())
+        self.tiles = tiles
+        self.weights = np.array(weights, dtype=np.float64)
 
-        # TODO: Split into two functions..?
-        by_dirs = {}
-        for x, row in enumerate(matrix):
-            for y, tile in enumerate(row):
-                weights.setdefault(tile, 0)
-                weights[tile] += 1
-                for d in valid_dirs((x, y), size):
-                    other_tile = matrix[x + d[0]][y + d[1]]
-                    compatibilities.add((tile, other_tile, d))
-                    by_dirs.setdefault(d, []).append((tile, other_tile))
+        final_shape = (len(self.tiles),) + shape
+        self.wave = np.ones(final_shape, dtype=bool)
 
-        tiles = list(weights.keys())
+        self.adj_matrices = self.to_adjacency_matrix(self.tiles, compatibilities)
+
+    @staticmethod
+    def to_adjacency_matrix(tiles, compatibilities):
         num_tiles = len(tiles)
         adj_matrices = {}
-        for dir_, rules in by_dirs.items():
+        for d, rules in compatibilities.items():
             m = np.zeros((num_tiles, num_tiles), dtype=bool)
             for rule in rules:
                 tile, other_tile = rule
                 index = tiles.index(tile)
                 other_index = tiles.index(other_tile)
                 m[index, other_index] = 1
+            adj_matrices[d] = sparse.csr_matrix(m)
+        return adj_matrices
+        
+    @classmethod
+    def create_from_input_matrix(cls, matrix, size):
+        matrix = np.array(matrix)
+        weights = {}
+        compatibilities = {}
+        for coords, tile in np.ndenumerate(matrix):
+            weights.setdefault(tile, 0)
+            weights[tile] += 1
+            for d in valid_dirs(coords, matrix.shape):
+                other_coords = coords[0] + d[0], coords[1] + d[1]
+                other_tile = matrix[other_coords]
+                compatibilities.setdefault(d, []).append((tile, other_tile))
+        return cls(size, weights, compatibilities)
 
-            adj_matrices[dir_] = sparse.csr_matrix(m)
-
-        return cls(output_size, adj_matrices, weights)
+    def is_collapsed(self):
+        num_states = np.count_nonzero(self.wave, axis=0)
+        unresolved = num_states > 1
+        return not np.any(unresolved)
 
     def get_min_entropy_coords(self):
         num_states = np.count_nonzero(self.wave, axis=0)
@@ -116,58 +117,54 @@ class Wavefunction:
 
     def collapse(self, coords):
         states = self.wave[(slice(None), *coords)]
-
-        # TODO - Encode weights once during __init__.
-        weights = np.zeros(len(self.weights), dtype=np.float64)
-        for w_id, w_key in enumerate(self.weights):
-            w_val = self.weights[w_key]
-            weights[w_id] = w_val
-
-        weighted_states = weights * states
+        weighted_states = self.weights * states
         weighted_states /= weighted_states.sum()
-        index = np.random.choice(len(self.weights), p=weighted_states)
+        index = np.random.choice(self.weights.size, p=weighted_states)
         states[:] = False
         states[index] = True
 
     def propagate(self):
         last_count = self.wave.sum()
         while True:
-            supports = {}
             padded = np.pad(
                 self.wave,
                 ((0, 0), (1, 1), (1, 1)),
                 mode='constant',
                 constant_values=True
             )
-            for d in self.adj:
+            supports = {}
+            for d in self.adj_matrices:
+
+                # TODO: Need to figure out an n-dimensional approach here.
                 dx, dy = d
-                shifted = padded[:, 1 + dx: 1 + self.wave.shape[1] + dx, 1 + dy: 1 + self.wave.shape[2] + dy]
-                supports[d] = (self.adj[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
+                shifted = padded[:, 1 + dx: 1 + self.wave.shape[1] + dx, 1 + dy : 1 + self.wave.shape[2] + dy]
+                supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
 
-            for d in self.adj:
+            for d in supports:
                 self.wave *= supports[d]
-
             if self.wave.sum() == last_count:
                 break
-            else:
-                last_count = self.wave.sum()
+            last_count = self.wave.sum()
+
+    def run(self):
+        while not self.is_collapsed():
+            coords = self.get_min_entropy_coords()
+            self.collapse(coords)
+            self.propagate()
 
 
-# TODO: Put into function
-wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
-while not wf.is_collapsed():
-    coords = wf.get_min_entropy_coords()
-    wf.collapse(coords)
-    wf.propagate()
+if __name__ == '__main__':
 
+    # Set up a wave and collapse it.
+    wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
+    wf.run()
 
-colors = {
-    'L': colorama.Fore.GREEN,
-    'S': colorama.Fore.BLUE,
-    'C': colorama.Fore.YELLOW,
-    'A': colorama.Fore.CYAN,
-    'B': colorama.Fore.MAGENTA,
-}
-
-render_colors(wf.wave, colors,list(wf.weights.keys()))
-
+    # Draw output.
+    colors = {
+        'L': colorama.Fore.GREEN,
+        'S': colorama.Fore.BLUE,
+        'C': colorama.Fore.YELLOW,
+        'A': colorama.Fore.CYAN,
+        'B': colorama.Fore.MAGENTA,
+    }
+    render_colors(wf.wave, colors, wf.tiles)
