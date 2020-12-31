@@ -117,6 +117,7 @@ class Wavefunction:
 
     def collapse(self, coords):
         states = self.wave[(slice(None), *coords)]
+        #print('***********states:', (slice(None), *coords))
         weighted_states = self.weights * states
         weighted_states /= weighted_states.sum()
         index = np.random.choice(self.weights.size, p=weighted_states)
@@ -125,19 +126,35 @@ class Wavefunction:
 
     def propagate(self):
         last_count = self.wave.sum()
+
+        # could be const
+        #pad_shape = (len(self.tiles),) + shape
+        print(self.wave.shape, len(self.wave.shape))
+        pad_shape = ((0, 0),) + ((1, 1),) * (len(self.wave.shape) - 1)
+        print('pad_shape:', pad_shape)
+
         while True:
             padded = np.pad(
                 self.wave,
-                ((0, 0), (1, 1), (1, 1)),
+                pad_shape,
                 mode='constant',
                 constant_values=True
             )
             supports = {}
             for d in self.adj_matrices:
 
-                # TODO: Need to figure out an n-dimensional approach here.
-                dx, dy = d
-                shifted = padded[:, 1 + dx: 1 + self.wave.shape[1] + dx, 1 + dy : 1 + self.wave.shape[2] + dy]
+                firsts = [1 + e for e in d]
+                dim = self.wave.shape[1:]
+                seconds = [
+                    dim[i] + firsts[i]
+                    for i in range(len(dim))
+                ]
+
+                index = [slice(None)]
+                for a, b in zip(firsts, seconds):
+                    index.append(slice(a, b))
+
+                shifted = padded[index]
                 supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
 
             for d in supports:
@@ -156,7 +173,7 @@ class Wavefunction:
 if __name__ == '__main__':
 
     # Set up a wave and collapse it.
-    wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
+    wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, ))
     wf.run()
 
     # Draw output.
@@ -167,4 +184,6 @@ if __name__ == '__main__':
         'A': colorama.Fore.CYAN,
         'B': colorama.Fore.MAGENTA,
     }
+    print('wf.tiles:', wf.tiles)
+    print('wf.wave:', wf.wave)
     render_colors(wf.wave, colors, wf.tiles)
