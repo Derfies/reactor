@@ -118,7 +118,7 @@ class FaceLayouter(LayouterBase):
             perms = layout.nodes.get(node, {}).get(ANGLE, {})
             for perm in list(perms.keys()):
                 if set(perm.nodes) == set(self.data.nodes):
-                    print(node, 'popped:', perm)
+                    #print(node, 'popped:', perm)
                     perms.pop(perm)
             #for layout_node in
             #print(layout.nodes.get(node, {}))

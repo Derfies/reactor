@@ -43,6 +43,76 @@ class Layouter(object):
         t.add_edges_from(edges_gen)
         return t
 
+    def do_verticality(self):
+
+        #G = self.g
+
+        from reactor.blocks.blockbase import BlockBase
+
+
+        class SliceBlock(BlockBase):
+
+            def __init__(self, g, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+                self.parent_g = g
+
+            def is_adjacent(self, g):
+
+                b = nx.edge_boundary(G, self.g, g)
+                print('b:', b)
+
+        # verticals = [
+        #     (h, t)
+        #     for h, t, data in self.g.edges(data=True)
+        #     if data.get('vertical') == 'true'
+        # ]
+
+        verticals = [
+            e
+            for e in self.g.edges
+            if self.g.edges[e].get('vertical') == 'true'
+        ]
+
+        new_g = nx.Graph(self.g)
+        for v in verticals:
+            new_g.remove_edge(v[0], v[1])
+
+
+
+
+        is_ok = True
+        for v in verticals:
+            h, t = v
+            print('')
+            print(h, '->', t)
+            paths = nx.all_simple_paths(new_g, source=h, target=t)
+            if next(paths, None):
+                print('paths:', paths)
+                is_ok = False
+                break
+            # print(len(list(paths)))
+            # for path in paths:
+            #     print('path:', path)
+
+
+        print('IS OK:', is_ok)
+
+        print('num comps:', nx.number_connected_components(new_g))
+        comps = list(nx.connected_components(new_g))
+        print(comps)
+
+        g2 = nx.Graph()
+        g2.add_nodes_from([SliceBlock(self.g.subgraph(c)) for c in comps])
+        edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g2, 2))
+        print(edges)
+        g2.add_edges_from(edges)
+        print('here')
+
+        from reactor import utils
+        utils.draw_graph(g2)
+        raise
+
     # TODO: Make this class the actual quotient graph and make this a class
     # method.
     def get_block_graph(self):
@@ -50,6 +120,11 @@ class Layouter(object):
         # Split the input graph into biconnected components. Each biconn will
         # become a node in the block graph.
         g = nx.Graph()
+
+        self.do_verticality()
+
+        raise
+
 
         # Build nodes.
         for biconn in nx.biconnected_components(self.g):
@@ -61,9 +136,16 @@ class Layouter(object):
                     fsg = self.g.subgraph(face)
                     g.add_node(FaceBlock.from_path(face, fsg))
 
+
+
         # Build edges.
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
+
+
+        print('it.combinations(g, 2):', list(it.combinations(g, 2)))
         g.add_edges_from(edges)
+
+        raise
 
         # Find root node.
         sorted_nodes = self._sort_nodes(g)
@@ -154,6 +236,9 @@ class Layouter(object):
 
     def run(self):
         bg = self.get_block_graph()
+        from reactor import utils
+        utils.draw_graph(bg)
+        raise
         self.bfs(bg)
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))

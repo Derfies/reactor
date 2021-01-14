@@ -8,7 +8,7 @@ from reactor.mapgenerator import MapGenerator
 # Remaining fails:
 # bow1
 # single_node1
-GRID_PATH = 'data/tree1.gexf'
+GRID_PATH = 'data/grid1_tier2.gexf'
 
 
 if __name__ == '__main__':

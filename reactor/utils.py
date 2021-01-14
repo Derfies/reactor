@@ -125,9 +125,9 @@ def draw_map(map_, save_path=None):
                   edge_color='grey', width=4)
 
     # Test drawing thick edges.
-    for edge_rect in get_edge_rects(map_.layout):
-        draw_rect(edge_rect, node_size=0, with_labels=False, arrows=False,
-                  edge_color='green', width=1)
+    # for edge_rect in get_edge_rects(map_.layout):
+    #     draw_rect(edge_rect, node_size=0, with_labels=False, arrows=False,
+    #               edge_color='green', width=1)
 
     # Fix up axes ticks.
     ax = plt.axes(frameon=False)
