@@ -45,73 +45,52 @@ class Layouter(object):
 
     def do_verticality(self):
 
-        #G = self.g
+        from reactor.blocks.edgeblock import EdgeBlock
 
-        from reactor.blocks.blockbase import BlockBase
-
-
-        class SliceBlock(BlockBase):
-
-            def __init__(self, g, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-
-                self.parent_g = g
-
-            def is_adjacent(self, g):
-
-                b = nx.edge_boundary(G, self.g, g)
-                print('b:', b)
-
-        # verticals = [
-        #     (h, t)
-        #     for h, t, data in self.g.edges(data=True)
-        #     if data.get('vertical') == 'true'
-        # ]
-
+        # Get verticals.
         verticals = [
             e
             for e in self.g.edges
             if self.g.edges[e].get('vertical') == 'true'
         ]
 
+        # Test that graph is split properly with verticals.
+        is_ok = True
         new_g = nx.Graph(self.g)
         for v in verticals:
             new_g.remove_edge(v[0], v[1])
-
-
-
-
-        is_ok = True
         for v in verticals:
             h, t = v
-            print('')
-            print(h, '->', t)
             paths = nx.all_simple_paths(new_g, source=h, target=t)
             if next(paths, None):
-                print('paths:', paths)
                 is_ok = False
                 break
-            # print(len(list(paths)))
-            # for path in paths:
-            #     print('path:', path)
 
+        assert is_ok, 'Graph not split properly'
 
-        print('IS OK:', is_ok)
+        g = nx.Graph()
+        g.add_nodes_from(EdgeBlock(self.g.subgraph(v)) for v in verticals)
 
-        print('num comps:', nx.number_connected_components(new_g))
+        # Do the usual breakdown per 2D plane.
         comps = list(nx.connected_components(new_g))
-        print(comps)
+        for comp in comps:
 
-        g2 = nx.Graph()
-        g2.add_nodes_from([SliceBlock(self.g.subgraph(c)) for c in comps])
-        edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g2, 2))
-        print(edges)
-        g2.add_edges_from(edges)
-        print('here')
+            # Build nodes.
+            for biconn in nx.biconnected_components(self.g.subgraph(comp)):
+                sg = self.g.subgraph(biconn)
+                if len(biconn) < 3:
+                    g.add_node(EdgeBlock(sg))
+                else:
+                    for face in FaceAnalysis(sg).get_faces():
+                        fsg = self.g.subgraph(face)
+                        g.add_node(FaceBlock.from_path(face, fsg))
+
+            # Build edges.
+            edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
+            g.add_edges_from(edges)
 
         from reactor import utils
-        utils.draw_graph(g2)
-        raise
+        utils.draw_graph(g)
 
     # TODO: Make this class the actual quotient graph and make this a class
     # method.
