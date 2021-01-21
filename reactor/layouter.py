@@ -8,6 +8,7 @@ from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
+from reactor.layouters.facelayouter import NodeState
 
 
 class Layouter(object):
@@ -52,7 +53,8 @@ class Layouter(object):
         g = nx.Graph()
 
         # Build nodes.
-        for biconn in nx.biconnected_components(self.g):
+        biconns = list(nx.biconnected_components(self.g))
+        for biconn in biconns:
             sg = self.g.subgraph(biconn)
             if len(biconn) < 3:
                 g.add_node(EdgeBlock(sg))
@@ -64,6 +66,46 @@ class Layouter(object):
         # Build edges.
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
         g.add_edges_from(edges)
+
+        # Find path from N1 to N13.
+        print(list(self.g))
+        paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
+        for path in paths:#(['N1', 'N4', 'N5', 'N16', 'N15', 'N14', 'N13'],):#
+
+            print('path:', path)
+
+            # Find the components that lie on this path.
+            for block in g:
+                #print('biconn:', biconn)
+                if set(block) & set(path):
+                    print('    overlap:', type(block), list(block))
+
+            # NEED TO ORIENT THE PATH SO THE RELATIVITY OF THE ANGLES MAKES
+            # SENSE.
+
+            # Find the possible angle of every node on the path. Remember that
+            # these angles are relative to each other - not the world, eg STRAIGHT
+            # means continue along the vector of the previous edge. The first
+            # and last node angles can be anything until we figure out what
+            # these nodes connect to.
+            #
+            # If an edge incident to a node forms the border between two faces
+            # that also share edges with the path then we know the angle of the
+            # node must be straight or outside.
+            #
+            # If a node has four incident edges, we check if the path belongs
+            # to the same face. If the path falls on the same face then the
+            # angle is either inside or outside, depending on the path direction.
+            # If the path falls on different faces then the angle is straight.
+            for node in path:
+                incidents = self.g.edges(node)
+                state = None
+                if len(incidents) == 4:
+                    state = NodeState.KNOWN
+                print('    node:', node, 'incidents:', incidents, 'state:', state)
+
+        raise
+
 
         # Find root node.
         sorted_nodes = self._sort_nodes(g)
