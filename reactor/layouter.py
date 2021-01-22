@@ -53,6 +53,7 @@ class Layouter(object):
             for e in self.g.edges
             if self.g.edges[e].get('vertical') == 'true'
         ]
+        print('num verticals:', len(verticals))
 
         # Test that graph is split properly with verticals.
         is_ok = True
@@ -68,12 +69,50 @@ class Layouter(object):
 
         assert is_ok, 'Graph not split properly'
 
-        g = nx.Graph()
-        g.add_nodes_from(EdgeBlock(self.g.subgraph(v)) for v in verticals)
+        # g = nx.Graph()
+        # g.add_nodes_from(EdgeBlock(self.g.subgraph(v)) for v in verticals)
 
         # Do the usual breakdown per 2D plane.
         comps = list(nx.connected_components(new_g))
-        for comp in comps:
+        # for comp in comps:
+        #
+        #     # Build nodes.
+        #     for biconn in nx.biconnected_components(self.g.subgraph(comp)):
+        #         sg = self.g.subgraph(biconn)
+        #         if len(biconn) < 3:
+        #             g.add_node(EdgeBlock(sg))
+        #         else:
+        #             for face in FaceAnalysis(sg).get_faces():
+        #                 fsg = self.g.subgraph(face)
+        #                 g.add_node(FaceBlock.from_path(face, fsg))
+        #
+        #     # Build edges.
+        #     edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
+        #     g.add_edges_from(edges)
+
+
+        nodes_per_comp = {}
+        for v in verticals:
+            vb = EdgeBlock(self.g.subgraph(v))
+            for comp in comps:
+                for n in vb.edge:
+                    if n in comp:
+                        nodes_per_comp.setdefault(frozenset(comp), set()).add(n)
+
+        # blocks_per_node = {}
+        # for block in g:
+        #     for node in block:
+        #         blocks_per_node.setdefault(node, set()).add(block)
+
+        #print('')
+
+        for comp, vs in nodes_per_comp.items():
+
+            print('\ncomp:', comp)
+
+            comp_graph = self.g.subgraph(comp)
+
+            g = nx.Graph()
 
             # Build nodes.
             for biconn in nx.biconnected_components(self.g.subgraph(comp)):
@@ -85,12 +124,41 @@ class Layouter(object):
                         fsg = self.g.subgraph(face)
                         g.add_node(FaceBlock.from_path(face, fsg))
 
+            # blocks_per_node = {}
+            # for block in g:
+            #     for node in block:
+            #         blocks_per_node.setdefault(node, set()).add(block)
+
             # Build edges.
             edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
             g.add_edges_from(edges)
 
-        from reactor import utils
-        utils.draw_graph(g)
+            # Find paths between anchor points
+            for comb in it.combinations(vs, 2):
+                source, target = comb
+                print('    source:', source, 'target:', target)
+                path = nx.shortest_path(comp_graph, source, target)
+                print('        path:', path)
+                blocks = [
+                    block
+                    for block in g
+                    if set(block) & set(path)
+                ]
+                print('        blocks:', [str(type(b)) + ' ' + str(b) for b in blocks])
+
+                '''
+                source_comp = blocks_per_node[source]
+                target_comp = blocks_per_node[target]
+                # print(it.product(source_comp, target_comp))
+                # print('source_comp:', source_comp, 'target_comp:', target_comp)
+                # print('    path:', nx.shortest_path(g, source_comp, target_comp))
+                for perm in set(it.product(source_comp, target_comp)):
+                    start, end = perm
+
+                    print('    start:', type(start), start, 'end:', type(end), end)
+                '''
+            #print('  unique nodes:', unique_nodes)
+
 
     # TODO: Make this class the actual quotient graph and make this a class
     # method.
@@ -102,7 +170,7 @@ class Layouter(object):
 
         self.do_verticality()
 
-        raise
+        return
 
 
         # Build nodes.
@@ -215,6 +283,8 @@ class Layouter(object):
 
     def run(self):
         bg = self.get_block_graph()
+        if bg is None:
+            return
         from reactor import utils
         utils.draw_graph(bg)
         raise

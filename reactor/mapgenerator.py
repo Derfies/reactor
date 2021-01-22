@@ -15,9 +15,9 @@ class MapGenerator(object):
         g = GEXFReader()(self._grid_path).to_undirected()
 
         # Ensure no node has a degree greater than 4.
-        max_degree = list(filter(lambda x: x[1] > 4, g.degree))
-        msg = 'Node(s): {} have degree greater than 4'
-        assert not max_degree, msg.format(', '.join(map(itemgetter(0), max_degree)))
+        # max_degree = list(filter(lambda x: x[1] > 4, g.degree))
+        # msg = 'Node(s): {} have degree greater than 4'
+        # assert not max_degree, msg.format(', '.join(map(itemgetter(0), max_degree)))
 
         return g
 
@@ -26,6 +26,7 @@ class MapGenerator(object):
         map_ = Map()
         layouter = Layouter(g, map_)
         layouter.run()
+        return
         room_placer = RoomPlacer(g, map_)
         room_placer.run()
         return map_
