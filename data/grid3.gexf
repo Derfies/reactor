@@ -4,7 +4,7 @@
     xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
     <meta lastmodifieddate = "2021-01-22">
-        <creator>Qt Visual Graph Editor 0.6.1 (64bit)</creator>
+        <creator>Qt Visual Graph Editor 0.5.4 (64bit)</creator>
         <description></description>
     </meta>
     <graph mode="static" defaultedgetype="directed">
@@ -39,9 +39,9 @@
         <attribute id="stroke.style" title="stroke.style" type="string">
             <default>solid</default>
         </attribute>
-        <attribute id="x" title="x" type="float">
+        <attribute id="x" title="x" type="double">
         </attribute>
-        <attribute id="y" title="y" type="float">
+        <attribute id="y" title="y" type="double">
         </attribute>
     </attributes>
     <attributes class="edge" mode="static">
@@ -128,7 +128,7 @@
         </edge>
         <edge id="E5" label="" source="N4" target="N5" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="5"/>
+                <attvalue for="weight" value="0.5"/>
             </attvalues>
         </edge>
         <edge id="E6" label="" source="N5" target="N6" edgetype="directed">
@@ -138,12 +138,12 @@
         </edge>
         <edge id="E3" label="" source="N3" target="N4" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="0.5"/>
+                <attvalue for="weight" value="5"/>
             </attvalues>
         </edge>
         <edge id="E7" label="" source="N6" target="N3" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="0.5"/>
+                <attvalue for="weight" value="5"/>
             </attvalues>
         </edge>
         <edge id="E8" label="" source="N3" target="N7" edgetype="directed">
@@ -183,7 +183,7 @@
         </edge>
         <edge id="E21" label="" source="N6" target="N15" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="0.5"/>
+                <attvalue for="weight" value="5"/>
             </attvalues>
         </edge>
         <edge id="E11" label="" source="N2" target="N9" edgetype="directed">
@@ -193,7 +193,7 @@
         </edge>
         <edge id="E23" label="" source="N15" target="N16" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="5"/>
+                <attvalue for="weight" value="0.5"/>
             </attvalues>
         </edge>
         <edge id="E18" label="" source="N12" target="N13" edgetype="directed">
@@ -223,7 +223,7 @@
         </edge>
         <edge id="E24" label="" source="N16" target="N5" edgetype="directed">
             <attvalues>
-                <attvalue for="weight" value="5"/>
+                <attvalue for="weight" value="0.5"/>
             </attvalues>
         </edge>
         <edge id="E20" label="" source="N14" target="N8" edgetype="directed">

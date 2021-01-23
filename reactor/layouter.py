@@ -70,18 +70,20 @@ class Layouter(object):
         # Find path from N1 to N13.
         print(list(self.g))
         paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
-        for path in paths:#(['N1', 'N4', 'N5', 'N16', 'N15', 'N14', 'N13'],):#
+        for path in (['N1', 'N4', 'N3', 'N6', 'N15', 'N14', 'N13'],):#
 
-            print('path:', path)
+            print('\npath:', path)
 
             # Find the components that lie on this path.
-            for block in g:
-                #print('biconn:', biconn)
-                if set(block) & set(path):
-                    print('    overlap:', type(block), list(block))
+            # for block in g:
+            #     #print('biconn:', biconn)
+            #     if set(block) & set(path):
+            #         print('    overlap:', type(block), list(block))
 
             # NEED TO ORIENT THE PATH SO THE RELATIVITY OF THE ANGLES MAKES
             # SENSE.
+
+            # ORIENT THE GRAPH...? Would that make things easier?
 
             # Find the possible angle of every node on the path. Remember that
             # these angles are relative to each other - not the world, eg STRAIGHT
@@ -97,14 +99,85 @@ class Layouter(object):
             # to the same face. If the path falls on the same face then the
             # angle is either inside or outside, depending on the path direction.
             # If the path falls on different faces then the angle is straight.
+            #prev_node = path[0]
+            #for i, node in enumerate(path[:-1]):
+            path = nx.path_graph(path, create_using=nx.DiGraph)#nx.DiGraph(self.g.subgraph(path))
+            print('path:', list(path))
             for node in path:
-                incidents = self.g.edges(node)
-                state = None
-                if len(incidents) == 4:
-                    state = NodeState.KNOWN
-                print('    node:', node, 'incidents:', incidents, 'state:', state)
+                #next_node = path[i + 1]
+                print('\n    node:', node)
 
-        raise
+                # Get incident edges and reorder.
+                # incidents = self.g.in_edges(node) + self.g_out_edges(node)
+                # for i, incident in enumerate(incidents):
+                #     if incident not in path:
+                #         incidents[i] = tuple(reversed(list(incident)))
+
+
+                #num_incidents = len(incidents)
+                #state = None
+                #if num_incidents == 4:
+                #    state = NodeState.KNOWN
+
+                # Len or 1 or 2.
+                # incident_edges_on_path = [
+                #     incident
+                #     for incident in incidents
+                #     if set(path).issuperset(set(incident))
+                # ]
+                # from itertools import tee
+                # def pairwise(iterable):
+                #     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+                #     a, b = tee(iterable)
+                #     next(b, None)
+                #     return zip(a, b)
+
+
+                print('        in:', path.in_edges(node))
+                print('        out:', path.out_edges(node))
+                in_edge = next(iter(path.in_edges(node)), None)
+                out_edge = next(iter(path.out_edges(node)), None)
+
+
+                for block in g:
+                    # print('    block:', list(block))
+                    # print('    forward ->', list(block.edges_forward), ':', in_edge in block.edges_forward, out_edge in block.edges_forward)
+                    # print('    reverse ->', list(block.edges_reverse), ':', in_edge in block.edges_reverse, out_edge in block.edges_reverse)
+                    if in_edge in block.edges_forward and out_edge in block.edges_forward:
+                        print('    INNER CORNER')
+                    elif in_edge in block.edges_reverse and out_edge in block.edges_reverse:
+                        print('    OUTER CORNER')
+                    #else:
+                    #    print('    STRAIGHT?')
+                continue
+
+                # Also test that these are faces...
+                incident_blocks = [
+                    b
+                    for b in g
+                    if set(b) & set([node])
+                ]
+                print('        incident_blocks:', incident_blocks)
+
+                for block in incident_blocks:
+                    if all([
+                        set(block).issuperset(set(edge))
+                        for edge in incident_edges_on_path
+                    ]):
+                        print('        NODE IS A CORNER:', node)
+                        print('        edges:', str(incident_edges_on_path), 'block:', str(list(block)), '->', any([edge in block for edge in incident_edges_on_path]))
+                        break
+                else:
+                    print('        NODE IS STRAIGHT:', node)
+
+            prev_node = node
+
+
+
+            # Last node is unnecessary as there is no out edge...
+            #print('    node:', node, 'incidents:', incidents, 'state:', state, 'incident blocks:', [str(type(b)) + ' ' + str(b) for b in incident_blocks])
+
+        return
 
 
         # Find root node.
@@ -196,6 +269,7 @@ class Layouter(object):
 
     def run(self):
         bg = self.get_block_graph()
+        return
         self.bfs(bg)
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))

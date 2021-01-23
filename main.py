@@ -14,4 +14,5 @@ GRID_PATH = 'data/grid3.gexf'
 if __name__ == '__main__':
     gen = MapGenerator(GRID_PATH)
     map_ = gen.run()
-    utils.draw_map(map_)
+
+    #utils.draw_map(map_)
