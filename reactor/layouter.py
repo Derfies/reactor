@@ -69,8 +69,8 @@ class Layouter(object):
 
         # Find path from N1 to N13.
         #print(list(self.g))
-        paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
-        for path in (['N1', 'N4', 'N3', 'N6', 'N15', 'N14', 'N13'],):#
+        #paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
+        for path in (['N5', 'N6', 'N14', 'N19'],):#
 
             #print('\npath:', path)
 
