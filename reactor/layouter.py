@@ -68,11 +68,11 @@ class Layouter(object):
         g.add_edges_from(edges)
 
         # Find path from N1 to N13.
-        print(list(self.g))
+        #print(list(self.g))
         paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
         for path in (['N1', 'N4', 'N3', 'N6', 'N15', 'N14', 'N13'],):#
 
-            print('\npath:', path)
+            #print('\npath:', path)
 
             # Find the components that lie on this path.
             # for block in g:
@@ -133,44 +133,82 @@ class Layouter(object):
                 #     return zip(a, b)
 
 
-                print('        in:', path.in_edges(node))
-                print('        out:', path.out_edges(node))
+                # *************************
+
+                # If num incident face blocks is 1, then the node is on an edge
+                # with the external face and can have angles of 90, 0, -90
+                # degrees (providing the adjoining face has the number of verts
+                # to allow this).
+
+                # If the num incident face blocks is 2, then the node is on an
+                # edge between two interior faces and can have angles of 90, 0,
+                # -90 degrees (providing the adjoining face has the number of
+                # verts to allow this).
+
+                # If the num incident face blocks is 3, then the node is on an
+                # edge between three interior faces and can have angles of 90,
+                # 0 or -90 and 0. If the path is along two edges of the same
+                # face then there are two possible angles (the sign coming from
+                # turning left or right which is divined from the winding order
+                # of the adjoining face). Look to the number of verts of each
+                # adjoining face to see what angles they will allow.
+
+                # If the num incident face blocks is 4, then we should be able
+                # to divine exactly which angle the node must be. If the path
+                # is contained on the same face then the angle is either 90 or
+                # -90 depending on the winding order. If the path is along
+                # different faces then the angle is 0.
+
+
+
                 in_edge = next(iter(path.in_edges(node)), None)
                 out_edge = next(iter(path.out_edges(node)), None)
+                print('        in_edge:', in_edge)
+                print('        out_edge:', out_edge)
 
+                direction = None
+                same_face = False
+                node_blocks = [block for block in g if node in block]
+                print('        num adj blocks:', len(node_blocks))
+                for block in node_blocks:
 
-                for block in g:
-                    # print('    block:', list(block))
-                    # print('    forward ->', list(block.edges_forward), ':', in_edge in block.edges_forward, out_edge in block.edges_forward)
-                    # print('    reverse ->', list(block.edges_reverse), ':', in_edge in block.edges_reverse, out_edge in block.edges_reverse)
+                    # TODO: Try to get direction when in / out edge is None
                     if in_edge in block.edges_forward and out_edge in block.edges_forward:
-                        print('    INNER CORNER')
+                        #print('    INNER CORNER')
+                        direction = 'clockwise'
+                        same_face = True
+                        break
                     elif in_edge in block.edges_reverse and out_edge in block.edges_reverse:
-                        print('    OUTER CORNER')
-                    #else:
-                    #    print('    STRAIGHT?')
+                        #print('    OUTER CORNER')
+                        direction = 'anti-clockwise'
+                        same_face = True
+                        break
+
+                # Currently direction = None == same_face = False
+                print('    direction:', direction)
+                print('    same_face:', same_face)
                 continue
 
-                # Also test that these are faces...
-                incident_blocks = [
-                    b
-                    for b in g
-                    if set(b) & set([node])
-                ]
-                print('        incident_blocks:', incident_blocks)
-
-                for block in incident_blocks:
-                    if all([
-                        set(block).issuperset(set(edge))
-                        for edge in incident_edges_on_path
-                    ]):
-                        print('        NODE IS A CORNER:', node)
-                        print('        edges:', str(incident_edges_on_path), 'block:', str(list(block)), '->', any([edge in block for edge in incident_edges_on_path]))
-                        break
-                else:
-                    print('        NODE IS STRAIGHT:', node)
-
-            prev_node = node
+            #     # Also test that these are faces...
+            #     incident_blocks = [
+            #         b
+            #         for b in g
+            #         if set(b) & set([node])
+            #     ]
+            #     print('        incident_blocks:', incident_blocks)
+            #
+            #     for block in incident_blocks:
+            #         if all([
+            #             set(block).issuperset(set(edge))
+            #             for edge in incident_edges_on_path
+            #         ]):
+            #             print('        NODE IS A CORNER:', node)
+            #             print('        edges:', str(incident_edges_on_path), 'block:', str(list(block)), '->', any([edge in block for edge in incident_edges_on_path]))
+            #             break
+            #     else:
+            #         print('        NODE IS STRAIGHT:', node)
+            #
+            # prev_node = node
 
 
 
