@@ -8,6 +8,7 @@ from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
+from reactor.const import Angle
 from reactor.layouters.facelayouter import NodeState
 
 
@@ -67,10 +68,34 @@ class Layouter(object):
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
         g.add_edges_from(edges)
 
+        print('num_blocks:', len(g))
+        for n in g:
+            print('block:', n)
+
         # Find path from N1 to N13.
         #print(list(self.g))
         #paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
-        for path in (['N5', 'N6', 'N14', 'N19'],):#
+        my_path = [
+            'N2',
+            'N1',
+            'N5',
+            'N4',
+            'N6',
+            'N39',
+            'N41',
+            'N33',
+            'N34',
+            'N29',
+            'N30',
+            'N7',
+            'N14',
+            'N12',
+            'N19',
+            'N21',
+            'N23',
+            'N24'
+        ]
+        for path in (my_path,):
 
             #print('\npath:', path)
 
@@ -160,7 +185,8 @@ class Layouter(object):
                 # different faces then the angle is 0.
 
 
-
+                # TODO: If in_edge or out_edge is None then the angle could be
+                # anything, potentially even a hair-pin reflex angle.
                 in_edge = next(iter(path.in_edges(node)), None)
                 out_edge = next(iter(path.out_edges(node)), None)
                 print('        in_edge:', in_edge)
@@ -169,51 +195,72 @@ class Layouter(object):
                 direction = None
                 same_face = False
                 node_blocks = [block for block in g if node in block]
-                print('        num adj blocks:', len(node_blocks))
+                #print('        num adj blocks:', len(node_blocks))
+
+                # Give the number of available angles.
+                # 2 -> 3 angles to choose from.
+                # 3 -> 2 angles to choose from.
+                # 4 -> 1 angle to choose from.
+                num_incident_edges = len(self.g.edges(node))
+                #print('        num incident edges:', num_incident_edges)
+
+                # Find the cycle that lies on the path, if any.
                 for block in node_blocks:
 
-                    # TODO: Try to get direction when in / out edge is None
+                    # Can divine which angles we need by whether the face is on
+                    # the left or right side of the path.
                     if in_edge in block.edges_forward and out_edge in block.edges_forward:
-                        #print('    INNER CORNER')
-                        direction = 'clockwise'
-                        same_face = True
+                        angles = [Angle.OUTSIDE, Angle.STRAIGHT, Angle.INSIDE]
                         break
                     elif in_edge in block.edges_reverse and out_edge in block.edges_reverse:
-                        #print('    OUTER CORNER')
-                        direction = 'anti-clockwise'
-                        same_face = True
+                        angles = [Angle.INSIDE, Angle.STRAIGHT, Angle.OUTSIDE]
                         break
 
-                # Currently direction = None == same_face = False
-                print('    direction:', direction)
-                print('    same_face:', same_face)
+                else:
+
+                    # The only reason we wouldn't have a block on the path is
+                    # when there are 4 incident edges and the path goes through
+                    # the middle.
+                    angles = [Angle.STRAIGHT]
+                    block = None
+
+                max_num_angles = 5 - num_incident_edges
+                if block is not None:
+                    if len(block) == 4:
+                        max_num_angles = min(max_num_angles, 1)
+                        print('       #### can only be right angle!')
+                    elif len(block) == 5:
+                        print('       #### can only be right angle or straight!')
+                        max_num_angles = min(max_num_angles, 2)
+                    #print('        block size:', len(block))
+
+
+                    # Get the block(s) on the other side.
+                    other_blocks = set(node_blocks) - set([block])
+                    for o_block in other_blocks:
+                        print('    o_block:', len(o_block))
+
+                print('    max num angles:', max_num_angles)
+
+                # Trim off the number of possible angles by how many incident
+                # edges there are.
+                angles = angles[:max_num_angles]
+                print('    angles:', angles)
+
+
+                # New impl.
+                left = []
+                right = []
+                for block in node_blocks:
+                    edges = {in_edge, out_edge} & set(block.edges_forward)
+                    left.append(block) if edges else right.append(block)
+
+                print('    left:', left)
+                print('    right:', right)
+
                 continue
 
-            #     # Also test that these are faces...
-            #     incident_blocks = [
-            #         b
-            #         for b in g
-            #         if set(b) & set([node])
-            #     ]
-            #     print('        incident_blocks:', incident_blocks)
-            #
-            #     for block in incident_blocks:
-            #         if all([
-            #             set(block).issuperset(set(edge))
-            #             for edge in incident_edges_on_path
-            #         ]):
-            #             print('        NODE IS A CORNER:', node)
-            #             print('        edges:', str(incident_edges_on_path), 'block:', str(list(block)), '->', any([edge in block for edge in incident_edges_on_path]))
-            #             break
-            #     else:
-            #         print('        NODE IS STRAIGHT:', node)
-            #
-            # prev_node = node
 
-
-
-            # Last node is unnecessary as there is no out edge...
-            #print('    node:', node, 'incidents:', incidents, 'state:', state, 'incident blocks:', [str(type(b)) + ' ' + str(b) for b in incident_blocks])
 
         return
 
