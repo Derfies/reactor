@@ -292,8 +292,12 @@ class Layouter(object):
                 angles = set(list(Angle))
                 if len(rights) > 1:
                     angles.discard(Angle.INSIDE)
+                    if len(rights) == 2 and max([len(right) for right in rights]) == 4:
+                        angles.discard(Angle.OUTSIDE)
                 if len(lefts) > 1:
                     angles.discard(Angle.OUTSIDE)
+                    if len(lefts) == 2 and max([len(left) for left in lefts]) == 4:
+                        angles.discard(Angle.INSIDE)
                 if len(lefts) > 2 or len(rights) > 2:
                     angles.discard(Angle.STRAIGHT)
 
