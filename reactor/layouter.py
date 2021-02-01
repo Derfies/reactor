@@ -93,7 +93,13 @@ class Layouter(object):
             'N19',
             'N21',
             'N23',
-            'N24'
+            'N24',
+            'N43',
+            'N44',
+            'N47',
+            'N48',
+            'N50',
+            'N51'
         ]
         for path in (my_path,):
 
@@ -192,27 +198,18 @@ class Layouter(object):
                 print('        in_edge:', in_edge)
                 print('        out_edge:', out_edge)
 
-                direction = None
-                same_face = False
+                # Find the cycle that lies on the path if there is one.
                 node_blocks = [block for block in g if node in block]
-                #print('        num adj blocks:', len(node_blocks))
-
-                # Give the number of available angles.
-                # 2 -> 3 angles to choose from.
-                # 3 -> 2 angles to choose from.
-                # 4 -> 1 angle to choose from.
-                num_incident_edges = len(self.g.edges(node))
-                #print('        num incident edges:', num_incident_edges)
-
-                # Find the cycle that lies on the path, if any.
                 for block in node_blocks:
 
                     # Can divine which angles we need by whether the face is on
                     # the left or right side of the path.
-                    if in_edge in block.edges_forward and out_edge in block.edges_forward:
+                    edges_forward = set(block.edges_forward)
+                    edges_reverse = set(block.edges_reverse)
+                    if edges_forward.issuperset({in_edge, out_edge}):
                         angles = [Angle.OUTSIDE, Angle.STRAIGHT, Angle.INSIDE]
                         break
-                    elif in_edge in block.edges_reverse and out_edge in block.edges_reverse:
+                    elif edges_reverse.issuperset({in_edge, out_edge}):
                         angles = [Angle.INSIDE, Angle.STRAIGHT, Angle.OUTSIDE]
                         break
 
@@ -224,23 +221,36 @@ class Layouter(object):
                     angles = [Angle.STRAIGHT]
                     block = None
 
+                num_incident_edges = len(self.g.edges(node))
                 max_num_angles = 5 - num_incident_edges
                 if block is not None:
+
                     if len(block) == 4:
                         max_num_angles = min(max_num_angles, 1)
-                        print('       #### can only be right angle!')
+                        print(f'    reduced max_num_angles to: {max_num_angles} because of 4 sided')
                     elif len(block) == 5:
-                        print('       #### can only be right angle or straight!')
                         max_num_angles = min(max_num_angles, 2)
-                    #print('        block size:', len(block))
+                        print(f'    reduced max_num_angles to: {max_num_angles} because of 5 sided')
 
 
-                    # Get the block(s) on the other side.
-                    other_blocks = set(node_blocks) - set([block])
-                    for o_block in other_blocks:
-                        print('    o_block:', len(o_block))
 
-                print('    max num angles:', max_num_angles)
+                        # Get the block(s) on the other side.
+                        # If one of the blocks on the other side is 4, then it can't
+                        # be an "inward" angle.
+                        other_blocks = set(node_blocks) - set([block])
+                        for o_block in other_blocks:
+                            print('    o_block:', len(o_block))
+
+                        if other_blocks:
+                            lens = [len(b) for b in other_blocks]
+                            min_len = min(lens)
+                            print('    min len:', min_len)
+                            if min_len == 4 or min_len == 5:
+                                angles.pop(0)
+                                max_num_angles = -1
+
+
+                #print('    max num angles:', max_num_angles)
 
                 # Trim off the number of possible angles by how many incident
                 # edges there are.
@@ -248,15 +258,75 @@ class Layouter(object):
                 print('    angles:', angles)
 
 
-                # New impl.
-                left = []
-                right = []
-                for block in node_blocks:
-                    edges = {in_edge, out_edge} & set(block.edges_forward)
-                    left.append(block) if edges else right.append(block)
 
-                print('    left:', left)
-                print('    right:', right)
+                # New impl.
+
+                # Split blocks into those on the left of the line and those on
+                # the right of the line.
+                lefts, rights, orphans = [], [], []
+                for block in node_blocks:
+                    if set(block.edges_forward) & {in_edge, out_edge}:
+                        lefts.append(block)
+                    elif set(block.edges_reverse) & {in_edge, out_edge}:
+                        rights.append(block)
+                    else:
+                        orphans.append(block)
+
+                assert not set(lefts) & set(rights), 'cant be on both sides, buddy'
+                assert len(orphans) < 2, 'Should be max 1 orphan'
+                if orphans:
+                    assert len(lefts) != len(rights), 'Shouldnt have an orphan plus equal lefts and rights'
+
+                # If there are any blocks unaccounted for, these are added to
+                # the side with more blocks (ie a corner)
+                if orphans:
+                    (lefts if len(lefts) > len(rights) else rights).extend(orphans)
+                    #print('   #### added orphan')
+
+                print('    left', len(lefts), [str(b) for b in lefts])
+                print('    right', len(rights), [str(b) for b in rights])
+                # print('    orphans', len(orphans), [str(b) for b in orphans])
+
+                # If there's more than one block on the left side, we can't turn
+                # outwards.
+                angles = set(list(Angle))
+                if len(rights) > 1:
+                    angles.discard(Angle.INSIDE)
+                if len(lefts) > 1:
+                    angles.discard(Angle.OUTSIDE)
+                if len(lefts) > 2 or len(rights) > 2:
+                    angles.discard(Angle.STRAIGHT)
+
+                # If there is a single block on the right and it's a square,
+                # we HAVE to turn right.
+                if len(lefts) == 1:
+                    left_block = lefts[0]
+                    is_on_path = set(left_block.edges_forward).issuperset({in_edge, out_edge})
+                    if is_on_path:
+                        print('    is_on_path:', is_on_path)
+                        if len(left_block) < 6:
+                            angles.discard(Angle.INSIDE)
+                        if len(left_block) < 5:
+                            angles.discard(Angle.STRAIGHT)
+
+                # If there is a single block on the right and it's a square,
+                # we HAVE to turn right.
+                if len(rights) == 1:
+                    right_block = rights[0]
+                    is_on_path = set(right_block.edges_reverse).issuperset({in_edge, out_edge})
+                    if is_on_path:
+                        print('    is_on_path:', is_on_path)
+                        if len(right_block) < 6:
+                            angles.discard(Angle.OUTSIDE)
+                        if len(right_block) < 5:
+                            angles.discard(Angle.STRAIGHT)
+
+                print('    ANGLES:', angles)
+
+                assert angles, 'Need at least one angle'
+
+
+
 
                 continue
 
