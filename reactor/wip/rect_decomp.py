@@ -274,6 +274,10 @@ def split_concave(vertices):
                     closest_distance = x
                     closest_segment = h
 
+        # HAXXOR
+        if closest_segment is None:
+            continue
+
         # Create two splitting vertices.
         split_a = Vertex([v.point[0], closest_distance], 0, 0, False)
         split_b = Vertex([v.point[0], closest_distance], 0, 0, False)

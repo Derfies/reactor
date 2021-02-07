@@ -57,3 +57,7 @@ class FaceBlock(BlockBase):
     @property
     def edges_reverse(self):
         return iter([tuple(reversed(edge)) for edge in self.edges_forward])
+
+    @property
+    def nodes_forward(self):
+        return nx.dfs_preorder_nodes(self, self.source_edge[0])

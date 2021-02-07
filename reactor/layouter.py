@@ -157,3 +157,5 @@ class Layouter(object):
         self.bfs(bg)
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))
+
+        self._map.bg = bg
