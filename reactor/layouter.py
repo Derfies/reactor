@@ -1,4 +1,6 @@
+import abc
 import itertools as it
+import numpy as np
 import random
 
 import networkx as nx
@@ -10,6 +12,109 @@ from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
 from reactor.const import Angle
 from reactor.layouters.facelayouter import NodeState
+
+
+class WavefunctionBase(metaclass=abc.ABCMeta):
+
+    def __init__(self):
+        weights = [1, 1, 1]
+
+        self.weights = np.array(weights, dtype=np.float64)
+
+    @property
+    def collapsed(self):
+        num_states = np.count_nonzero(self.wave, axis=0)
+        unresolved = num_states > 1
+        return not np.any(unresolved)
+
+    def get_min_entropy_coords_offset(self):
+        return np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
+
+    def get_min_entropy_coords(self):
+        num_states = np.count_nonzero(self.wave, axis=0)
+        unresolved = num_states > 1
+        offset = self.get_min_entropy_coords_offset()
+        entropy = np.where(
+            unresolved,
+            num_states + offset,
+            np.inf,
+        )
+        print('entropy:', entropy)
+        index = np.argmin(entropy)
+        return np.unravel_index(index, entropy.shape)
+
+    def collapse(self, coords):
+        states = self.wave[(slice(None), *coords)]
+        weighted_states = self.weights * states
+        weighted_states /= weighted_states.sum()
+        index = np.random.choice(self.weights.size, p=weighted_states)
+        states[:] = False
+        states[index] = True
+
+    @abc.abstractmethod
+    def propagate(self):
+        """"""
+
+    def run(self):
+        while not self.collapsed:
+            coords = self.get_min_entropy_coords()
+            print('coords:', coords)
+            #print('face:', self.block_indices[coords[0]])
+            self.collapse(coords)
+            print('wave:', self.wave)
+            self.propagate()
+
+            #print('here')
+            raise
+
+
+class AngleWavefunction(WavefunctionBase):
+
+    """
+    Use this to replace the current cyclic layouter, however it doesn't so
+    edge lengths.
+
+    Do we care? What does that mean?
+
+    """
+
+    def __init__(self, g, block_g):
+        super().__init__()
+
+        self.g = g
+        self.block_g = block_g
+
+        #self.block_map = {}
+        self.block_indices = []
+        block_sizes = []
+        num_angles = 0
+        for block in self.block_g:
+            num_angles += len(block)
+            self.block_indices.extend([block] * len(block))
+            block_sizes.extend([len(block)] * len(block))
+
+        self.block_sizes = np.array(block_sizes)
+        #print(self.block_sizes)
+        #print(self.block_sizes.max())
+        #self.block_sizes = np.divide(self.block_sizes, self.block_sizes.max())
+        #print(self.block_sizes)
+        #
+        self.tiles = list(Angle)
+        #max_block_len = max([len(b) for b in self.block_g])
+        #
+        # # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
+        # # how many angles we have.
+        shape = (num_angles,)
+        final_shape = (len(self.tiles),) + shape
+        self.wave = np.ones(final_shape, dtype=bool)
+
+        print(self.wave.shape)
+
+    def get_min_entropy_coords_offset(self):
+        return self.block_sizes + super().get_min_entropy_coords_offset()
+
+    def propagate(self):
+        pass
 
 
 class Layouter(object):
@@ -130,6 +235,11 @@ class Layouter(object):
             # to the same face. If the path falls on the same face then the
             # angle is either inside or outside, depending on the path direction.
             # If the path falls on different faces then the angle is straight.
+            wf = AngleWavefunction(self.g, g)
+            #print(wf.wave.shape)
+
+            wf.run()
+            raise
             #prev_node = path[0]
             #for i, node in enumerate(path[:-1]):
             path = nx.path_graph(path, create_using=nx.DiGraph)#nx.DiGraph(self.g.subgraph(path))
@@ -227,10 +337,10 @@ class Layouter(object):
 
                     if len(block) == 4:
                         max_num_angles = min(max_num_angles, 1)
-                        print(f'    reduced max_num_angles to: {max_num_angles} because of 4 sided')
+                        #print(f'    reduced max_num_angles to: {max_num_angles} because of 4 sided')
                     elif len(block) == 5:
                         max_num_angles = min(max_num_angles, 2)
-                        print(f'    reduced max_num_angles to: {max_num_angles} because of 5 sided')
+                        #print(f'    reduced max_num_angles to: {max_num_angles} because of 5 sided')
 
 
 
@@ -238,13 +348,13 @@ class Layouter(object):
                         # If one of the blocks on the other side is 4, then it can't
                         # be an "inward" angle.
                         other_blocks = set(node_blocks) - set([block])
-                        for o_block in other_blocks:
-                            print('    o_block:', len(o_block))
+                        #for o_block in other_blocks:
+                            #print('    o_block:', len(o_block))
 
                         if other_blocks:
                             lens = [len(b) for b in other_blocks]
                             min_len = min(lens)
-                            print('    min len:', min_len)
+                            #print('    min len:', min_len)
                             if min_len == 4 or min_len == 5:
                                 angles.pop(0)
                                 max_num_angles = -1
@@ -255,7 +365,12 @@ class Layouter(object):
                 # Trim off the number of possible angles by how many incident
                 # edges there are.
                 angles = angles[:max_num_angles]
-                print('    angles:', angles)
+                #print('    angles:', angles)
+
+
+
+
+
 
 
 
@@ -298,6 +413,9 @@ class Layouter(object):
                     angles.discard(Angle.OUTSIDE)
                     if len(lefts) == 2 and max([len(left) for left in lefts]) == 4:
                         angles.discard(Angle.INSIDE)
+
+                # If there are more than two blocks on the left or the right,
+                # we can't go straight.
                 if len(lefts) > 2 or len(rights) > 2:
                     angles.discard(Angle.STRAIGHT)
 
@@ -324,6 +442,15 @@ class Layouter(object):
                             angles.discard(Angle.OUTSIDE)
                         if len(right_block) < 5:
                             angles.discard(Angle.STRAIGHT)
+
+                # REMAINING:
+                # Abstract the above.
+                # Fix issue when we have 4 incident edges but only 3 blocks
+                # See if the N44 issue is systemic
+                # Test non-cyclic blocks
+
+                # Both 4 and 5 sided quads can only ever be laid out as a square
+                # Squares decrease this thing I'm going to call "flexibility"
 
                 print('    ANGLES:', angles)
 
