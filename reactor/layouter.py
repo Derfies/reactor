@@ -178,9 +178,44 @@ class AngleWavefunction(WavefunctionBase):
         for coord in propagate_coords:
             self.propagate(coord)
 
-
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
+
+    def get_tile(self, coords):
+
+        states = self.wave[(slice(None), *coords)]
+        print('states:', states)
+        index = np.nonzero(states)
+
+        index = np.argmax(index)
+        print('index:', index)
+
+        return self.tiles[]
+        # print('states.shape:', states.shape)
+        # i = np.unravel_index(index, states.shape)
+        # print('i:', i)
+        '''
+        print('wave:', wave)
+        num_states = np.count_nonzero(wave, axis=0)
+        print('num_states:', num_states)
+        unresolved = num_states > 1
+        print('unresolved:', unresolved)
+        print('any unresolved:', np.any(unresolved))
+        assert not np.any(unresolved), 'Cannot resolve a tile'
+        '''
+
+        # offset = self.get_min_entropy_coords_offset()
+        # entropy = np.where(
+        #     unresolved,
+        #     num_states + offset,
+        #     np.inf,
+        # )
+        # index = np.argmin(entropy)
+        #return np.unravel_index(index, entropy.shape)
+
+        #index = np.nonzero(wave)#[0][0]  # Use unravel here..?
+
+        #return index#self.tiles[index]
 
     def propagate(self, coords):
 
@@ -227,8 +262,8 @@ class AngleWavefunction(WavefunctionBase):
             neighbors = list(self.g.neighbors(node))
             if len(neighbors) == 2 and is_collapsed:
                 print('    ******* CAN PROPAGATE HERE!')
-
-                other = Angle(180 - (360 - total))
+                print(self.get_tile(cur_coords))
+                #other = Angle(180 - (360 - total))
 
 
 class Layouter(object):
