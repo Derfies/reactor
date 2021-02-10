@@ -21,9 +21,9 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
         self.weights = np.array(weights, dtype=np.float64)
 
-    @property
-    def collapsed(self):
-        num_states = np.count_nonzero(self.wave, axis=0)
+    #@property
+    def is_collapsed(self, wave):
+        num_states = np.count_nonzero(wave, axis=0)
         unresolved = num_states > 1
         return not np.any(unresolved)
 
@@ -90,7 +90,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             print('\n*********contradiction??')
 
     def run(self):
-        while not self.collapsed:
+        while not self.is_collapsed(self.wave):
             coords = self.get_min_entropy_coords()
             self.collapse(coords)
             self.propagate(coords)
@@ -113,25 +113,27 @@ class AngleWavefunction(WavefunctionBase):
         self.g = g
         self.block_g = block_g
 
-        self.block_indices = []
+        self.wave_to_block = []
         self.block_sizes = []
         self.block_edges = []
+        self.block_ranges = []
         num_angles = 0
 
-        self.wave_index_to_node = []
+        self.wave_to_node = []
         self.node_to_block = {}
-
-
+        m = 0
         for block_index, block in enumerate(self.block_g):
             nodes = list(block.nodes)
             num_angles += len(block)
-            self.block_indices.extend([block] * len(block))
+            self.wave_to_block.extend([block] * len(block))
             self.block_sizes.extend([len(block)] * len(block))
             for i, edge in enumerate(block.edges_forward):
                 self.block_edges.append(edge)
                 node = nodes[i]
-                self.wave_index_to_node.append(node)
+                self.wave_to_node.append(node)
                 self.node_to_block.setdefault(node, set()).add(block)
+                self.block_ranges.append((m, m + len(block)))
+            m += len(block)
 
         self.tiles = list(Angle)
         print('tiles:', self.tiles)
@@ -143,6 +145,7 @@ class AngleWavefunction(WavefunctionBase):
         self.wave = np.ones(final_shape, dtype=bool)
 
         # We can collapse some angles based on a few assumptions already.
+        propagate_coords = []
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
         start = 0
@@ -155,6 +158,9 @@ class AngleWavefunction(WavefunctionBase):
                 block_wave[:][outside_index] = False
                 if block_len < 5:
                     block_wave[:][straight_index] = False
+
+                for x in range(start, stop):
+                    propagate_coords.append((x,))
             start += block_len
 
         # DEBUG
@@ -169,13 +175,17 @@ class AngleWavefunction(WavefunctionBase):
             print('block wave:\n', block_wave)
             start += block_len
 
+        for coord in propagate_coords:
+            self.propagate(coord)
+
 
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def propagate(self, coords):
 
-
+        print('')
+        print('PROPAGATE:', coords)
 
         stack = [coords]
 
@@ -183,51 +193,42 @@ class AngleWavefunction(WavefunctionBase):
             cur_coords = stack.pop()
 
             angle_index = cur_coords[0]
-            block_index = self.block_indices[angle_index]
-            block_size = self.block_sizes[angle_index]
-            edge_index = self.block_edges[angle_index]
+            block = self.wave_to_block[angle_index]
+            #block_size = self.block_sizes[angle_index]
+            #edge_index = self.block_edges[angle_index]
             print('    coords:', cur_coords)
-            print('    block_index:', block_index)
-            print('    block_size:', block_size)
-            print('    edge_index:', edge_index)
+            print('    block:', block)
+            #print('    block_size:', block_size)
+            #print('    edge_index:', edge_index)
 
-            value = self.wave[(slice(None), angle_index)]
-            index = np.nonzero(value)[0][0] # Use unravel here..?
-            angle = list(Angle)[index]
-            print('    value:', value)
-            print('    index:', index)
-            print('    angle:', angle)
+            #value = self.wave[(slice(None), angle_index)]
+            #index = np.nonzero(value)[0][0] # Use unravel here..?
+            #angle = self.tiles[index]
+            # print('    value:', value)
+            # print('    index:', index)
+            # print('    angle:', angle)
 
-            node = self.wave_index_to_node[angle_index]
+            node = self.wave_to_node[angle_index]
             print('    node:', node)
-            block = self.node_to_block[node]
-            print('    blocks:', block)
+            blocks = self.node_to_block[node]
+            print('    blocks:', blocks)
 
-            #block_slice = slice(node_index, node_index + len(block))
-            # # Get the set of all possible tiles at the current location
-            # cur_possible_tiles = self.wavefunction.get(cur_coords)
-            #
-            # # Iterate through each location immediately adjacent to the
-            # # current location.
-            # for d in valid_dirs(cur_coords, self.output_size):
-            #     other_coords = (cur_coords[0] + d[0], cur_coords[1] + d[1])
-            #
-            #     # Iterate through each possible tile in the adjacent location's
-            #     # wavefunction.
-            #     for other_tile in set(self.wavefunction.get(other_coords)):
-            #         # Check whether the tile is compatible with any tile in
-            #         # the current location's wavefunction.
-            #         other_tile_is_possible = any([
-            #             self.compatibility_oracle.check(cur_tile, other_tile, d)
-            #             for cur_tile in cur_possible_tiles
-            #         ])
-            #         # If the tile is not compatible with any of the tiles in
-            #         # the current location's wavefunction then it is impossible
-            #         # for it to ever get chosen. We therefore remove it from
-            #         # the other location's wavefunction.
-            #         if not other_tile_is_possible:
-            #             self.wavefunction.constrain(other_coords, other_tile)
-            #             stack.append(other_coords)
+            start, stop = self.block_ranges[angle_index]
+            #stop = start + len(block)
+            wave_index = (slice(None), slice(start, stop))
+            block_wave = self.wave[wave_index]
+
+            #print('    block_wave:\n', block_wave)
+            is_collapsed = self.is_collapsed(block_wave)
+            #print('    is_collapsed:', is_collapsed)
+
+            #print(list(self.g.neighbors(node)))
+
+            neighbors = list(self.g.neighbors(node))
+            if len(neighbors) == 2 and is_collapsed:
+                print('    ******* CAN PROPAGATE HERE!')
+
+                other = Angle(180 - (360 - total))
 
 
 class Layouter(object):
@@ -351,7 +352,7 @@ class Layouter(object):
             wf = AngleWavefunction(self.g, g)
             #print(wf.wave.shape)
 
-            wf.run()
+            #wf.run()
             raise
             #prev_node = path[0]
             #for i, node in enumerate(path[:-1]):
