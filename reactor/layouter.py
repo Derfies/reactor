@@ -39,7 +39,6 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             num_states + offset,
             np.inf,
         )
-        print('entropy:', entropy)
         index = np.argmin(entropy)
         return np.unravel_index(index, entropy.shape)
 
@@ -51,20 +50,50 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         states[:] = False
         states[index] = True
 
-    @abc.abstractmethod
     def propagate(self):
-        """"""
+        last_count = self.wave.sum()
+
+        # could be const
+        pad_shape = ((0, 0),) + ((1, 1),) * (len(self.wave.shape) - 1)
+
+        while True:
+            padded = np.pad(
+                self.wave,
+                pad_shape,
+                mode='constant',
+                constant_values=True
+            )
+            supports = {}
+            for d in self.adj_matrices:
+
+                firsts = [1 + e for e in d]
+                dim = self.wave.shape[1:]
+                seconds = [
+                    dim[i] + firsts[i]
+                    for i in range(len(dim))
+                ]
+
+                index = [slice(None)]
+                for a, b in zip(firsts, seconds):
+                    index.append(slice(a, b))
+
+                shifted = padded[tuple(index)]
+                supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
+
+            for d in supports:
+                self.wave *= supports[d]
+            if self.wave.sum() == last_count:
+                break
+            last_count = self.wave.sum()
+
+        if (self.wave.sum(axis=0) == 0).any():
+            print('\n*********contradiction??')
 
     def run(self):
         while not self.collapsed:
             coords = self.get_min_entropy_coords()
-            print('coords:', coords)
-            #print('face:', self.block_indices[coords[0]])
             self.collapse(coords)
-            print('wave:', self.wave)
-            self.propagate()
-
-            #print('here')
+            self.propagate(coords)
             raise
 
 
@@ -84,37 +113,121 @@ class AngleWavefunction(WavefunctionBase):
         self.g = g
         self.block_g = block_g
 
-        #self.block_map = {}
         self.block_indices = []
-        block_sizes = []
+        self.block_sizes = []
+        self.block_edges = []
         num_angles = 0
-        for block in self.block_g:
+
+        self.wave_index_to_node = []
+        self.node_to_block = {}
+
+
+        for block_index, block in enumerate(self.block_g):
+            nodes = list(block.nodes)
             num_angles += len(block)
             self.block_indices.extend([block] * len(block))
-            block_sizes.extend([len(block)] * len(block))
+            self.block_sizes.extend([len(block)] * len(block))
+            for i, edge in enumerate(block.edges_forward):
+                self.block_edges.append(edge)
+                node = nodes[i]
+                self.wave_index_to_node.append(node)
+                self.node_to_block.setdefault(node, set()).add(block)
 
-        self.block_sizes = np.array(block_sizes)
-        #print(self.block_sizes)
-        #print(self.block_sizes.max())
-        #self.block_sizes = np.divide(self.block_sizes, self.block_sizes.max())
-        #print(self.block_sizes)
-        #
         self.tiles = list(Angle)
-        #max_block_len = max([len(b) for b in self.block_g])
-        #
-        # # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
-        # # how many angles we have.
+        print('tiles:', self.tiles)
+
+        # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
+        # how many angles we have.
         shape = (num_angles,)
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-        print(self.wave.shape)
+        # We can collapse some angles based on a few assumptions already.
+        outside_index = self.tiles.index(Angle.OUTSIDE)
+        straight_index = self.tiles.index(Angle.STRAIGHT)
+        start = 0
+        for block_index, block in enumerate(self.block_g):
+            block_len = len(block)
+            if block_len < 6:
+                stop = start + block_len
+                wave_index = (slice(None), slice(start, stop))
+                block_wave = self.wave[wave_index]
+                block_wave[:][outside_index] = False
+                if block_len < 5:
+                    block_wave[:][straight_index] = False
+            start += block_len
+
+        # DEBUG
+        start = 0
+        for block_index, block in enumerate(self.block_g):
+            block_len = len(block)
+            stop = start + block_len
+            wave_index = (slice(None), slice(start, stop))
+            block_wave = self.wave[wave_index]
+            print('')
+            print(f'block ({len(block)}):', block)
+            print('block wave:\n', block_wave)
+            start += block_len
+
 
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
-    def propagate(self):
-        pass
+    def propagate(self, coords):
+
+
+
+        stack = [coords]
+
+        while len(stack) > 0:
+            cur_coords = stack.pop()
+
+            angle_index = cur_coords[0]
+            block_index = self.block_indices[angle_index]
+            block_size = self.block_sizes[angle_index]
+            edge_index = self.block_edges[angle_index]
+            print('    coords:', cur_coords)
+            print('    block_index:', block_index)
+            print('    block_size:', block_size)
+            print('    edge_index:', edge_index)
+
+            value = self.wave[(slice(None), angle_index)]
+            index = np.nonzero(value)[0][0] # Use unravel here..?
+            angle = list(Angle)[index]
+            print('    value:', value)
+            print('    index:', index)
+            print('    angle:', angle)
+
+            node = self.wave_index_to_node[angle_index]
+            print('    node:', node)
+            block = self.node_to_block[node]
+            print('    blocks:', block)
+
+            #block_slice = slice(node_index, node_index + len(block))
+            # # Get the set of all possible tiles at the current location
+            # cur_possible_tiles = self.wavefunction.get(cur_coords)
+            #
+            # # Iterate through each location immediately adjacent to the
+            # # current location.
+            # for d in valid_dirs(cur_coords, self.output_size):
+            #     other_coords = (cur_coords[0] + d[0], cur_coords[1] + d[1])
+            #
+            #     # Iterate through each possible tile in the adjacent location's
+            #     # wavefunction.
+            #     for other_tile in set(self.wavefunction.get(other_coords)):
+            #         # Check whether the tile is compatible with any tile in
+            #         # the current location's wavefunction.
+            #         other_tile_is_possible = any([
+            #             self.compatibility_oracle.check(cur_tile, other_tile, d)
+            #             for cur_tile in cur_possible_tiles
+            #         ])
+            #         # If the tile is not compatible with any of the tiles in
+            #         # the current location's wavefunction then it is impossible
+            #         # for it to ever get chosen. We therefore remove it from
+            #         # the other location's wavefunction.
+            #         if not other_tile_is_possible:
+            #             self.wavefunction.constrain(other_coords, other_tile)
+            #             stack.append(other_coords)
 
 
 class Layouter(object):
@@ -173,9 +286,9 @@ class Layouter(object):
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
         g.add_edges_from(edges)
 
-        print('num_blocks:', len(g))
-        for n in g:
-            print('block:', n)
+        # print('num_blocks:', len(g))
+        # for n in g:
+        #     print('block:', n)
 
         # Find path from N1 to N13.
         #print(list(self.g))
