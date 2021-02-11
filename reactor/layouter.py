@@ -213,35 +213,16 @@ class AngleWavefunction(WavefunctionBase):
 
             angle_index = cur_coords[0]
             block = self.wave_to_block[angle_index]
-            #block_size = self.block_sizes[angle_index]
-            #edge_index = self.block_edges[angle_index]
+
             print('    coords:', cur_coords)
             print('    block:', block)
-            #print('    block_size:', block_size)
-            #print('    edge_index:', edge_index)
-
-            #value = self.wave[(slice(None), angle_index)]
-            #index = np.nonzero(value)[0][0] # Use unravel here..?
-            #angle = self.tiles[index]
-            # print('    value:', value)
-            # print('    index:', index)
-            # print('    angle:', angle)
 
             node = self.wave_to_node[angle_index]
-            print('    node:', node)
             blocks = self.node_to_block[node]
-            print('    blocks:', blocks)
-
             start, stop = self.block_ranges[angle_index]
-            #stop = start + len(block)
             wave_index = (slice(None), slice(start, stop))
             block_wave = self.wave[wave_index]
-
-            #print('    block_wave:\n', block_wave)
             is_collapsed = self.is_collapsed(block_wave)
-            #print('    is_collapsed:', is_collapsed)
-
-            #print(list(self.g.neighbors(node)))
 
             # TODO: If only one unknown angle remains for a block we can guess
             # what it is.
@@ -264,11 +245,8 @@ class AngleWavefunction(WavefunctionBase):
                     other = Angle(180 - (360 - total))
                     print('        other:', other)
 
-                    #other_index = self.tiles.index(other)
                     self.collapse_to_tile((wave,), other)
-
                     stack.append((wave,))
-
 
 
 class Layouter(object):
