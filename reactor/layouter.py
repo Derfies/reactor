@@ -42,6 +42,12 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         index = np.argmin(entropy)
         return np.unravel_index(index, entropy.shape)
 
+    def collapse_to_tile(self, coords, tile):
+        states = self.wave[(slice(None), *coords)]
+        states[:] = False
+        index = self.tiles.index(tile)
+        states[index] = True
+
     def collapse(self, coords):
         states = self.wave[(slice(None), *coords)]
         weighted_states = self.weights * states
@@ -121,7 +127,9 @@ class AngleWavefunction(WavefunctionBase):
 
         self.wave_to_node = []
         self.node_to_block = {}
+        self.node_to_waves = {}
         m = 0
+        wave_index = 0
         for block_index, block in enumerate(self.block_g):
             nodes = list(block.nodes)
             num_angles += len(block)
@@ -133,6 +141,9 @@ class AngleWavefunction(WavefunctionBase):
                 self.wave_to_node.append(node)
                 self.node_to_block.setdefault(node, set()).add(block)
                 self.block_ranges.append((m, m + len(block)))
+                self.node_to_waves.setdefault(node, set()).add(wave_index)
+
+                wave_index += 1
             m += len(block)
 
         self.tiles = list(Angle)
@@ -145,6 +156,8 @@ class AngleWavefunction(WavefunctionBase):
         self.wave = np.ones(final_shape, dtype=bool)
 
         # We can collapse some angles based on a few assumptions already.
+        # TODO: Can collapse nodes whose incident value equals their number of
+        # faces... I think.
         propagate_coords = []
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
@@ -164,16 +177,16 @@ class AngleWavefunction(WavefunctionBase):
             start += block_len
 
         # DEBUG
-        start = 0
-        for block_index, block in enumerate(self.block_g):
-            block_len = len(block)
-            stop = start + block_len
-            wave_index = (slice(None), slice(start, stop))
-            block_wave = self.wave[wave_index]
-            print('')
-            print(f'block ({len(block)}):', block)
-            print('block wave:\n', block_wave)
-            start += block_len
+        # start = 0
+        # for block_index, block in enumerate(self.block_g):
+        #     block_len = len(block)
+        #     stop = start + block_len
+        #     wave_index = (slice(None), slice(start, stop))
+        #     block_wave = self.wave[wave_index]
+        #     print('')
+        #     print(f'block ({len(block)}):', block)
+        #     print('block wave:\n', block_wave)
+        #     start += block_len
 
         for coord in propagate_coords:
             self.propagate(coord)
@@ -182,40 +195,11 @@ class AngleWavefunction(WavefunctionBase):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def get_tile(self, coords):
-
         states = self.wave[(slice(None), *coords)]
-        print('states:', states)
-        index = np.nonzero(states)
-
-        index = np.argmax(index)
-        print('index:', index)
-
-        return self.tiles[]
-        # print('states.shape:', states.shape)
-        # i = np.unravel_index(index, states.shape)
-        # print('i:', i)
-        '''
-        print('wave:', wave)
-        num_states = np.count_nonzero(wave, axis=0)
-        print('num_states:', num_states)
-        unresolved = num_states > 1
-        print('unresolved:', unresolved)
-        print('any unresolved:', np.any(unresolved))
-        assert not np.any(unresolved), 'Cannot resolve a tile'
-        '''
-
-        # offset = self.get_min_entropy_coords_offset()
-        # entropy = np.where(
-        #     unresolved,
-        #     num_states + offset,
-        #     np.inf,
-        # )
-        # index = np.argmin(entropy)
-        #return np.unravel_index(index, entropy.shape)
-
-        #index = np.nonzero(wave)#[0][0]  # Use unravel here..?
-
-        #return index#self.tiles[index]
+        nonzero = np.nonzero(states)
+        indices = nonzero[0]
+        assert indices.size == 1, 'Cannot resolve the tile'
+        return self.tiles[indices[0]]
 
     def propagate(self, coords):
 
@@ -259,11 +243,32 @@ class AngleWavefunction(WavefunctionBase):
 
             #print(list(self.g.neighbors(node)))
 
+            # TODO: If only one unknown angle remains for a block we can guess
+            # what it is.
+
             neighbors = list(self.g.neighbors(node))
             if len(neighbors) == 2 and is_collapsed:
                 print('    ******* CAN PROPAGATE HERE!')
-                print(self.get_tile(cur_coords))
-                #other = Angle(180 - (360 - total))
+                angle = self.get_tile(cur_coords)
+                print('    angle:', angle)
+                print('    node_to_waves:', self.node_to_waves[node])
+                for wave in self.node_to_waves[node]:
+
+                    adj_block = self.wave_to_block[wave]
+                    if adj_block == block:
+                        continue
+                    print('        wave:', wave)
+                    print('        wave node:', self.wave_to_node[wave])
+                    print('        wave block:', adj_block)
+                    total = angle
+                    other = Angle(180 - (360 - total))
+                    print('        other:', other)
+
+                    #other_index = self.tiles.index(other)
+                    self.collapse_to_tile((wave,), other)
+
+                    stack.append((wave,))
+
 
 
 class Layouter(object):
@@ -388,6 +393,20 @@ class Layouter(object):
             #print(wf.wave.shape)
 
             #wf.run()
+
+            # DEBUG
+            start = 0
+            for block_index, block in enumerate(wf.block_g):
+                block_len = len(block)
+                stop = start + block_len
+                wave_index = (slice(None), slice(start, stop))
+                block_wave = wf.wave[wave_index]
+                print('')
+                print(f'block ({len(block)}):', block)
+                print('block wave:\n', block_wave)
+                start += block_len
+
+
             raise
             #prev_node = path[0]
             #for i, node in enumerate(path[:-1]):
