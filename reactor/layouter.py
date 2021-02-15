@@ -21,7 +21,16 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
         self.weights = np.array(weights, dtype=np.float64)
 
-    #@property
+    def get_state(self, coords):
+        return self.wave[(slice(None), *coords)]
+
+    def get_tile(self, coords):
+        states = self.get_state(coords)#self.wave[(slice(None), *coords)]
+        nonzero = np.nonzero(states)
+        indices = nonzero[0]
+        assert indices.size == 1, 'Cannot resolve the tile'
+        return self.tiles[indices[0]]
+
     def is_collapsed(self, wave):
         num_states = np.count_nonzero(wave, axis=0)
         unresolved = num_states > 1
@@ -43,13 +52,13 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         return np.unravel_index(index, entropy.shape)
 
     def collapse_to_tile(self, coords, tile):
-        states = self.wave[(slice(None), *coords)]
-        states[:] = False
         index = self.tiles.index(tile)
+        states = self.get_state(coords)
+        states[:] = False
         states[index] = True
 
-    def collapse(self, coords):
-        states = self.wave[(slice(None), *coords)]
+    def collapse(self, coords): # TODO: Collapse to random
+        states = self.get_state(coords)
         weighted_states = self.weights * states
         weighted_states /= weighted_states.sum()
         index = np.random.choice(self.weights.size, p=weighted_states)
@@ -119,29 +128,29 @@ class AngleWavefunction(WavefunctionBase):
         self.g = g
         self.block_g = block_g
 
-        self.wave_to_block = []
+        self.index_to_block = []
         self.block_sizes = []
-        self.block_edges = []
-        self.block_ranges = []
+        #self.block_edges = []
+        #self.block_ranges = []
         num_angles = 0
 
-        self.wave_to_node = []
-        self.node_to_block = {}
-        self.node_to_waves = {}
+        self.index_to_node = []
+        #self.node_to_block = {}
+        self.node_to_indices = {}
         m = 0
         wave_index = 0
         for block_index, block in enumerate(self.block_g):
-            nodes = list(block.nodes)
+            #nodes = list(block.nodes)
             num_angles += len(block)
-            self.wave_to_block.extend([block] * len(block))
+            self.index_to_block.extend([block] * len(block))
             self.block_sizes.extend([len(block)] * len(block))
-            for i, edge in enumerate(block.edges_forward):
-                self.block_edges.append(edge)
-                node = nodes[i]
-                self.wave_to_node.append(node)
-                self.node_to_block.setdefault(node, set()).add(block)
-                self.block_ranges.append((m, m + len(block)))
-                self.node_to_waves.setdefault(node, set()).add(wave_index)
+            for i, node in enumerate(block.nodes_forward):
+                #self.block_edges.append(edge)
+                #node = nodes[i]
+                self.index_to_node.append(node)
+                #self.node_to_block.setdefault(node, set()).add(block)
+                #self.block_ranges.append((m, m + len(block)))
+                self.node_to_indices.setdefault(node, set()).add(wave_index)
 
                 wave_index += 1
             m += len(block)
@@ -151,6 +160,7 @@ class AngleWavefunction(WavefunctionBase):
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
         # how many angles we have.
+        print('num_angles:', num_angles)
         shape = (num_angles,)
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
@@ -158,50 +168,67 @@ class AngleWavefunction(WavefunctionBase):
         # We can collapse some angles based on a few assumptions already.
         # TODO: Can collapse nodes whose incident value equals their number of
         # faces... I think.
-        propagate_coords = []
+        propagate_indices = set()
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
         start = 0
         for block_index, block in enumerate(self.block_g):
             block_len = len(block)
             if block_len < 6:
-                stop = start + block_len
-                wave_index = (slice(None), slice(start, stop))
-                block_wave = self.wave[wave_index]
-                block_wave[:][outside_index] = False
+                block_slice = slice(start, start + block_len)
+                state = self.get_state((block_slice,))
+                state[:][outside_index] = False
+                print('    Removed angle:', Angle.OUTSIDE, 'from block:', block)
                 if block_len < 5:
-                    block_wave[:][straight_index] = False
-
-                for x in range(start, stop):
-                    propagate_coords.append((x,))
+                    state[:][straight_index] = False
+                    print('    Removed angle:', Angle.STRAIGHT, 'from block:', block)
+                propagate_indices.update(range(block_slice.start, block_slice.stop))
             start += block_len
 
-        # DEBUG
-        # start = 0
-        # for block_index, block in enumerate(self.block_g):
-        #     block_len = len(block)
-        #     stop = start + block_len
-        #     wave_index = (slice(None), slice(start, stop))
-        #     block_wave = self.wave[wave_index]
-        #     print('')
-        #     print(f'block ({len(block)}):', block)
-        #     print('block wave:\n', block_wave)
-        #     start += block_len
+        # Remove angle possibilities based on assumptions we can draw from
+        # the number of incident edges.
+        # 4 edges:  outside and straight angles are invalid (each angle must be
+        #           90 inside)
+        # 3 edges:  outside angles are invalid
+        for index in range(np.size(self.wave, axis=1)):
+            node = self.index_to_node[index]
+            neighbors = list(self.g.neighbors(node))
+            if len(neighbors) > 2:
+                state = self.get_state((index,))
+                state[outside_index] = False
+                print('    Removed angle:', Angle.OUTSIDE, 'from node:', node)
+                if len(neighbors) > 3:
+                    state[straight_index] = False
+                    print('    Removed angle:', Angle.STRAIGHT, 'from node:', node)
+                propagate_indices.add(index)
 
-        for coord in propagate_coords:
-            self.propagate(coord)
+
+        # for index in range(np.size(self.wave, axis=1)):
+        #     node = self.index_to_node[index]
+        #     block = self.index_to_block[index]
+        #     print('index:', index, '[{}]'.format(node), block)
+        #     print('states:', self.get_state((index,)))
+        #     print('')
+        # raise
+
+        for index in propagate_indices:
+            self.propagate((index,))
 
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
-    def get_tile(self, coords):
-        states = self.wave[(slice(None), *coords)]
-        nonzero = np.nonzero(states)
-        indices = nonzero[0]
-        assert indices.size == 1, 'Cannot resolve the tile'
-        return self.tiles[indices[0]]
-
     def propagate(self, coords):
+
+        """
+        Glossary of terms:
+
+        - block (face / cycle?)
+        - node
+        - edge
+        - wave vs states, what's the difference?
+        _ <something>_index - Index for something
+
+        """
 
         print('')
         print('PROPAGATE:', coords)
@@ -209,44 +236,130 @@ class AngleWavefunction(WavefunctionBase):
         stack = [coords]
 
         while len(stack) > 0:
+
+            print('')
             cur_coords = stack.pop()
+            print('    cur_coords:', cur_coords)
 
-            angle_index = cur_coords[0]
-            block = self.wave_to_block[angle_index]
-
-            print('    coords:', cur_coords)
+            index = cur_coords[0]
+            block = self.index_to_block[index]
             print('    block:', block)
 
-            node = self.wave_to_node[angle_index]
-            blocks = self.node_to_block[node]
-            start, stop = self.block_ranges[angle_index]
-            wave_index = (slice(None), slice(start, stop))
-            block_wave = self.wave[wave_index]
-            is_collapsed = self.is_collapsed(block_wave)
+            states = self.get_state(cur_coords)
+            print('    states:', states)
+
+            states_collapsed = self.is_collapsed(states)
+            print('    states collapsed:', states_collapsed)
+
+            node = self.index_to_node[index]
+            print('    node:', node)
+
+            adj_indices = set(self.node_to_indices[node])
+            #adj_indices.remove(index)
+            print('    adj_indices:', adj_indices)
+
+            total = 0
+            index_states = {}
+            index_angles = {}
+            for adj_index in adj_indices:
+                print('        adj_index:', adj_index)
+
+                adj_block = self.index_to_block[adj_index]
+                print('        adj_block:', adj_block)
+
+                adj_coords = (adj_index,)
+                adj_state = self.get_state(adj_coords)
+                print('        adj_state:', adj_state)
+
+                adj_collapsed = self.is_collapsed(adj_state)
+                print('        adj_collapsed:', adj_collapsed)
+
+                if adj_collapsed:
+                    adj_angle = self.get_tile(adj_coords)
+                    total += adj_angle
+                    index_angles[adj_index] = adj_angle
+
+                index_states[adj_index] = NodeState.KNOWN if adj_collapsed else NodeState.UNKNOWN
+
+            neighbors = list(self.g.neighbors(node))
+            print('    len neighbors:', len(neighbors))
+            print('    index_angles:', index_angles)
+            print('    index_states:', index_states)
+
+            print('    list of angles:', list(Angle))
+
+            print('    total:', total)
+
+
+            """
+            Data points:
+            - Num adj blocks / faces
+            - Num adj edges (incidents)
+            - Known angles
+            
+            Rules:
+            - If num incidents is 4, all angles are known to be 90 inner, regardless of num adj blocks (3 or 4)
+            - 
+            
+            - Num adj edges: 4
+            
+                Don't need to know what the other angle values are. By definition,
+                if there are four incident edges then each interior angle *must*
+                be 90 degrees.
+            
+                - Num adj blocks: 4 -> INSIDE 90
+                - Num adj blocks: 3 -> INSIDE 90
+                
+            - Num adj edges: 3
+            
+                Hardest to predict since there's a lot going on here...
+                
+                - Num adj blocks: 3 -> INSIDE 90, STRAIGHT 0
+                - Num adj blocks: 2 -> INSIDE 90, STRAIGHT 0
+                
+            - Num adj edges: 2
+            
+                Easy to predict if the adjacent angle is known, as it's simply
+                the explementary angle, ie 360 - known angle.
+            
+                - Num adj blocks: 2 -> INSIDE 90, STRAIGHT 0, OUTSIDE -90
+                
+                Might be the hardest to collapse since there's no other data we
+                can gather about this node.
+                
+                - Num adj blocks: 1 -> INSIDE 90, STRAIGHT 0, OUTSIDE -90
+            """
 
             # TODO: If only one unknown angle remains for a block we can guess
             # what it is.
 
-            neighbors = list(self.g.neighbors(node))
-            if len(neighbors) == 2 and is_collapsed:
-                print('    ******* CAN PROPAGATE HERE!')
-                angle = self.get_tile(cur_coords)
-                print('    angle:', angle)
-                print('    node_to_waves:', self.node_to_waves[node])
-                for wave in self.node_to_waves[node]:
+            # for adj_index in self.node_to_indices[node]:
+            #     if adj_index == index:
+            #         continue
 
-                    adj_block = self.wave_to_block[wave]
-                    if adj_block == block:
+            '''
+            neighbors = list(self.g.neighbors(node))
+            if len(neighbors) == 2 and states_collapsed:
+
+                for adj_index in self.node_to_indices[node]:
+                    if adj_index == index:
                         continue
-                    print('        wave:', wave)
-                    print('        wave node:', self.wave_to_node[wave])
-                    print('        wave block:', adj_block)
+
+                    print('        wave:', adj_index)
+                    print('        wave node:', self.index_to_node[adj_index])
+                    adj_states = self.get_states((adj_index,))
+                    if self.is_collapsed(adj_states):
+                        print('        skipping as already collapsed!')
+                        continue
+                    print('        wave states:', adj_states)
+                    angle = self.get_tile(cur_coords)
                     total = angle
                     other = Angle(180 - (360 - total))
                     print('        other:', other)
-
-                    self.collapse_to_tile((wave,), other)
-                    stack.append((wave,))
+                    self.collapse_to_tile((adj_index,), other)
+                    print('    NEXT coords:', (adj_index,))
+                    stack.append((adj_index,))
+            '''
 
 
 class Layouter(object):
@@ -373,16 +486,16 @@ class Layouter(object):
             #wf.run()
 
             # DEBUG
-            start = 0
-            for block_index, block in enumerate(wf.block_g):
-                block_len = len(block)
-                stop = start + block_len
-                wave_index = (slice(None), slice(start, stop))
-                block_wave = wf.wave[wave_index]
-                print('')
-                print(f'block ({len(block)}):', block)
-                print('block wave:\n', block_wave)
-                start += block_len
+            # start = 0
+            # for block_index, block in enumerate(wf.block_g):
+            #     block_len = len(block)
+            #     stop = start + block_len
+            #     wave_index = (slice(None), slice(start, stop))
+            #     block_wave = wf.wave[wave_index]
+            #     print('')
+            #     print(f'block ({len(block)}):', block)
+            #     print('block wave:\n', block_wave)
+            #     start += block_len
 
 
             raise
