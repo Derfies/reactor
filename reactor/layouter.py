@@ -109,7 +109,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             coords = self.get_min_entropy_coords()
             self.collapse(coords)
             self.propagate(coords)
-            raise
+            #raise
 
 
 class AngleWavefunction(WavefunctionBase):
@@ -239,56 +239,67 @@ class AngleWavefunction(WavefunctionBase):
 
             print('')
             cur_coords = stack.pop()
-            print('    cur_coords:', cur_coords)
+
+            state = self.get_state(cur_coords)
+            angle = None
+            state_collapsed = self.is_collapsed(state)
+            if state_collapsed:
+                angle = self.get_tile(cur_coords)
 
             index = cur_coords[0]
-            block = self.index_to_block[index]
-            print('    block:', block)
-
-            states = self.get_state(cur_coords)
-            print('    states:', states)
-
-            states_collapsed = self.is_collapsed(states)
-            print('    states collapsed:', states_collapsed)
-
             node = self.index_to_node[index]
-            print('    node:', node)
+            block = self.index_to_block[index]
+            print('    index:', index, 'node:', node, angle, '->', block)
 
-            adj_indices = set(self.node_to_indices[node])
+            #adj_indices = set(self.node_to_indices[node])
             #adj_indices.remove(index)
-            print('    adj_indices:', adj_indices)
+            #print('    adj_indices:', adj_indices)
 
-            total = 0
-            index_states = {}
-            index_angles = {}
-            for adj_index in adj_indices:
-                print('        adj_index:', adj_index)
+            # total = 0
+            # index_states = {}
+            # index_angles = {}
+            # for adj_index in adj_indices:
+            #     #print('        adj_index:', adj_index)
+            #
+            #     adj_block = self.index_to_block[adj_index]
+            #     #print('        adj_block:', adj_block)
+            #
+            #     adj_coords = (adj_index,)
+            #     adj_state = self.get_state(adj_coords)
+            #     #print('        adj_state:', adj_state)
+            #
+            #     adj_collapsed = self.is_collapsed(adj_state)
+            #     #print('        adj_collapsed:', adj_collapsed)
+            #
+            #     if adj_collapsed:
+            #         adj_angle = self.get_tile(adj_coords)
+            #         total += adj_angle
+            #         index_angles[adj_index] = adj_angle
+            #
+            #     index_states[adj_index] = NodeState.KNOWN if adj_collapsed else NodeState.UNKNOWN
 
-                adj_block = self.index_to_block[adj_index]
-                print('        adj_block:', adj_block)
-
-                adj_coords = (adj_index,)
-                adj_state = self.get_state(adj_coords)
-                print('        adj_state:', adj_state)
-
-                adj_collapsed = self.is_collapsed(adj_state)
-                print('        adj_collapsed:', adj_collapsed)
-
-                if adj_collapsed:
-                    adj_angle = self.get_tile(adj_coords)
-                    total += adj_angle
-                    index_angles[adj_index] = adj_angle
-
-                index_states[adj_index] = NodeState.KNOWN if adj_collapsed else NodeState.UNKNOWN
 
             neighbors = list(self.g.neighbors(node))
-            print('    len neighbors:', len(neighbors))
-            print('    index_angles:', index_angles)
-            print('    index_states:', index_states)
+            adj_indices = set(self.node_to_indices[node])
+            adj_indices.remove(index)
+            if adj_indices and len(neighbors) == 2:
+                adj_index = next(iter(adj_indices))
+                adj_state = self.get_state((adj_index,))
+                adj_collapsed = self.is_collapsed(adj_state)
+                if state_collapsed and not adj_collapsed:
+                    adj_block = self.index_to_block[adj_index]
+                    total = angle
+                    adj_angle = Angle(180 - (360 - total))
+                    self.collapse_to_tile((adj_index,), adj_angle)
+                    print('    index:', adj_index, 'node:', node, adj_angle, '->', adj_block)
+                    print('        adding:', adj_index, 'to stack')
 
-            print('    list of angles:', list(Angle))
+                    # Don't need to append here if all angles are collapsed.
+                    stack.append((adj_index,))
 
-            print('    total:', total)
+
+
+
 
 
             """
@@ -329,37 +340,6 @@ class AngleWavefunction(WavefunctionBase):
                 
                 - Num adj blocks: 1 -> INSIDE 90, STRAIGHT 0, OUTSIDE -90
             """
-
-            # TODO: If only one unknown angle remains for a block we can guess
-            # what it is.
-
-            # for adj_index in self.node_to_indices[node]:
-            #     if adj_index == index:
-            #         continue
-
-            '''
-            neighbors = list(self.g.neighbors(node))
-            if len(neighbors) == 2 and states_collapsed:
-
-                for adj_index in self.node_to_indices[node]:
-                    if adj_index == index:
-                        continue
-
-                    print('        wave:', adj_index)
-                    print('        wave node:', self.index_to_node[adj_index])
-                    adj_states = self.get_states((adj_index,))
-                    if self.is_collapsed(adj_states):
-                        print('        skipping as already collapsed!')
-                        continue
-                    print('        wave states:', adj_states)
-                    angle = self.get_tile(cur_coords)
-                    total = angle
-                    other = Angle(180 - (360 - total))
-                    print('        other:', other)
-                    self.collapse_to_tile((adj_index,), other)
-                    print('    NEXT coords:', (adj_index,))
-                    stack.append((adj_index,))
-            '''
 
 
 class Layouter(object):
@@ -483,7 +463,20 @@ class Layouter(object):
             wf = AngleWavefunction(self.g, g)
             #print(wf.wave.shape)
 
+
+
             #wf.run()
+
+            print('*' * 35)
+
+            for index in range(np.size(wf.wave, axis=1)):
+                node = wf.index_to_node[index]
+                block = wf.index_to_block[index]
+                state = wf.get_state((index,))
+                angle = None
+                if wf.is_collapsed(state):
+                    angle = wf.get_tile((index,))
+                print('node:', node, 'angle:', angle, 'block:', block)
 
             # DEBUG
             # start = 0
