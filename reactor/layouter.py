@@ -166,101 +166,88 @@ class AngleWavefunction(WavefunctionBase):
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-        # We can collapse some angles based on a few assumptions already.
-        # TODO: Can collapse nodes whose incident value equals their number of
-        # faces... I think.
-        propagate_indices = set()
-        outside_index = self.tiles.index(Angle.OUTSIDE)
-        straight_index = self.tiles.index(Angle.STRAIGHT)
-        start = 0
-        for block_index, block in enumerate(self.block_g):
-            block_len = len(block)
-            if block_len < 6:
-                block_slice = slice(start, start + block_len)
-                state = self.get_state((block_slice,))
-                state[:][outside_index] = False
-                print('    Removed angle:', Angle.OUTSIDE, 'from block:', block)
-                if block_len < 5:
-                    state[:][straight_index] = False
-                    print('    Removed angle:', Angle.STRAIGHT, 'from block:', block)
-                propagate_indices.update(range(block_slice.start, block_slice.stop))
-            start += block_len
-
-            self.collapse_non_valid_angles(block)
-
         # Remove angle possibilities based on assumptions we can draw from
         # the number of incident edges.
         # 4 edges:  outside and straight angles are invalid (each angle must be
         #           90 inside)
         # 3 edges:  outside angles are invalid
+        outside_index = self.tiles.index(Angle.OUTSIDE)
+        straight_index = self.tiles.index(Angle.STRAIGHT)
+        propagate_indices = set()
         for index in range(np.size(self.wave, axis=1)):
             node = self.index_to_node[index]
+            block = self.index_to_block[index]
             neighbors = list(self.g.neighbors(node))
             if len(neighbors) > 2:
                 state = self.get_state((index,))
                 state[outside_index] = False
-                print('    Removed angle:', Angle.OUTSIDE, 'from node:', node)
+                print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
                 if len(neighbors) > 3:
                     state[straight_index] = False
-                    print('    Removed angle:', Angle.STRAIGHT, 'from node:', node)
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
                 propagate_indices.add(index)
 
+        # Collapse any states we can by block.
+        for block in self.block_g:
+            propagate_indices.update(self.collapse_non_valid_angles(block))
 
-        # for index in range(np.size(self.wave, axis=1)):
-        #     node = self.index_to_node[index]
-        #     block = self.index_to_block[index]
-        #     print('index:', index, '[{}]'.format(node), block)
-        #     print('states:', self.get_state((index,)))
-        #     print('')
-        # raise
-
+        # Propagate changes for indices that changed.
         for index in propagate_indices:
             self.propagate((index,))
 
     def collapse_non_valid_angles(self, block):
 
-        print('block:', block, 'collapse:', self.block_to_index_range[block])
-        return
+        print('\n    block:', block)
+        #return
 
         # The angles of the block the index belongs to may be guessed...
-        start, stop = self.index_to_block_index_range[index]
+        start, stop = self.block_to_index_range[block]
         block_slice = slice(start, stop)
         block_state = self.get_state((block_slice,))
         num_block_angles = stop - start
-        print('    num_block_angles:', num_block_angles)
+        print('    num_angles:', num_block_angles)
 
-        #num_uncollapsed = 0
         total = 0
         uncollapsed_indices = []
         for index in range(np.size(block_state, axis=1)):
             state = block_state[(slice(None), index)]
             print('    index:', index, state, self.is_collapsed(state))
-            if not self.is_collapsed(state):
-                #num_uncollapsed += 1
-                uncollapsed_indices.append(index)
-            else:
+            if self.is_collapsed(state):
                 total += self.get_tile((start + index,))
+            else:
+                uncollapsed_indices.append(index)
 
         num_spare_angles = len(uncollapsed_indices) - int((360 - total) / 90)
-
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
 
+        print('    uncollapsed_indices:', uncollapsed_indices)
+        print('    num_spare_angles:', num_spare_angles)
+
         # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
+        propagate = set()
         for i in uncollapsed_indices:
             state = block_state[(slice(None), i)]
+            index = i + start
+            propagate.add(index)
+            node = self.index_to_node[index]
             if num_spare_angles == 0:
-                print('    Remove STRAIGHT, OUTSIDE')
+                print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
+                print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
                 state[:][straight_index] = False
                 state[:][outside_index] = False
             elif num_spare_angles == 1:
-                print('    Remove OUTSIDE')
+                print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
                 state[:][outside_index] = False
             elif num_spare_angles == 2:
-                print('    Remove STRAIGHT')
+                print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
                 state[:][straight_index] = False
 
-        #print('-' * 35)
+        for index in range(np.size(block_state, axis=1)):
+            state = block_state[(slice(None), index)]
+            print('    index:', index, state, self.is_collapsed(state))
+
+        return propagate
 
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
@@ -319,7 +306,11 @@ class AngleWavefunction(WavefunctionBase):
                     # Don't need to append here if all angles are collapsed.
                     stack.append((adj_index,))
 
-            self.collapse_non_valid_angles(block)
+            for foo in self.collapse_non_valid_angles(block):
+                pass
+                #stack.append((foo,))
+
+            '''
 
             # The angles of the block the index belongs to may be guessed...
             start, stop = self.index_to_block_index_range[index]
@@ -385,6 +376,8 @@ class AngleWavefunction(WavefunctionBase):
             for index in range(np.size(block_state, axis=1)):
                 state = block_state[(slice(None), index)]
                 print('    index:', index, state, self.is_collapsed(state))
+                
+            '''
             """
             block_slice = slice(start, start + block_len)
             state = self.get_state((block_slice,))
