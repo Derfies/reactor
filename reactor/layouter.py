@@ -130,6 +130,8 @@ class AngleWavefunction(WavefunctionBase):
 
         self.index_to_block = []
         self.block_sizes = []
+        self.index_to_block_index_range = []
+        self.block_to_index_range = {}
         #self.block_edges = []
         #self.block_ranges = []
         num_angles = 0
@@ -145,12 +147,11 @@ class AngleWavefunction(WavefunctionBase):
             self.index_to_block.extend([block] * len(block))
             self.block_sizes.extend([len(block)] * len(block))
             for i, node in enumerate(block.nodes_forward):
-                #self.block_edges.append(edge)
-                #node = nodes[i]
                 self.index_to_node.append(node)
                 #self.node_to_block.setdefault(node, set()).add(block)
-                #self.block_ranges.append((m, m + len(block)))
+                self.index_to_block_index_range.append((m, m + len(block)))
                 self.node_to_indices.setdefault(node, set()).add(wave_index)
+                self.block_to_index_range[block] = m, m + len(block)
 
                 wave_index += 1
             m += len(block)
@@ -185,6 +186,8 @@ class AngleWavefunction(WavefunctionBase):
                 propagate_indices.update(range(block_slice.start, block_slice.stop))
             start += block_len
 
+            self.collapse_non_valid_angles(block)
+
         # Remove angle possibilities based on assumptions we can draw from
         # the number of incident edges.
         # 4 edges:  outside and straight angles are invalid (each angle must be
@@ -213,6 +216,51 @@ class AngleWavefunction(WavefunctionBase):
 
         for index in propagate_indices:
             self.propagate((index,))
+
+    def collapse_non_valid_angles(self, block):
+
+        print('block:', block, 'collapse:', self.block_to_index_range[block])
+        return
+
+        # The angles of the block the index belongs to may be guessed...
+        start, stop = self.index_to_block_index_range[index]
+        block_slice = slice(start, stop)
+        block_state = self.get_state((block_slice,))
+        num_block_angles = stop - start
+        print('    num_block_angles:', num_block_angles)
+
+        #num_uncollapsed = 0
+        total = 0
+        uncollapsed_indices = []
+        for index in range(np.size(block_state, axis=1)):
+            state = block_state[(slice(None), index)]
+            print('    index:', index, state, self.is_collapsed(state))
+            if not self.is_collapsed(state):
+                #num_uncollapsed += 1
+                uncollapsed_indices.append(index)
+            else:
+                total += self.get_tile((start + index,))
+
+        num_spare_angles = len(uncollapsed_indices) - int((360 - total) / 90)
+
+        outside_index = self.tiles.index(Angle.OUTSIDE)
+        straight_index = self.tiles.index(Angle.STRAIGHT)
+
+        # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
+        for i in uncollapsed_indices:
+            state = block_state[(slice(None), i)]
+            if num_spare_angles == 0:
+                print('    Remove STRAIGHT, OUTSIDE')
+                state[:][straight_index] = False
+                state[:][outside_index] = False
+            elif num_spare_angles == 1:
+                print('    Remove OUTSIDE')
+                state[:][outside_index] = False
+            elif num_spare_angles == 2:
+                print('    Remove STRAIGHT')
+                state[:][straight_index] = False
+
+        #print('-' * 35)
 
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
@@ -251,34 +299,8 @@ class AngleWavefunction(WavefunctionBase):
             block = self.index_to_block[index]
             print('    index:', index, 'node:', node, angle, '->', block)
 
-            #adj_indices = set(self.node_to_indices[node])
-            #adj_indices.remove(index)
-            #print('    adj_indices:', adj_indices)
-
-            # total = 0
-            # index_states = {}
-            # index_angles = {}
-            # for adj_index in adj_indices:
-            #     #print('        adj_index:', adj_index)
-            #
-            #     adj_block = self.index_to_block[adj_index]
-            #     #print('        adj_block:', adj_block)
-            #
-            #     adj_coords = (adj_index,)
-            #     adj_state = self.get_state(adj_coords)
-            #     #print('        adj_state:', adj_state)
-            #
-            #     adj_collapsed = self.is_collapsed(adj_state)
-            #     #print('        adj_collapsed:', adj_collapsed)
-            #
-            #     if adj_collapsed:
-            #         adj_angle = self.get_tile(adj_coords)
-            #         total += adj_angle
-            #         index_angles[adj_index] = adj_angle
-            #
-            #     index_states[adj_index] = NodeState.KNOWN if adj_collapsed else NodeState.UNKNOWN
-
-
+            # Collapse an adjacent index to 360 - this index' angle if it's
+            # collapsed.
             neighbors = list(self.g.neighbors(node))
             adj_indices = set(self.node_to_indices[node])
             adj_indices.remove(index)
@@ -296,6 +318,84 @@ class AngleWavefunction(WavefunctionBase):
 
                     # Don't need to append here if all angles are collapsed.
                     stack.append((adj_index,))
+
+            self.collapse_non_valid_angles(block)
+
+            # The angles of the block the index belongs to may be guessed...
+            start, stop = self.index_to_block_index_range[index]
+            block_slice = slice(start, stop)
+            block_state = self.get_state((block_slice,))
+            num_block_angles = stop - start
+            print('    num_block_angles:', num_block_angles)
+
+            num_uncollapsed = 0
+            total = 0
+            uncollapsed_indices = []
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                print('    index:', index, state, self.is_collapsed(state))
+                if not self.is_collapsed(state):
+                    num_uncollapsed += 1
+                    uncollapsed_indices.append(index)
+                else:
+                    total += self.get_tile((start + index,))
+
+            # print('    num_uncollapsed:', num_uncollapsed)
+            # print('    total known:', total)
+            # print('    to close:', 360 - total)
+            # print('    num 90s to close:', (360 - total) / 90)
+            num_spare_angles = num_uncollapsed - int((360 - total) / 90)
+            #print('    num angles required to close:', 4)
+            # print('    num spare angles:', num_spare_angles)
+
+            # Less than two spare angles, so remove the outside angle??
+            # NOTE: This *may* be the same as booting outside angles for 5 sided
+            # faces that we do during init. Why? The logic is the same - 5 sided
+            # contains 5 angles, 4 of which are required to close the shape (ie
+            # must be 90) so therefore the remaining angle, whichever it ends up
+            # being, cannot be an outside angle or else the shape could not be
+            # closed.
+            # TODO: Is this the same as four sided faces?
+            # Does it get even weirder from here? eg
+            # 0 spare angles - remove straight / outside
+            # 1 spare angle - remove inside / outside
+            # 2 spare angles - remove straight
+            # 3 spare angles - anything...?
+            #if num_uncollapsed:# and num_spare_angles < 2:
+
+            outside_index = self.tiles.index(Angle.OUTSIDE)
+            straight_index = self.tiles.index(Angle.STRAIGHT)
+
+            # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
+            for i in uncollapsed_indices:
+                state = block_state[(slice(None), i)]
+                if num_spare_angles == 0:
+                    print('    Remove STRAIGHT, OUTSIDE')
+                    state[:][straight_index] = False
+                    state[:][outside_index] = False
+                elif num_spare_angles == 1:
+                    print('    Remove OUTSIDE')
+                    state[:][outside_index] = False
+                elif num_spare_angles == 2:
+                    print('    Remove STRAIGHT')
+                    state[:][straight_index] = False
+
+            print('-' * 35)
+
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                print('    index:', index, state, self.is_collapsed(state))
+            """
+            block_slice = slice(start, start + block_len)
+            state = self.get_state((block_slice,))
+            state[:][outside_index] = False
+            print('    Removed angle:', Angle.OUTSIDE, 'from block:', block)
+            if block_len < 5:
+                state[:][straight_index] = False
+                print('    Removed angle:', Angle.STRAIGHT, 'from block:', block)
+            propagate_indices.update(range(block_slice.start, block_slice.stop))
+            """
+
 
 
 
