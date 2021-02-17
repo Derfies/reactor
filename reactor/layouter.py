@@ -236,7 +236,6 @@ class AngleWavefunction(WavefunctionBase):
         block_state = self.get_state((block_slice,))
         num_block_angles = stop - start
 
-
         total = 0
         uncollapsed_indices = []
         for index in range(np.size(block_state, axis=1)):
@@ -329,6 +328,52 @@ class AngleWavefunction(WavefunctionBase):
             block = self.index_to_block[index]
             #print('    index:', index, 'node:', node, angle, '->', block)
 
+
+            """
+            We start with the index / coords of an angle that has changed. This
+            *could* mean that it has been fully collapsed at this point, but not
+            necessarily.
+            
+            We then need to do two checks:
+            - The block / face that owns the angle / index
+            - All indices of the node that owns the angle / index
+            
+            For the block we can make assumptions drawn from what angles are 
+            already known, how many angles remaining and the fact that the 
+            internal angle sum must add to 360 in order to close.
+            
+            For a node we can make assumptions drawn from what angles are known,
+            how many angles are remaining and the fact that certain angles are
+            invalid based on the number of incident edges, eg:
+            - 4 edges: OUTSIDE and STRAIGHT are invalid
+            - 3 edges: OUTSIDE is invalid
+            
+            We can further narrow this down if the angles of the adjacent 
+            indices are known. This is not necessary in the case of 4 edges. In
+            the case of 2 edges the answer is simply 360 - the adjacent angle.
+            For 3 edges things are slightly more complicated:
+            
+            - 0 adjacent angles known: OUTSIDE is invalid
+            - 1 adjacent angle is known: STRAIGHT is invalid if adjacent angle is STRAIGHT
+            - 2 adjacent angles are known: 360 - total adjacent angles
+            
+            """
+            angles = {}
+            adj_indices = set(self.node_to_indices[node])
+            for adj_index in adj_indices:
+                #adj_state = self.get_state((adj_index,))
+                #if index == adj_index:
+                #    continue
+                adj_state = self.get_state((adj_index,))
+                if self.is_collapsed(adj_state):
+                    angles[adj_index] = self.get_tile((adj_index,))
+                else:
+                    print('node:', node, 'index:', adj_index, 'UNCOLLAPSED')
+
+            for adj_index, tile in angles.items():
+                print('node:', node, 'index:', adj_index, 'angles:', tile)
+            print('known angle sum:', sum(angles.values()))
+
             # Collapse an adjacent index to 360 - this index' angle if it's
             # collapsed.
             neighbors = list(self.g.neighbors(node))
@@ -349,9 +394,8 @@ class AngleWavefunction(WavefunctionBase):
                     # Don't need to append here if all angles are collapsed.
                     stack.append((adj_index,))
 
-            for foo in self.collapse_non_valid_angles(block):
-                #pass
-                stack.append((foo,))
+            for next_index in self.collapse_non_valid_angles(block):
+                stack.append((next_index,))
 
             '''
 
