@@ -357,26 +357,45 @@ class AngleWavefunction(WavefunctionBase):
             - 1 adjacent angle is known: STRAIGHT is invalid if adjacent angle is STRAIGHT
             - 2 adjacent angles are known: 360 - total adjacent angles
             
+            Full table:
+            
+            - 4 edges (all 90): (four blocks plus 3 edges mean no angle is 180)
+                - 0 adjacent angles known:      360 - total adjacent angles - 270   (OUTSIDE and STRAIGHT are invalid)
+                - 1 adjacent angle is known:    360 - total adjacent angles - 180   (OUTSIDE and STRAIGHT are invalid)
+                - 2 adjacent angles are known:  360 - total adjacent angles - 90    (OUTSIDE and STRAIGHT are invalid)
+                - 3 adjacent angles are known:  360 - total adjacent angles         (OUTSIDE and STRAIGHT are invalid)
+            - 3 edges:
+                - 0 adjacent angles known:      OUTSIDE is invalid
+                - 1 adjacent angle is known:    OUTSIDE is invalid
+                - 2 adjacent angles are known:  360 - total adjacent angles
+            - 2 edges:
+                - 0 adjacent angles known:      ?
+                - 1 adjacent angle is known:    360 - total adjacent angles
+                
+            TODO: Add number of blocks to table???
+            
             """
             angles = {}
             adj_indices = set(self.node_to_indices[node])
             for adj_index in adj_indices:
-                #adj_state = self.get_state((adj_index,))
-                #if index == adj_index:
-                #    continue
                 adj_state = self.get_state((adj_index,))
                 if self.is_collapsed(adj_state):
                     angles[adj_index] = self.get_tile((adj_index,))
                 else:
-                    print('node:', node, 'index:', adj_index, 'UNCOLLAPSED')
+                    print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
 
             for adj_index, tile in angles.items():
-                print('node:', node, 'index:', adj_index, 'angles:', tile)
+                print('node:', node, 'block:', self.index_to_block[adj_index], 'angles:', tile)
             print('known angle sum:', sum(angles.values()))
+            print('remainder:', 360 - sum(angles.values()))
+
+            neighbors = list(self.g.neighbors(node))
+
+            print('num incident edges:', len(neighbors))
 
             # Collapse an adjacent index to 360 - this index' angle if it's
             # collapsed.
-            neighbors = list(self.g.neighbors(node))
+
             adj_indices = set(self.node_to_indices[node])
             adj_indices.remove(index)
             if adj_indices and len(neighbors) == 2:
