@@ -369,8 +369,11 @@ class AngleWavefunction(WavefunctionBase):
                 - 1 adjacent angle is known:    OUTSIDE is invalid
                 - 2 adjacent angles are known:  360 - total adjacent angles
             - 2 edges:
-                - 0 adjacent angles known:      ?
-                - 1 adjacent angle is known:    360 - total adjacent angles
+                - 1 block:
+                    - NA
+                - 2 blocks:
+                    - 0 adjacent angles known:      ?
+                    - 1 adjacent angle is known:    360 - total adjacent angles
                 
             TODO: Add number of blocks to table???
             
