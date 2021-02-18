@@ -357,6 +357,8 @@ class AngleWavefunction(WavefunctionBase):
             - 1 adjacent angle is known: STRAIGHT is invalid if adjacent angle is STRAIGHT
             - 2 adjacent angles are known: 360 - total adjacent angles
             
+            Forget about empty blocks - they're just "unknowns".
+            
             Full table:
             
             - 4 edges (all 90): (four blocks plus 3 edges mean no angle is 180)
@@ -387,12 +389,17 @@ class AngleWavefunction(WavefunctionBase):
                 else:
                     print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
 
+            # Insert an unknown for those blocks that are "missing"
+            neighbors = list(self.g.neighbors(node))
+            if len(neighbors) > len(angles):
+                print('*** ONE MORE EDGE THAN BLOCK')
+
             for adj_index, tile in angles.items():
                 print('node:', node, 'block:', self.index_to_block[adj_index], 'angles:', tile)
             print('known angle sum:', sum(angles.values()))
             print('remainder:', 360 - sum(angles.values()))
 
-            neighbors = list(self.g.neighbors(node))
+
 
             print('num incident edges:', len(neighbors))
 
