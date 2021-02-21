@@ -379,29 +379,163 @@ class AngleWavefunction(WavefunctionBase):
                 
             TODO: Add number of blocks to table???
             
+            Whether there's one less block than number of edges is kinda irrelevant,
+            it just means we have an additional unknown angle which will never 
+            collapse.
+            
+            SO
+            
+            It seems like the hardest thing to solve is 3 edges with 2 faces. 
+            That data might look something like this:
+            
+            Nothing collapsed:
+            {
+                index1: UNKNOWN 90 / 180,
+                index2: UNKNOWN 90 / 180,
+                None:   UNKNOWN 90 / 180,
+            }
+            
+            One collapsed:
+            {
+                index1: 90 / 180,
+                index2: UNKNOWN 90 / 180,
+                None:   UNKNOWN 90 / 180,
+            }
+            
+            Two collapsed:
+            {
+                index1: 90 / 180,
+                index2: 90 / 180,
+                None:   UNKNOWN 90 / 180,
+            }
+            
+            One assumption we can make is that an angle must be a minimum of 90
+            degrees and that all angles must add up to a max of 360. So by
+            definition, an angle can't be 270 degrees because 270 + 90 + 90 >
+            360.
+            
+            Similarly, nodes with 4 incident edges can't be 180 because 180 + 90
+            + 90 + 90 > 360.
+            
+            Eg:
+            
+            >>> num_edges = 2
+            >>> spare_degrees = 360 - (num_edges * 90)
+            >>> spare_degrees
+            180
+            
+            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 180) = 270
+            
+            >>> num_edges = 3
+            >>> spare_degrees = 360 - (num_edges * 90)
+            >>> spare_degrees
+            90
+            
+            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 90) = 180
+            
+            >>> num_edges = 4
+            >>> spare_degrees = 360 - (num_edges * 90)
+            >>> spare_degrees
+            0
+            
+            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 0) = 90
+            
+            Rename var num_edges to num_blocks. Multiply by 90 if unknown, 
+            otherwise multiply by known angle. Does this work...?
+            
+            Eg:
+            
+            1:
+            {
+                index1: UNKNOWN,
+                index2: UNKNOWN,
+                None:   UNKNOWN,
+            }
+            >>> num_blocks = 3
+            >>> spare_degrees = 360 - (num_blocks * 90)
+            >>> spare_degrees
+            90
+            
+            Therefore both index1 and index2 can be either 90 or 180.
+            
+            2:
+            {
+                index1: 90,
+                index2: UNKNOWN,
+                None:   UNKNOWN,
+            }
+            >>> num_blocks = 3
+            >>> spare_degrees = 360 - (num_blocks * 90)
+            >>> spare_degrees
+            90
+            
+            Therefore index2 can be either 90 or 180.
+            
+            3:
+            {
+                index1: 180,
+                index2: UNKNOWN,
+                None:   UNKNOWN,
+            }
+            >>> num_blocks = 3
+            >>> spare_degrees = 360 - (180 + 90 + 90)
+            >>> spare_degrees
+            0
+            
+            Therefore index2 can only be 90.
+            
             """
-            angles = {}
+            # angles = {}
             adj_indices = set(self.node_to_indices[node])
+            # for adj_index in adj_indices:
+            #     adj_state = self.get_state((adj_index,))
+            #     if self.is_collapsed(adj_state):
+            #         angles[adj_index] = self.get_tile((adj_index,))
+            #     else:
+            #         print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
+            #
+            # # Insert an unknown for those blocks that are "missing"
+            neighbors = list(self.g.neighbors(node))
+            # if len(neighbors) > len(angles):
+            #     print('*** ONE MORE EDGE THAN BLOCK')
+            #
+            # for adj_index, tile in angles.items():
+            #     print('node:', node, 'block:', self.index_to_block[adj_index], 'angles:', tile)
+            # print('known angle sum:', sum(angles.values()))
+            # print('remainder:', 360 - sum(angles.values()))
+            #
+            #
+            #
+            # print('num incident edges:', len(neighbors))
+
+
+            total = 0
+
             for adj_index in adj_indices:
                 adj_state = self.get_state((adj_index,))
                 if self.is_collapsed(adj_state):
-                    angles[adj_index] = self.get_tile((adj_index,))
+                    total += 180 - self.get_tile((adj_index,))
+                    print('node:', node, 'block:', self.index_to_block[adj_index], self.get_tile((adj_index,)))
                 else:
-                    print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
+                    total += 180 - Angle.INSIDE
+                    print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED', Angle.INSIDE)
 
-            # Insert an unknown for those blocks that are "missing"
-            neighbors = list(self.g.neighbors(node))
-            if len(neighbors) > len(angles):
-                print('*** ONE MORE EDGE THAN BLOCK')
+            # total = sum(map(lambda a: 180 - a, existing_angles.values()))
+            # return Angle(180 - (360 - total))
 
-            for adj_index, tile in angles.items():
-                print('node:', node, 'block:', self.index_to_block[adj_index], 'angles:', tile)
-            print('known angle sum:', sum(angles.values()))
-            print('remainder:', 360 - sum(angles.values()))
-
+            # Add another 90 in there's a missing face.
+            if len(neighbors) > len(adj_indices):
+                total += 180 - Angle.INSIDE
+                print('node:', node, 'MISSING BLOCK', Angle.INSIDE)
 
 
-            print('num incident edges:', len(neighbors))
+            print('total:', total)
+            #adj_indices = set(self.node_to_indices[node])
+            remainder = 360 - total
+            print('remainder:', remainder)
+            if remainder:
+                spare_degrees = Angle(180 - remainder)
+                print('spare_degrees:', spare_degrees)
 
             # Collapse an adjacent index to 360 - this index' angle if it's
             # collapsed.
