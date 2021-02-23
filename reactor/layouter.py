@@ -2,6 +2,7 @@ import abc
 import itertools as it
 import numpy as np
 import random
+import sys
 
 import networkx as nx
 
@@ -12,6 +13,18 @@ from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
 from reactor.const import Angle
 from reactor.layouters.facelayouter import NodeState
+
+
+def debug(wf):
+    print('\nDEBUG:')
+    for index in range(np.size(wf.wave, axis=1)):
+        node = wf.index_to_node[index]
+        block = wf.index_to_block[index]
+        state = wf.get_state((index,))
+        angle = None
+        if wf.is_collapsed(state):
+            angle = wf.get_tile((index,))
+        print('    node:', node, 'angle:', angle, 'block:', block)
 
 
 class WavefunctionBase(metaclass=abc.ABCMeta):
@@ -110,25 +123,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         while not self.is_collapsed(self.wave):
             coords = self.get_min_entropy_coords()
             self.collapse(coords)
-
-
-            # DEBUG
-            if coords == (13,):
-                print('*' * 35)
-                wf = self
-                for index in range(np.size(wf.wave, axis=1)):
-                    node = wf.index_to_node[index]
-                    block = wf.index_to_block[index]
-                    state = wf.get_state((index,))
-                    angle = None
-                    if wf.is_collapsed(state):
-                        angle = wf.get_tile((index,))
-                    print('node:', node, '[', index, ']', 'angle:', angle, 'block:', block)
-                import sys
-                sys.exit(0)
-
             self.propagate(coords)
-
 
 
 """
@@ -150,6 +145,7 @@ class AngleWavefunction(WavefunctionBase):
     """
 
     def __init__(self, g, block_g):
+        print('\nINIT:')
         super().__init__()
 
         self.g = g
@@ -159,23 +155,20 @@ class AngleWavefunction(WavefunctionBase):
         self.block_sizes = []
         self.index_to_block_index_range = []
         self.block_to_index_range = {}
-        #self.block_edges = []
-        #self.block_ranges = []
+
         num_angles = 0
 
         self.index_to_node = []
-        #self.node_to_block = {}
+
         self.node_to_indices = {}
         m = 0
         wave_index = 0
         for block_index, block in enumerate(self.block_g):
-            #nodes = list(block.nodes)
             num_angles += len(block)
             self.index_to_block.extend([block] * len(block))
             self.block_sizes.extend([len(block)] * len(block))
             for i, node in enumerate(block.nodes_forward):
                 self.index_to_node.append(node)
-                #self.node_to_block.setdefault(node, set()).add(block)
                 self.index_to_block_index_range.append((m, m + len(block)))
                 self.node_to_indices.setdefault(node, set()).add(wave_index)
                 self.block_to_index_range[block] = m, m + len(block)
@@ -184,14 +177,17 @@ class AngleWavefunction(WavefunctionBase):
             m += len(block)
 
         self.tiles = list(Angle)
-        print('tiles:', self.tiles)
+        print('    tiles:', self.tiles)
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
         # how many angles we have.
-        print('num_angles:', num_angles)
+        print('    num_angles:', num_angles)
         shape = (num_angles,)
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
+
+
+        '''
 
         # Remove angle possibilities based on assumptions we can draw from
         # the number of incident edges.
@@ -220,12 +216,19 @@ class AngleWavefunction(WavefunctionBase):
             propagate_indices.update(self.collapse_non_valid_angles(block))
 
         print('\n\nINIT COMPLETE')
+        
+        sys.exit(0)
 
         # Propagate changes for indices that changed.
         for index in propagate_indices:
             self.propagate((index,))
+            
+        '''
 
-    def collapse_non_valid_angles(self, block):
+
+
+
+    def propagate_by_block(self, block):
 
         print('\nBLOCK START:', block)
 
@@ -294,430 +297,98 @@ class AngleWavefunction(WavefunctionBase):
 
         return propagate
 
+    def propagate_by_node(self, node):
+        print('\nNODE START:', node)
+
+        adj_indices = set(self.node_to_indices[node])
+        neighbors = list(self.g.neighbors(node))
+
+        total = 0
+        for adj_index in adj_indices:
+            adj_state = self.get_state((adj_index,))
+            if self.is_collapsed(adj_state):
+                total += 180 - self.get_tile((adj_index,))
+                print('    node:', node, 'block:',
+                      self.index_to_block[adj_index],
+                      self.get_tile((adj_index,)))
+            else:
+                total += 180 - Angle.INSIDE
+                print('    node:', node, 'block:',
+                      self.index_to_block[adj_index], 'UNCOLLAPSED',
+                      Angle.INSIDE)
+
+        # Add another 90 in there's a missing face.
+        if len(neighbors) > len(adj_indices):
+            total += 180 - Angle.INSIDE
+            print('    node:', node, 'MISSING BLOCK', Angle.INSIDE)
+
+        remainder = 360 - total
+        maximum_angle = remainder + 90
+        outside_index = self.tiles.index(Angle.OUTSIDE)
+        straight_index = self.tiles.index(Angle.STRAIGHT)
+        propagate = set()
+
+        # Use is_collapsed?
+        if maximum_angle > 90:
+            if maximum_angle < 270:
+                for adj_index in adj_indices:
+                    adj_state = self.get_state((adj_index,))
+                    if adj_state[outside_index]:
+                        print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[adj_index])
+                        adj_state[outside_index] = False
+                        propagate.add(adj_index)
+
+            if maximum_angle < 180:
+                for adj_index in adj_indices:
+                    adj_state = self.get_state((adj_index,))
+                    if adj_state[straight_index]:
+                        print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[adj_index])
+                        adj_state[straight_index] = False
+                        propagate.add(adj_index)
+
+        # TODO: Need to do the explementary version here, the above just does
+        # collapse of illegal values...
+
+        print('NODE END')
+
+        return propagate
+
     def get_min_entropy_coords_offset(self):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def propagate(self, coords):
 
-        """
-        Glossary of terms:
-
-        - block (face / cycle?)
-        - node
-        - edge
-        - wave vs states, what's the difference?
-        _ <something>_index - Index for something
-
-        """
-
-        print('')
-        print('PROPAGATE:', coords)
+        print('\nPROPAGATE:', coords)
 
         stack = [coords]
-
         while len(stack) > 0:
 
-            print('')
+            propagate = set()
             cur_coords = stack.pop()
 
-            state = self.get_state(cur_coords)
-            angle = None
-            state_collapsed = self.is_collapsed(state)
-            if state_collapsed:
-                angle = self.get_tile(cur_coords)
+            block = self.index_to_block[cur_coords[0]]
+            next_coords_by_block = self.propagate_by_block(block)
+            print('\nnext_coords_by_block:', next_coords_by_block)
+            propagate.update(next_coords_by_block)
 
-            index = cur_coords[0]
-            node = self.index_to_node[index]
-            block = self.index_to_block[index]
-            #print('    index:', index, 'node:', node, angle, '->', block)
+            node = self.index_to_node[cur_coords[0]]
+            next_coords_by_index = self.propagate_by_node(node)
+            print('\nnext_coords_by_index:', next_coords_by_index)
+            propagate.update(next_coords_by_block)
 
+            stack.extend((i,) for i in propagate)
+            print('stack:', stack)
 
-            """
-            We start with the index / coords of an angle that has changed. This
-            *could* mean that it has been fully collapsed at this point, but not
-            necessarily.
-            
-            We then need to do two checks:
-            - The block / face that owns the angle / index
-            - All indices of the node that owns the angle / index
-            
-            For the block we can make assumptions drawn from what angles are 
-            already known, how many angles remaining and the fact that the 
-            internal angle sum must add to 360 in order to close.
-            
-            For a node we can make assumptions drawn from what angles are known,
-            how many angles are remaining and the fact that certain angles are
-            invalid based on the number of incident edges, eg:
-            - 4 edges: OUTSIDE and STRAIGHT are invalid
-            - 3 edges: OUTSIDE is invalid
-            
-            We can further narrow this down if the angles of the adjacent 
-            indices are known. This is not necessary in the case of 4 edges. In
-            the case of 2 edges the answer is simply 360 - the adjacent angle.
-            For 3 edges things are slightly more complicated:
-            
-            - 0 adjacent angles known: OUTSIDE is invalid
-            - 1 adjacent angle is known: STRAIGHT is invalid if adjacent angle is STRAIGHT
-            - 2 adjacent angles are known: 360 - total adjacent angles
-            
-            Forget about empty blocks - they're just "unknowns".
-            
-            Full table:
-            
-            - 4 edges (all 90): (four blocks plus 3 edges mean no angle is 180)
-                - 0 adjacent angles known:      360 - total adjacent angles - 270   (OUTSIDE and STRAIGHT are invalid)
-                - 1 adjacent angle is known:    360 - total adjacent angles - 180   (OUTSIDE and STRAIGHT are invalid)
-                - 2 adjacent angles are known:  360 - total adjacent angles - 90    (OUTSIDE and STRAIGHT are invalid)
-                - 3 adjacent angles are known:  360 - total adjacent angles         (OUTSIDE and STRAIGHT are invalid)
-            - 3 edges:
-                - 0 adjacent angles known:      OUTSIDE is invalid
-                - 1 adjacent angle is known:    OUTSIDE is invalid
-                - 2 adjacent angles are known:  360 - total adjacent angles
-            - 2 edges:
-                - 1 block:
-                    - NA
-                - 2 blocks:
-                    - 0 adjacent angles known:      ?
-                    - 1 adjacent angle is known:    360 - total adjacent angles
-                
-            TODO: Add number of blocks to table???
-            
-            Whether there's one less block than number of edges is kinda irrelevant,
-            it just means we have an additional unknown angle which will never 
-            collapse.
-            
-            SO
-            
-            It seems like the hardest thing to solve is 3 edges with 2 faces. 
-            That data might look something like this:
-            
-            Nothing collapsed:
-            {
-                index1: UNKNOWN 90 / 180,
-                index2: UNKNOWN 90 / 180,
-                None:   UNKNOWN 90 / 180,
-            }
-            
-            One collapsed:
-            {
-                index1: 90 / 180,
-                index2: UNKNOWN 90 / 180,
-                None:   UNKNOWN 90 / 180,
-            }
-            
-            Two collapsed:
-            {
-                index1: 90 / 180,
-                index2: 90 / 180,
-                None:   UNKNOWN 90 / 180,
-            }
-            
-            One assumption we can make is that an angle must be a minimum of 90
-            degrees and that all angles must add up to a max of 360. So by
-            definition, an angle can't be 270 degrees because 270 + 90 + 90 >
-            360.
-            
-            Similarly, nodes with 4 incident edges can't be 180 because 180 + 90
-            + 90 + 90 > 360.
-            
-            Eg:
-            
-            >>> num_edges = 2
-            >>> spare_degrees = 360 - (num_edges * 90)
-            >>> spare_degrees
-            180
-            
-            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 180) = 270
-            
-            >>> num_edges = 3
-            >>> spare_degrees = 360 - (num_edges * 90)
-            >>> spare_degrees
-            90
-            
-            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 90) = 180
-            
-            >>> num_edges = 4
-            >>> spare_degrees = 360 - (num_edges * 90)
-            >>> spare_degrees
-            0
-            
-            Maximum allowed angle is minimum angle (ie 90) + spare_degrees (ie 0) = 90
-            
-            Rename var num_edges to num_blocks. Multiply by 90 if unknown, 
-            otherwise multiply by known angle. Does this work...?
-            
-            Eg:
-            
-            1:
-            {
-                index1: UNKNOWN,
-                index2: UNKNOWN,
-                None:   UNKNOWN,
-            }
-            >>> num_blocks = 3
-            >>> spare_degrees = 360 - (num_blocks * 90)
-            >>> spare_degrees
-            90
-            
-            Therefore both index1 and index2 can be either 90 or 180.
-            
-            2:
-            {
-                index1: 90,
-                index2: UNKNOWN,
-                None:   UNKNOWN,
-            }
-            >>> num_blocks = 3
-            >>> spare_degrees = 360 - (num_blocks * 90)
-            >>> spare_degrees
-            90
-            
-            Therefore index2 can be either 90 or 180.
-            
-            3:
-            {
-                index1: 180,
-                index2: UNKNOWN,
-                None:   UNKNOWN,
-            }
-            >>> num_blocks = 3
-            >>> spare_degrees = 360 - (180 + 90 + 90)
-            >>> spare_degrees
-            0
-            
-            Therefore index2 can only be 90.
-            
-            """
-            # angles = {}
-            adj_indices = set(self.node_to_indices[node])
-            # for adj_index in adj_indices:
-            #     adj_state = self.get_state((adj_index,))
-            #     if self.is_collapsed(adj_state):
-            #         angles[adj_index] = self.get_tile((adj_index,))
-            #     else:
-            #         print('node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
-            #
-            # # Insert an unknown for those blocks that are "missing"
-            neighbors = list(self.g.neighbors(node))
-            # if len(neighbors) > len(angles):
-            #     print('*** ONE MORE EDGE THAN BLOCK')
-            #
-            # for adj_index, tile in angles.items():
-            #     print('node:', node, 'block:', self.index_to_block[adj_index], 'angles:', tile)
-            # print('known angle sum:', sum(angles.values()))
-            # print('remainder:', 360 - sum(angles.values()))
-            #
-            #
-            #
-            # print('num incident edges:', len(neighbors))
+    def run(self):
 
+        # There's a number of indices we can collapse straight off the bat, so
+        # run each index through the propragation function before we start the
+        # default loop.
+        for index in range(np.size(self.wave, axis=1)):
+            self.propagate((index,))
 
-            # PER NODE CALCULATIONS
-            # Get angles to spare
-
-            print('\nNODE START:', node)
-
-            total = 0
-            for adj_index in adj_indices:
-                adj_state = self.get_state((adj_index,))
-                if self.is_collapsed(adj_state):
-                    total += 180 - self.get_tile((adj_index,))
-                    print('    node:', node, 'block:', self.index_to_block[adj_index], self.get_tile((adj_index,)))
-                else:
-                    total += 180 - Angle.INSIDE
-                    print('    node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED', Angle.INSIDE)
-
-            # total = sum(map(lambda a: 180 - a, existing_angles.values()))
-            # return Angle(180 - (360 - total))
-
-            # Add another 90 in there's a missing face.
-            if len(neighbors) > len(adj_indices):
-                total += 180 - Angle.INSIDE
-                print('    node:', node, 'MISSING BLOCK', Angle.INSIDE)
-
-
-            #print('total:', total)
-            remainder = 360 - total
-            #print('remainder:', remainder)
-            maximum_angle = remainder + 90
-            #print('maximum_angle:', maximum_angle)
-
-            outside_index = self.tiles.index(Angle.OUTSIDE)
-            straight_index = self.tiles.index(Angle.STRAIGHT)
-
-            propagate = set()
-
-            # Use is_collapsed?
-            if maximum_angle > 90:
-                if maximum_angle < 270:
-                    for adj_index in adj_indices:
-                        adj_state = self.get_state((adj_index,))
-                        if adj_state[outside_index]:
-                            print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of index:', adj_index)
-                            state[outside_index] = False
-                            propagate.add(index)
-
-                if maximum_angle < 180:
-                    for adj_index in adj_indices:
-                        adj_state = self.get_state((adj_index,))
-                        if adj_state[straight_index]:
-                            print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of index:', adj_index)
-                            state[straight_index] = False
-                            propagate.add(index)
-
-            print('NODE END')
-
-            # Collapse an adjacent index to 360 - this index' angle if it's
-            # collapsed.
-
-
-            # DO I STILL NEED THIS WITH THE ABOVE...?
-            '''
-
-            adj_indices = set(self.node_to_indices[node])
-            adj_indices.remove(index)
-            if adj_indices and len(neighbors) == 2:
-                adj_index = next(iter(adj_indices))
-                adj_state = self.get_state((adj_index,))
-                adj_collapsed = self.is_collapsed(adj_state)
-                if state_collapsed and not adj_collapsed:
-                    adj_block = self.index_to_block[adj_index]
-                    total = angle
-                    adj_angle = Angle(180 - (360 - total))
-                    self.collapse_to_tile((adj_index,), adj_angle)
-                    print('    index:', adj_index, 'node:', node, adj_angle, '->', adj_block)
-                    print('        adding:', adj_index, 'to stack')
-
-                    # Don't need to append here if all angles are collapsed.
-                    stack.append((adj_index,))
-
-            for next_index in self.collapse_non_valid_angles(block):
-                stack.append((next_index,))
-            '''
-
-            '''
-
-            # The angles of the block the index belongs to may be guessed...
-            start, stop = self.index_to_block_index_range[index]
-            block_slice = slice(start, stop)
-            block_state = self.get_state((block_slice,))
-            num_block_angles = stop - start
-            print('    num_block_angles:', num_block_angles)
-
-            num_uncollapsed = 0
-            total = 0
-            uncollapsed_indices = []
-            for index in range(np.size(block_state, axis=1)):
-                state = block_state[(slice(None), index)]
-                print('    index:', index, state, self.is_collapsed(state))
-                if not self.is_collapsed(state):
-                    num_uncollapsed += 1
-                    uncollapsed_indices.append(index)
-                else:
-                    total += self.get_tile((start + index,))
-
-            # print('    num_uncollapsed:', num_uncollapsed)
-            # print('    total known:', total)
-            # print('    to close:', 360 - total)
-            # print('    num 90s to close:', (360 - total) / 90)
-            num_spare_angles = num_uncollapsed - int((360 - total) / 90)
-            #print('    num angles required to close:', 4)
-            # print('    num spare angles:', num_spare_angles)
-
-            # Less than two spare angles, so remove the outside angle??
-            # NOTE: This *may* be the same as booting outside angles for 5 sided
-            # faces that we do during init. Why? The logic is the same - 5 sided
-            # contains 5 angles, 4 of which are required to close the shape (ie
-            # must be 90) so therefore the remaining angle, whichever it ends up
-            # being, cannot be an outside angle or else the shape could not be
-            # closed.
-            # TODO: Is this the same as four sided faces?
-            # Does it get even weirder from here? eg
-            # 0 spare angles - remove straight / outside
-            # 1 spare angle - remove inside / outside
-            # 2 spare angles - remove straight
-            # 3 spare angles - anything...?
-            #if num_uncollapsed:# and num_spare_angles < 2:
-
-            outside_index = self.tiles.index(Angle.OUTSIDE)
-            straight_index = self.tiles.index(Angle.STRAIGHT)
-
-            # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
-            for i in uncollapsed_indices:
-                state = block_state[(slice(None), i)]
-                if num_spare_angles == 0:
-                    print('    Remove STRAIGHT, OUTSIDE')
-                    state[:][straight_index] = False
-                    state[:][outside_index] = False
-                elif num_spare_angles == 1:
-                    print('    Remove OUTSIDE')
-                    state[:][outside_index] = False
-                elif num_spare_angles == 2:
-                    print('    Remove STRAIGHT')
-                    state[:][straight_index] = False
-
-            print('-' * 35)
-
-            for index in range(np.size(block_state, axis=1)):
-                state = block_state[(slice(None), index)]
-                print('    index:', index, state, self.is_collapsed(state))
-                
-            '''
-            """
-            block_slice = slice(start, start + block_len)
-            state = self.get_state((block_slice,))
-            state[:][outside_index] = False
-            print('    Removed angle:', Angle.OUTSIDE, 'from block:', block)
-            if block_len < 5:
-                state[:][straight_index] = False
-                print('    Removed angle:', Angle.STRAIGHT, 'from block:', block)
-            propagate_indices.update(range(block_slice.start, block_slice.stop))
-            """
-
-
-
-
-
-
-
-            """
-            Data points:
-            - Num adj blocks / faces
-            - Num adj edges (incidents)
-            - Known angles
-            
-            Rules:
-            - If num incidents is 4, all angles are known to be 90 inner, regardless of num adj blocks (3 or 4)
-            - 
-            
-            - Num adj edges: 4
-            
-                Don't need to know what the other angle values are. By definition,
-                if there are four incident edges then each interior angle *must*
-                be 90 degrees.
-            
-                - Num adj blocks: 4 -> INSIDE 90
-                - Num adj blocks: 3 -> INSIDE 90
-                
-            - Num adj edges: 3
-            
-                Hardest to predict since there's a lot going on here...
-                
-                - Num adj blocks: 3 -> INSIDE 90, STRAIGHT 0
-                - Num adj blocks: 2 -> INSIDE 90, STRAIGHT 0
-                
-            - Num adj edges: 2
-            
-                Easy to predict if the adjacent angle is known, as it's simply
-                the explementary angle, ie 360 - known angle.
-            
-                - Num adj blocks: 2 -> INSIDE 90, STRAIGHT 0, OUTSIDE -90
-                
-                Might be the hardest to collapse since there's no other data we
-                can gather about this node.
-                
-                - Num adj blocks: 1 -> INSIDE 90, STRAIGHT 0, OUTSIDE -90
-            """
+        # Run default loop.
+        #super().run()
 
 
 class Layouter(object):
@@ -846,17 +517,11 @@ class Layouter(object):
             wf.run()
 
             # DEBUG
-            print('*' * 35)
-            for index in range(np.size(wf.wave, axis=1)):
-                node = wf.index_to_node[index]
-                block = wf.index_to_block[index]
-                state = wf.get_state((index,))
-                angle = None
-                if wf.is_collapsed(state):
-                    angle = wf.get_tile((index,))
-                print('node:', node, 'angle:', angle, 'block:', block)
+            debug(wf)
 
-            raise
+            sys.exit(0)
+
+            #raise
             #prev_node = path[0]
             #for i, node in enumerate(path[:-1]):
             path = nx.path_graph(path, create_using=nx.DiGraph)#nx.DiGraph(self.g.subgraph(path))
