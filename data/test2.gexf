@@ -3,7 +3,7 @@
     xmlns:viz = "http://www.gexf.net/1.2draft/viz"
     xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
-    <meta lastmodifieddate = "2021-02-16">
+    <meta lastmodifieddate = "2021-02-25">
         <creator>Qt Visual Graph Editor 0.5.4 (64bit)</creator>
         <description></description>
     </meta>
@@ -15,7 +15,7 @@
     </attributes>
     <attributes class="node" mode="static">
         <attribute id="_vis_" title="_vis_" type="liststring">
-            <default>id|label</default>
+            <default>label|id</default>
         </attribute>
         <attribute id="color" title="color" type="string">
             <default>#ff00ff</default>
@@ -67,16 +67,16 @@
             <viz:position x="25" y="100"/>
         </node>
         <node id="N8" label="">
-            <viz:position x="175" y="100"/>
+            <viz:position x="225" y="100"/>
         </node>
         <node id="N1" label="">
             <viz:position x="25" y="0"/>
         </node>
         <node id="N7" label="">
-            <viz:position x="225" y="0"/>
+            <viz:position x="175" y="0"/>
         </node>
         <node id="N6" label="">
-            <viz:position x="225" y="50"/>
+            <viz:position x="175" y="50"/>
         </node>
         <node id="N10" label="">
             <viz:position x="75" y="50"/>
@@ -88,7 +88,7 @@
             <viz:position x="125" y="50"/>
         </node>
         <node id="N9" label="">
-            <viz:position x="225" y="100"/>
+            <viz:position x="225" y="50"/>
         </node>
     </nodes>
     <edges>

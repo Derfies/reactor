@@ -80,6 +80,10 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
         print('\nCOLLAPSE:', coords, self.index_to_node[coords[0]], '->', self.get_tile(coords))
 
+        if coords == (13,):
+            debug(self)
+            sys.exit(1)
+
     def propagate(self):
         last_count = self.wave.sum()
 
@@ -186,48 +190,6 @@ class AngleWavefunction(WavefunctionBase):
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-
-        '''
-
-        # Remove angle possibilities based on assumptions we can draw from
-        # the number of incident edges.
-        # 4 edges:  outside and straight angles are invalid (each angle must be
-        #           90 inside)
-        # 3 edges:  outside angles are invalid
-        print('')
-        outside_index = self.tiles.index(Angle.OUTSIDE)
-        straight_index = self.tiles.index(Angle.STRAIGHT)
-        propagate_indices = set()
-        for index in range(np.size(self.wave, axis=1)):
-            node = self.index_to_node[index]
-            block = self.index_to_block[index]
-            neighbors = list(self.g.neighbors(node))
-            if len(neighbors) > 2:
-                state = self.get_state((index,))
-                state[outside_index] = False
-                print('Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
-                if len(neighbors) > 3:
-                    state[straight_index] = False
-                    print('Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
-                propagate_indices.add(index)
-
-        # Collapse any states we can by block.
-        for block in self.block_g:
-            propagate_indices.update(self.collapse_non_valid_angles(block))
-
-        print('\n\nINIT COMPLETE')
-        
-        sys.exit(0)
-
-        # Propagate changes for indices that changed.
-        for index in propagate_indices:
-            self.propagate((index,))
-            
-        '''
-
-
-
-
     def propagate_by_block(self, block):
 
         print('\nBLOCK START:', block)
@@ -244,8 +206,6 @@ class AngleWavefunction(WavefunctionBase):
         uncollapsed_indices = []
         for index in range(np.size(block_state, axis=1)):
             state = block_state[(slice(None), index)]
-            #node = self.index_to_node[start + index]
-            #print('node:', node, f'[{index + start}]', state, self.is_collapsed(state))
             if self.is_collapsed(state):
                 total += self.get_tile((start + index,))
             else:
@@ -286,12 +246,16 @@ class AngleWavefunction(WavefunctionBase):
                     state[straight_index] = False
                     propagate.add(index)
 
-        # if propagate:
-        #     print('WAS CHANGED. NEW VALUES:')
-        #     for index in range(np.size(block_state, axis=1)):
-        #         state = block_state[(slice(None), index)]
-        #         node = self.index_to_node[start + index]
-        #         print('node:', node, f'[{index + start}]', state, self.is_collapsed(state))
+        # DEBUG
+        if ('N1', 'N2') in block.edges:
+            print('\n\n\n\n\n*********** DEBUG!!!\n\n\n\n\n')
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                node = self.index_to_node[start + index]
+                angle = None
+                if self.is_collapsed(state):
+                    angle = self.get_tile((index + start,))
+                print('node:', node, self.is_collapsed(state), '->', angle)
 
         print('BLOCK END')
 
@@ -315,73 +279,24 @@ class AngleWavefunction(WavefunctionBase):
                 print('    node:', node, 'block:', self.index_to_block[adj_index], self.get_tile((adj_index,)))
             else:
                 total += 180 - Angle.INSIDE
-                print('    node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED', Angle.INSIDE)
+                print('    node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
                 num_uncollapsed_indices += 1
                 uncollapsed_indices.append(adj_index)
 
         # Add another 90 in there's a missing face.
         if len(neighbors) > len(adj_indices):
             total += 180 - Angle.INSIDE
-            print('    node:', node, 'MISSING BLOCK', Angle.INSIDE)
+            print('    node:', node, 'block: None')
             num_uncollapsed_indices += len(neighbors) - len(adj_indices) # Can also just be += 1
 
 
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
-
-        #num_spare_angles = num_uncollapsed_indices - int((remainder) / 90)
-
         remainder = 360 - total
         maximum_angle = remainder + 90
         known_remainder = 360 - total_known
 
-        # print('    maximum_angle for any index:', maximum_angle)
-        # print('    num_uncollapsed_indices:', num_uncollapsed_indices)
-        # print('    num_spare_angles:', num_spare_angles)
-        # print('    minimum degrees:', total)
-        # print('    minimum degrees remainder:', remainder)
-        # print('    total_known degrees:', total_known)
-        # print('    total_known degrees remainder:', 360 - total_known)
-
-        # If the number of uncollapsed indices is 1, then that index can be set
-        # to the value of 360 - total_known.
-
-        # If the number of uncollapsed indices is 2, then those two indices
-        # can't just be set to (360 - total_known) / num_collapsed indices. Eg
-        # 180 remainder - 90 / 90   (1/1)
-        # 270 remainder - 180 / 90 OR 90 / 180 (2/1 OR 1/2)
-
-        # If the number of uncollapsed indices is 3, then
-        # 270 remainder - 90 / 90 / 90 (1/1/1)
-
-        # If the remainder can be split equally amongst the number of uncollapsed
-        # indices with no remainder, then the have our answer.
-
-        # 270 remainder:
-        #   3 uncollapsed indices: 90 (270 / 3)
-        #   2 uncollapsed indices: 135 (270 / 2) NOT MULTIPLE OF 90, DO NOT DO
-        #   1 uncollapsed index:   270 (270 / 1)
-
-        # 180 remainder:
-        #   2 uncollapsed indices: 90 (180 / 2)
-        #   1 uncollapsed index:   180 (180 / 1)
-
-        # 90 remainder:
-        #   1 uncollapsed index: 90 (90 / 1)
-
-        # or is the pattern if only 1 or min piece size * num_uncollapsed = remainder?
-
         propagate = set()
-
-        # if num_uncollapsed_indices == 1:
-        #     adj_state = self.get_state((uncollapsed_index,))
-        #     adj_state[outside_index] = False
-        # #elif int(known_remainder / num_uncollapsed_indices) == 90:
-        # elif Angle.INSIDE * num_uncollapsed_indices == known_remainder:
-        #     adj_state = self.get_state((uncollapsed_index,))
-        #     adj_state[outside_index] = False
-        #     adj_state[straight_index] = False
-
         for adj_index in adj_indices:
             adj_state = self.get_state((adj_index,))
             #if maximum_angle > 90:      # Use is_collapsed?
@@ -402,6 +317,7 @@ class AngleWavefunction(WavefunctionBase):
             if num_uncollapsed_indices == 1:
                 tile = Angle(180 - known_remainder) # Should hopefully break if known_remainder is 360
                 self.collapse_to_tile((adj_index,), tile)
+                print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
                 # TODO: Add to propagate set if changed. Get these functions
                 # to return bool value
 
@@ -427,16 +343,36 @@ class AngleWavefunction(WavefunctionBase):
 
             block = self.index_to_block[cur_coords[0]]
             next_coords_by_block = self.propagate_by_block(block)
-            print('\nnext_coords_by_block:', next_coords_by_block)
+            #print('\nnext_coords_by_block:', next_coords_by_block)
             propagate.update(next_coords_by_block)
 
             node = self.index_to_node[cur_coords[0]]
             next_coords_by_index = self.propagate_by_node(node)
-            print('\nnext_coords_by_index:', next_coords_by_index)
+            #print('\nnext_coords_by_index:', next_coords_by_index)
             propagate.update(next_coords_by_block)
 
             stack.extend((i,) for i in propagate)
-            print('stack:', stack)
+            #print('stack:', stack)
+
+
+            # Assert block sum is 360.
+            for block_index, block in enumerate(self.block_g):
+                start, stop = self.block_to_index_range[block]
+                block_slice = slice(start, stop)
+                block_state = self.get_state((block_slice,))
+
+                total = 0
+                for index in range(np.size(block_state, axis=1)):
+                    state = block_state[(slice(None), index)]
+                    if self.is_collapsed(state):
+                        total += self.get_tile((start + index,))
+                    else:
+                        break
+                else:
+                    if total != 360:
+                        print('block:' + str(block) + ' does not add to 360')
+                        debug(self)
+                        sys.exit(1)
 
     def run(self):
 

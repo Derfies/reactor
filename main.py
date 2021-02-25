@@ -1,5 +1,5 @@
 import numpy as np
-np.random.seed(1)
+np.random.seed(0)
 import random
 #random.seed(0)
 
