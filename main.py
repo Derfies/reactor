@@ -1,9 +1,6 @@
 import numpy as np
-np.random.seed(0)
-import random
-#random.seed(0)
+np.random.seed(13)
 
-from reactor import utils
 from reactor.mapgenerator import MapGenerator
 
 

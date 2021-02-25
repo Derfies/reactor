@@ -12,11 +12,11 @@ from reactor.blocks.faceblock import FaceBlock
 from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
 from reactor.const import Angle
-from reactor.layouters.facelayouter import NodeState
 
 
 def debug(wf):
     print('\nDEBUG:')
+    results = {}
     for index in range(np.size(wf.wave, axis=1)):
         node = wf.index_to_node[index]
         block = wf.index_to_block[index]
@@ -24,6 +24,10 @@ def debug(wf):
         angle = None
         if wf.is_collapsed(state):
             angle = wf.get_tile((index,))
+        results[(block, node)] = angle
+
+    for block, node in sorted(results, key=lambda bn: len(bn[0])):
+        angle = results[block, node]
         print('    node:', node, 'angle:', angle, 'block:', block)
 
 
@@ -38,7 +42,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         return self.wave[(slice(None), *coords)]
 
     def get_tile(self, coords):
-        states = self.get_state(coords)#self.wave[(slice(None), *coords)]
+        states = self.get_state(coords)
         nonzero = np.nonzero(states)
         indices = nonzero[0]
         assert indices.size == 1, 'Cannot resolve the tile'
@@ -65,10 +69,12 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         return np.unravel_index(index, entropy.shape)
 
     def collapse_to_tile(self, coords, tile):
-        index = self.tiles.index(tile)
         states = self.get_state(coords)
+        last_count = states.sum()
         states[:] = False
+        index = self.tiles.index(tile)
         states[index] = True
+        return states.sum() == last_count
 
     def collapse(self, coords): # TODO: Collapse to random
         states = self.get_state(coords)
@@ -77,12 +83,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         index = np.random.choice(self.weights.size, p=weighted_states)
         states[:] = False
         states[index] = True
-
         print('\nCOLLAPSE:', coords, self.index_to_node[coords[0]], '->', self.get_tile(coords))
-
-        if coords == (13,):
-            debug(self)
-            sys.exit(1)
 
     def propagate(self):
         last_count = self.wave.sum()
@@ -130,14 +131,6 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             self.propagate(coords)
 
 
-"""
-Improvements:
-- Use masking instead of slice to get block states?
-- Use node num incident edges to adjust entropy?
-- 
-"""
-
-
 class AngleWavefunction(WavefunctionBase):
 
     """
@@ -145,6 +138,10 @@ class AngleWavefunction(WavefunctionBase):
     edge lengths.
 
     Do we care? What does that mean?
+
+    Improvements:
+    - Use masking instead of slice to get block states?
+    - Use node num incident edges to adjust entropy?
 
     """
 
@@ -200,7 +197,6 @@ class AngleWavefunction(WavefunctionBase):
         start, stop = self.block_to_index_range[block]
         block_slice = slice(start, stop)
         block_state = self.get_state((block_slice,))
-        num_block_angles = stop - start
 
         total = 0
         uncollapsed_indices = []
@@ -317,9 +313,11 @@ class AngleWavefunction(WavefunctionBase):
             if num_uncollapsed_indices == 1:
                 tile = Angle(180 - known_remainder) # Should hopefully break if known_remainder is 360
                 self.collapse_to_tile((adj_index,), tile)
-                print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
-                # TODO: Add to propagate set if changed. Get these functions
-                # to return bool value
+                #print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
+                if self.collapse_to_tile((adj_index,), tile):
+                    propagate.add(adj_index)
+                    #print('    Propagate:', adj_index, 'from node:', node, 'of block:', self.index_to_block[adj_index])
+                    print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
 
         # TODO: Need to do the explementary version here, the above just does
         # collapse of illegal values...
@@ -349,11 +347,10 @@ class AngleWavefunction(WavefunctionBase):
             node = self.index_to_node[cur_coords[0]]
             next_coords_by_node = self.propagate_by_node(node)
             print('\nnext_coords_by_node:', next_coords_by_node)
-            propagate.update(next_coords_by_block)
+            propagate.update(next_coords_by_node)
 
             stack.extend((i,) for i in propagate)
             print('stack:', stack)
-
 
             # Assert block sum is 360.
             for block_index, block in enumerate(self.block_g):

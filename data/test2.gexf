@@ -3,8 +3,8 @@
     xmlns:viz = "http://www.gexf.net/1.2draft/viz"
     xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
-    <meta lastmodifieddate = "2021-02-25">
-        <creator>Qt Visual Graph Editor 0.5.4 (64bit)</creator>
+    <meta lastmodifieddate = "2021-02-26">
+        <creator>Qt Visual Graph Editor 0.6.1 (64bit)</creator>
         <description></description>
     </meta>
     <graph mode="static" defaultedgetype="directed">
@@ -39,6 +39,10 @@
         <attribute id="stroke.style" title="stroke.style" type="string">
             <default>solid</default>
         </attribute>
+        <attribute id="x" title="x" type="float">
+        </attribute>
+        <attribute id="y" title="y" type="float">
+        </attribute>
     </attributes>
     <attributes class="edge" mode="static">
         <attribute id="_vis_" title="_vis_" type="liststring">
@@ -52,6 +56,8 @@
         </attribute>
         <attribute id="label" title="label" type="string">
         </attribute>
+        <attribute id="points" title="points" type="string">
+        </attribute>
         <attribute id="style" title="style" type="string">
             <default>solid</default>
         </attribute>
@@ -60,14 +66,14 @@
         </attribute>
     </attributes>
     <nodes>
-        <node id="N4" label="">
-            <viz:position x="125" y="100"/>
+        <node id="N6" label="">
+            <viz:position x="175" y="50"/>
+        </node>
+        <node id="N9" label="">
+            <viz:position x="225" y="50"/>
         </node>
         <node id="N2" label="">
             <viz:position x="25" y="100"/>
-        </node>
-        <node id="N8" label="">
-            <viz:position x="225" y="100"/>
         </node>
         <node id="N1" label="">
             <viz:position x="25" y="0"/>
@@ -75,38 +81,38 @@
         <node id="N7" label="">
             <viz:position x="175" y="0"/>
         </node>
-        <node id="N6" label="">
-            <viz:position x="175" y="50"/>
+        <node id="N4" label="">
+            <viz:position x="125" y="100"/>
         </node>
-        <node id="N10" label="">
-            <viz:position x="75" y="50"/>
+        <node id="N8" label="">
+            <viz:position x="225" y="100"/>
         </node>
         <node id="N3" label="">
             <viz:position x="75" y="100"/>
         </node>
+        <node id="N10" label="">
+            <viz:position x="75" y="50"/>
+        </node>
         <node id="N5" label="">
             <viz:position x="125" y="50"/>
         </node>
-        <node id="N9" label="">
-            <viz:position x="225" y="50"/>
-        </node>
     </nodes>
     <edges>
-        <edge id="E2" label="" source="N2" target="N3" edgetype="directed">
-        </edge>
         <edge id="E1" label="" source="N1" target="N2" edgetype="directed">
-        </edge>
-        <edge id="E6" label="" source="N6" target="N7" edgetype="directed">
         </edge>
         <edge id="E8" label="" source="N4" target="N8" edgetype="directed">
         </edge>
         <edge id="E3" label="" source="N3" target="N4" edgetype="directed">
         </edge>
-        <edge id="E7" label="" source="N7" target="N1" edgetype="directed">
-        </edge>
         <edge id="E12" label="" source="N10" target="N5" edgetype="directed">
         </edge>
         <edge id="E9" label="" source="N8" target="N9" edgetype="directed">
+        </edge>
+        <edge id="E2" label="" source="N2" target="N3" edgetype="directed">
+        </edge>
+        <edge id="E6" label="" source="N6" target="N7" edgetype="directed">
+        </edge>
+        <edge id="E7" label="" source="N7" target="N1" edgetype="directed">
         </edge>
         <edge id="E5" label="" source="N5" target="N6" edgetype="directed">
         </edge>
