@@ -343,16 +343,16 @@ class AngleWavefunction(WavefunctionBase):
 
             block = self.index_to_block[cur_coords[0]]
             next_coords_by_block = self.propagate_by_block(block)
-            #print('\nnext_coords_by_block:', next_coords_by_block)
+            print('\nnext_coords_by_block:', next_coords_by_block)
             propagate.update(next_coords_by_block)
 
             node = self.index_to_node[cur_coords[0]]
-            next_coords_by_index = self.propagate_by_node(node)
-            #print('\nnext_coords_by_index:', next_coords_by_index)
+            next_coords_by_node = self.propagate_by_node(node)
+            print('\nnext_coords_by_node:', next_coords_by_node)
             propagate.update(next_coords_by_block)
 
             stack.extend((i,) for i in propagate)
-            #print('stack:', stack)
+            print('stack:', stack)
 
 
             # Assert block sum is 360.
