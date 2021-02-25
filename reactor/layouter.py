@@ -352,24 +352,24 @@ class AngleWavefunction(WavefunctionBase):
             stack.extend((i,) for i in propagate)
             print('stack:', stack)
 
-            # Assert block sum is 360.
-            for block_index, block in enumerate(self.block_g):
-                start, stop = self.block_to_index_range[block]
-                block_slice = slice(start, stop)
-                block_state = self.get_state((block_slice,))
-
-                total = 0
-                for index in range(np.size(block_state, axis=1)):
-                    state = block_state[(slice(None), index)]
-                    if self.is_collapsed(state):
-                        total += self.get_tile((start + index,))
-                    else:
-                        break
-                else:
-                    if total != 360:
-                        print('block:' + str(block) + ' does not add to 360')
-                        debug(self)
-                        sys.exit(1)
+            # # Assert block sum is 360.
+            # for block_index, block in enumerate(self.block_g):
+            #     start, stop = self.block_to_index_range[block]
+            #     block_slice = slice(start, stop)
+            #     block_state = self.get_state((block_slice,))
+            #
+            #     total = 0
+            #     for index in range(np.size(block_state, axis=1)):
+            #         state = block_state[(slice(None), index)]
+            #         if self.is_collapsed(state):
+            #             total += self.get_tile((start + index,))
+            #         else:
+            #             break
+            #     else:
+            #         if total != 360:
+            #             print('block:' + str(block) + ' does not add to 360')
+            #             debug(self)
+            #             sys.exit(1)
 
     def run(self):
 
