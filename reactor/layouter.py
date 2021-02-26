@@ -14,23 +14,6 @@ from reactor.faceanalysis import FaceAnalysis
 from reactor.const import Angle
 
 
-def debug(wf):
-    print('\nDEBUG:')
-    results = {}
-    for index in range(np.size(wf.wave, axis=1)):
-        node = wf.index_to_node[index]
-        block = wf.index_to_block[index]
-        state = wf.get_state((index,))
-        angle = None
-        if wf.is_collapsed(state):
-            angle = wf.get_tile((index,))
-        results[(block, node)] = angle
-
-    for block, node in sorted(results, key=lambda bn: len(bn[0])):
-        angle = results[block, node]
-        print('    node:', node, 'angle:', angle, 'block:', block)
-
-
 class WavefunctionBase(metaclass=abc.ABCMeta):
 
     def __init__(self):
@@ -243,15 +226,15 @@ class AngleWavefunction(WavefunctionBase):
                     propagate.add(index)
 
         # DEBUG
-        if ('N1', 'N2') in block.edges:
-            print('\n\n\n\n\n*********** DEBUG!!!\n\n\n\n\n')
-            for index in range(np.size(block_state, axis=1)):
-                state = block_state[(slice(None), index)]
-                node = self.index_to_node[start + index]
-                angle = None
-                if self.is_collapsed(state):
-                    angle = self.get_tile((index + start,))
-                print('node:', node, self.is_collapsed(state), '->', angle)
+        # if ('N1', 'N2') in block.edges:
+        #     print('\n\n\n\n\n*********** DEBUG!!!\n\n\n\n\n')
+        #     for index in range(np.size(block_state, axis=1)):
+        #         state = block_state[(slice(None), index)]
+        #         node = self.index_to_node[start + index]
+        #         angle = None
+        #         if self.is_collapsed(state):
+        #             angle = self.get_tile((index + start,))
+        #         print('node:', node, self.is_collapsed(state), '->', angle)
 
         print('BLOCK END')
 
@@ -382,6 +365,22 @@ class AngleWavefunction(WavefunctionBase):
         # Run default loop.
         super().run()
 
+    def debug(self):
+        print('\nDEBUG:')
+        results = {}
+        for index in range(np.size(self.wave, axis=1)):
+            node = self.index_to_node[index]
+            block = self.index_to_block[index]
+            state = self.get_state((index,))
+            angle = None
+            if self.is_collapsed(state):
+                angle = self.get_tile((index,))
+            results[(block, node)] = angle
+
+        for block, node in sorted(results, key=lambda bn: len(bn[0])):
+            angle = results[block, node]
+            print('    node:', node, 'angle:', angle, 'block:', block)
+
 
 class Layouter(object):
 
@@ -509,7 +508,7 @@ class Layouter(object):
             wf.run()
 
             # DEBUG
-            debug(wf)
+            wf.debug()
 
             sys.exit(0)
 

@@ -1,5 +1,5 @@
 import numpy as np
-np.random.seed(13)
+np.random.seed(59)
 
 from reactor.mapgenerator import MapGenerator
 
