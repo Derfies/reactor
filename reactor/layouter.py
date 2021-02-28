@@ -1,5 +1,6 @@
 import abc
 import itertools as it
+import math
 import numpy as np
 import random
 import sys
@@ -172,6 +173,9 @@ class AngleWavefunction(WavefunctionBase):
 
     def propagate_by_block(self, block):
 
+        outside_index = self.tiles.index(Angle.OUTSIDE)
+        straight_index = self.tiles.index(Angle.STRAIGHT)
+
         print('\nBLOCK START:', block)
 
         # TODO: Put this in a block and iterate until no changes?
@@ -181,6 +185,10 @@ class AngleWavefunction(WavefunctionBase):
         block_slice = slice(start, stop)
         block_state = self.get_state((block_slice,))
 
+        # Analyse the indices around the face and calculate total and those
+        # which are uncollapsed.
+        # Note these angles are relative because any number of angles can be
+        # used in a face so long as they add to 360.
         total = 0
         uncollapsed_indices = []
         for index in range(np.size(block_state, axis=1)):
@@ -190,120 +198,159 @@ class AngleWavefunction(WavefunctionBase):
             else:
                 uncollapsed_indices.append(index)
 
+        # num_spare_angles is how many additional 90 deg corners we can fit into
+        # the shape to make it add to 360
         num_spare_angles = len(uncollapsed_indices) - int((360 - total) / 90)
-        outside_index = self.tiles.index(Angle.OUTSIDE)
-        straight_index = self.tiles.index(Angle.STRAIGHT)
 
-        # print('num_angles:', num_block_angles)
-        # print('num uncollapsed_indices:', len(uncollapsed_indices))
-        # print('num_spare_angles:', num_spare_angles)
+        print('    total:', total)
+        remaining = 360 - total
+        print('    remaining:', remaining)
+        num_angles = int(remaining / 90)
+        sign = math.copysign(1, remaining)
+        print('    must use:', num_angles, 'of:', Angle(sign * 90))
+
+        #new_num_spare_angles =
+
+        if num_angles == len(uncollapsed_indices):
+            print('    MAKE ALL ANGLES BE:', Angle(sign * 90))
+        elif num_angles == len(uncollapsed_indices) - 1:
+            print('    REMOVE ALL ANGLES OF TYPE:', Angle(-sign * 90))
+
+
+        print('    num uncollapsed_indices:', len(uncollapsed_indices))
+        print('    num_spare_angles:', num_spare_angles)
 
         # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
+        # Don't like this logic. Don't undestand it...
+        # Yep, all this is wrong...
+
         propagate = set()
+
         for i in uncollapsed_indices:
             state = block_state[(slice(None), i)]
-            #print('state:', state)
             index = i + start
-            node = self.index_to_node[index]
-            if num_spare_angles == 0:
+            if num_angles == len(uncollapsed_indices):
                 if state[straight_index]:
                     state[straight_index] = False
-                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[index], 'of block:', block)
                     propagate.add(index)
                 if state[outside_index]:
                     state[outside_index] = False
-                    print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
+                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
+                    propagate.add(index)
+            elif num_angles == len(uncollapsed_indices) - 1:
+                if state[outside_index]:
+                    state[outside_index] = False
+                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
+                    propagate.add(index)
+        '''
+        for i in uncollapsed_indices:
+            state = block_state[(slice(None), i)]
+            index = i + start
+            if num_spare_angles == 0:
+                if state[straight_index]:
+                    state[straight_index] = False
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[index], 'of block:', block)
+                    propagate.add(index)
+                if state[outside_index]:
+                    state[outside_index] = False
+                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
                     propagate.add(index)
             elif num_spare_angles == 1:
                 if state[outside_index]:
                     state[outside_index] = False
-                    print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', block)
+                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
                     propagate.add(index)
             elif num_spare_angles == 2:
+
+                # This doesn't make sense unless the total interior value is
+                # already 360.
                 if state[straight_index]:
-                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', block)
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[index], 'of block:', block)
                     state[straight_index] = False
                     propagate.add(index)
+                    
+        '''
 
         # DEBUG
-        # if ('N1', 'N2') in block.edges:
-        #     print('\n\n\n\n\n*********** DEBUG!!!\n\n\n\n\n')
-        #     for index in range(np.size(block_state, axis=1)):
-        #         state = block_state[(slice(None), index)]
-        #         node = self.index_to_node[start + index]
-        #         angle = None
-        #         if self.is_collapsed(state):
-        #             angle = self.get_tile((index + start,))
-        #         print('node:', node, self.is_collapsed(state), '->', angle)
+        # if ('N8', 'N9') in block.edges:
+        #     print('\n*********** DEBUG ***********')
+
+        if True:
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                node = self.index_to_node[start + index]
+                angle = None
+                if self.is_collapsed(state):
+                    angle = self.get_tile((index + start,))
+                print('    node:', node, self.is_collapsed(state), '->', angle)
+            print('')
 
         print('BLOCK END')
 
         return propagate
 
     def propagate_by_node(self, node):
-        print('\nNODE START:', node)
-
-        adj_indices = set(self.node_to_indices[node])
-        neighbors = list(self.g.neighbors(node))
-
-        total = 0
-        total_known = 0
-        uncollapsed_indices = []
-        num_uncollapsed_indices = 0
-        for adj_index in adj_indices:
-            adj_state = self.get_state((adj_index,))
-            if self.is_collapsed(adj_state):
-                total += 180 - self.get_tile((adj_index,))
-                total_known += 180 - self.get_tile((adj_index,))
-                print('    node:', node, 'block:', self.index_to_block[adj_index], self.get_tile((adj_index,)))
-            else:
-                total += 180 - Angle.INSIDE
-                print('    node:', node, 'block:', self.index_to_block[adj_index], 'UNCOLLAPSED')
-                num_uncollapsed_indices += 1
-                uncollapsed_indices.append(adj_index)
-
-        # Add another 90 in there's a missing face.
-        if len(neighbors) > len(adj_indices):
-            total += 180 - Angle.INSIDE
-            print('    node:', node, 'block: None')
-            num_uncollapsed_indices += len(neighbors) - len(adj_indices) # Can also just be += 1
-
 
         outside_index = self.tiles.index(Angle.OUTSIDE)
         straight_index = self.tiles.index(Angle.STRAIGHT)
-        remainder = 360 - total
-        maximum_angle = remainder + 90
-        known_remainder = 360 - total_known
+
+        print('\nNODE START:', node)
+
+        indices = set(self.node_to_indices[node])
+
+        # Analyse the indices around the node and calculate total, total known
+        # and num uncollapsed.
+        # Note these angles are converted to absolute as a finite number of
+        # angles add up to the max allowed for a node, ie 4 * 90 = 360.
+        total = 0
+        num_uncollapsed_indices = 0
+        for index in indices:
+            state = self.get_state((index,))
+            if self.is_collapsed(state):
+                total += Angle.absolute(self.get_tile((index,)))
+            else:
+                num_uncollapsed_indices += 1
+
+        # Add another 90 if there's a missing face. This difference should only
+        # ever be 0 or 1.
+        neighbors = list(self.g.neighbors(node))
+        num_uncollapsed_indices += len(neighbors) - len(indices)
+
+        # The minimum angles are the total plus at least 90 degrees for every
+        # unknown. The maximum value for any angle is 450 - the minimum total.
+        minimum_total = total + num_uncollapsed_indices * Angle.absolute(Angle.INSIDE)
+        maximum = 450 - minimum_total
+
+        # TODO: Assert minimum_total != 360? That would mean that we know every
+        # angle...? Or can assume every angle?
 
         propagate = set()
-        for adj_index in adj_indices:
-            adj_state = self.get_state((adj_index,))
-            #if maximum_angle > 90:      # Use is_collapsed?
-            if self.is_collapsed(adj_state):    # Do I need to do this..?
+        for index in indices:
+            state = self.get_state((index,))
+            if self.is_collapsed(state):
                 continue
-            if maximum_angle <= 180:
-                if adj_state[outside_index]:
-                    print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[adj_index])
-                    adj_state[outside_index] = False
-                    propagate.add(adj_index)
-            if maximum_angle <= 90:
-                if adj_state[straight_index]:
-                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[adj_index])
-                    adj_state[straight_index] = False
-                    propagate.add(adj_index)
+            if maximum <= 180:
+                if state[outside_index]:
+                    print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[index])
+                    state[outside_index] = False
+                    propagate.add(index)
+            if maximum <= 90:
+                if state[straight_index]:
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
+                    state[straight_index] = False
+                    propagate.add(index)
 
-            # If there's a single uncollapsed index
+            # If there's a single uncollapsed index then we can assume its
+            # value.
+            # TODO: The event where num_uncollapsed_indices are equal to 90 *
+            # remaining degrees
             if num_uncollapsed_indices == 1:
+                known_remainder = 360 - total
                 tile = Angle(180 - known_remainder) # Should hopefully break if known_remainder is 360
-                self.collapse_to_tile((adj_index,), tile)
-                #print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
-                if self.collapse_to_tile((adj_index,), tile):
-                    propagate.add(adj_index)
-                    #print('    Propagate:', adj_index, 'from node:', node, 'of block:', self.index_to_block[adj_index])
-                    print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[adj_index])
-
-        # TODO: Need to do the explementary version here, the above just does
-        # collapse of illegal values...
+                if self.collapse_to_tile((index,), tile):
+                    propagate.add(index)
+                    print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[index])
 
         print('NODE END')
 
@@ -324,35 +371,35 @@ class AngleWavefunction(WavefunctionBase):
 
             block = self.index_to_block[cur_coords[0]]
             next_coords_by_block = self.propagate_by_block(block)
-            print('\nnext_coords_by_block:', next_coords_by_block)
+            print('BLOCK NEXT COORDS:', next_coords_by_block)
             propagate.update(next_coords_by_block)
 
             node = self.index_to_node[cur_coords[0]]
             next_coords_by_node = self.propagate_by_node(node)
-            print('\nnext_coords_by_node:', next_coords_by_node)
+            print('NODE NEXT COORDS:', next_coords_by_node)
             propagate.update(next_coords_by_node)
 
             stack.extend((i,) for i in propagate)
-            print('stack:', stack)
+            print('\nSTACK:', stack)
 
-            # # Assert block sum is 360.
-            # for block_index, block in enumerate(self.block_g):
-            #     start, stop = self.block_to_index_range[block]
-            #     block_slice = slice(start, stop)
-            #     block_state = self.get_state((block_slice,))
-            #
-            #     total = 0
-            #     for index in range(np.size(block_state, axis=1)):
-            #         state = block_state[(slice(None), index)]
-            #         if self.is_collapsed(state):
-            #             total += self.get_tile((start + index,))
-            #         else:
-            #             break
-            #     else:
-            #         if total != 360:
-            #             print('block:' + str(block) + ' does not add to 360')
-            #             debug(self)
-            #             sys.exit(1)
+            # Assert block sum is 360.
+            for block_index, block in enumerate(self.block_g):
+                start, stop = self.block_to_index_range[block]
+                block_slice = slice(start, stop)
+                block_state = self.get_state((block_slice,))
+
+                total = 0
+                for index in range(np.size(block_state, axis=1)):
+                    state = block_state[(slice(None), index)]
+                    if self.is_collapsed(state):
+                        total += self.get_tile((start + index,))
+                    else:
+                        break
+                else:
+                    if total != 360:
+                        print('\nblock:' + str(block) + ' does not add to 360')
+                        self.debug()
+                        sys.exit(1)
 
     def run(self):
 

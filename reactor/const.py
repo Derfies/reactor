@@ -15,6 +15,10 @@ class Angle(enum.IntEnum):
     OUTSIDE = -90
     STRAIGHT = 0
 
+    @staticmethod
+    def absolute(angle):
+        return 180 - angle
+
 
 class Direction(enum.IntEnum):
 
