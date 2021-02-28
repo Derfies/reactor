@@ -213,6 +213,10 @@ class AngleWavefunction(WavefunctionBase):
             else:
                 uncollapsed_indices.append(index)
 
+        # NOT DOING STRAIGHT ANGLE IN EVENT OF 1 ANGLE REMAINING
+        # Make up 360
+        # If there's a single index remaining it must be straight
+
         # num_spare_angles is how many additional 90 deg corners we can fit into
         # the shape to make it add to 360
         #num_spare_angles = len(uncollapsed_indices) - int((360 - total) / 90)
