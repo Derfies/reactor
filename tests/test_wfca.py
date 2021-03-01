@@ -3,6 +3,7 @@ import unittest
 
 import networkx as nx
 import numpy as np
+from parameterized import parameterized
 
 from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
@@ -65,20 +66,23 @@ class TestAngleWavefunction(unittest.TestCase):
                 total += wf.get_tile((start + index,))
             self.assertEqual(total, 360, f'Seed: {seed}')
 
-    def test_angle_wave_function(self):
+    @parameterized.expand([
+        ('../data/test2.gexf'),
+    ])
+    def test_angle_wave_function(self, graph_path):
 
         # TODO: 59 is bad
         # Not working out the sum of angles to 360
-        for seed in range(100):
+        for seed in range(1000):
             np.random.seed(seed)
-            g = self.load_graph('../data/test2.gexf')
+            g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
             wf = AngleWavefunction(g, bg)
             wf.run()
             wf.debug()
 
-        # self.assert_blocks_collapsed(wf, seed)
-        # self.assert_face_angle_sum(wf, seed)
+        self.assert_blocks_collapsed(wf, seed)
+        self.assert_face_angle_sum(wf, seed)
 
 
 if __name__ == '__main__':
