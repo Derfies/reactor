@@ -71,7 +71,6 @@ class TestAngleWavefunction(unittest.TestCase):
     ])
     def test_angle_wave_function(self, graph_path):
 
-        # TODO: 59 is bad
         # Not working out the sum of angles to 360
         for seed in range(10):
             np.random.seed(seed)
