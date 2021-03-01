@@ -10,6 +10,7 @@ matplotlib = "==3.3.2"
 networkx = "==2.5"
 simple-settings = "==1.0.0"
 pyglet = "==1.5.8"
+parameterized = "==0.8.1"
 
 [requires]
 python_version = "3.8"

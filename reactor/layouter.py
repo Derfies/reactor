@@ -52,12 +52,21 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         index = np.argmin(entropy)
         return np.unravel_index(index, entropy.shape)
 
+    def constrain(self, coords, tile):
+        """
+        Remove the given tile from the list of potential tiles at index.
+
+        """
+        states = self.get_state(coords)
+        last_count = states.sum()
+        states[self.tiles.index(tile)] = False
+        return states.sum() != last_count
+
     def collapse_to_tile(self, coords, tile):
         states = self.get_state(coords)
         last_count = states.sum()
         states[:] = False
-        index = self.tiles.index(tile)
-        states[index] = True
+        states[self.tiles.index(tile)] = True
         return states.sum() != last_count
 
     def collapse(self, coords): # TODO: Collapse to random
@@ -173,13 +182,6 @@ class AngleWavefunction(WavefunctionBase):
 
     def propagate_by_block(self, block):
 
-        outside_index = self.tiles.index(Angle.OUTSIDE)
-        straight_index = self.tiles.index(Angle.STRAIGHT)
-
-
-
-        # TODO: Put this in a block and iterate until no changes?
-
         # The angles of the block the index belongs to may be guessed...
         start, stop = self.block_to_index_range[block]
         block_slice = slice(start, stop)
@@ -234,19 +236,11 @@ class AngleWavefunction(WavefunctionBase):
         elif num_required_angles == len(uncollapsed_indices) - 1:
             print('    REMOVE ALL ANGLES OF TYPE:', opposite_angle)
         print('    num uncollapsed_indices:', len(uncollapsed_indices))
-        #print('    num_spare_angles:', num_spare_angles)
-
-        # ONLY REMOVE THESE FROM THE SPARE ANGLES!!
-        # Don't like this logic. Don't undestand it...
-        # Yep, all this is wrong...
-
-        required_index = self.tiles.index(required_angle)
-        opposite_index = self.tiles.index(opposite_angle)
 
         propagate = set()
         for index in uncollapsed_indices:
             state = block_state[(slice(None), index)]
-            if self.is_collapsed(state):
+            if self.is_collapsed(state):  # Probably don't need this?
                 continue
 
             # Drop the *opposite* angle in events:
@@ -255,39 +249,22 @@ class AngleWavefunction(WavefunctionBase):
             # Drop the *straight* angle in events:
             #   num_required_angles = 0 and len(uncollapsed_indices) == 1
 
-            # Fill in the minimum number of 90 degree angles first.
-            # If there's a spare index remaining, it has to be straight (0)
-
-            # If the number of uncollapsed indices equals the number of required
-            # 90 angles, then we can fill those indices with that angle.
-            # OR remove straight and the opposite angle.
-
-            # If the numer of uncollapsed indices equals the number of required
-            # 90 angles, then we can fill those indices with that angle or straight.
-            # OR the opposite angle.
-
-            #state = block_state[(slice(None), i)]
             index = index + start
             if num_required_angles == len(uncollapsed_indices):
-                if state[opposite_index]:
+                if self.constrain((index,), opposite_angle):
                     print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                    state[opposite_index] = False
                     propagate.add(index)
-                if state[straight_index]:
+                if self.constrain((index,), Angle.STRAIGHT):
                     print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
-                    state[straight_index] = False
                     propagate.add(index)
             elif num_required_angles == len(uncollapsed_indices) - 1:
-                if state[opposite_index]:
+                if self.constrain((index,), opposite_angle):
                     print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                    state[opposite_index] = False
                     propagate.add(index)
                 if num_required_angles == 0:
-                    if state[required_index]:
+                    if self.constrain((index,), required_angle):
                         print('    Remove:', required_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                        state[required_index] = False
                         propagate.add(index)
-
 
         print('')
         print('AFTER')
@@ -357,7 +334,7 @@ class AngleWavefunction(WavefunctionBase):
         propagate = set()
         for index in indices:
             state = self.get_state((index,))
-            if self.is_collapsed(state):
+            if self.is_collapsed(state):    # Probably don't need this?
                 continue
 
             # TODO: Replace with for loop.
@@ -365,15 +342,14 @@ class AngleWavefunction(WavefunctionBase):
             #   if maximum < angle:
             #       angle_index = self.tiles.index(angle)
             #       state[angle_index] = False
+
             if maximum <= 180:
-                if state[outside_index]:
+                if self.constrain((index,), Angle.OUTSIDE):
                     print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[index])
-                    state[outside_index] = False
                     propagate.add(index)
             if maximum <= 90:
-                if state[straight_index]:
+                if self.constrain((index,), Angle.STRAIGHT):
                     print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
-                    state[straight_index] = False
                     propagate.add(index)
 
             # If there's a single uncollapsed index then we can assume its
