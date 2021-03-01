@@ -69,7 +69,7 @@ class TestAngleWavefunction(unittest.TestCase):
 
         # TODO: 59 is bad
         # Not working out the sum of angles to 360
-        for seed in [59]:
+        for seed in range(100):
             np.random.seed(seed)
             g = self.load_graph('../data/test2.gexf')
             bg = self.create_block_graph(g)

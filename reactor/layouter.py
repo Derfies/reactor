@@ -223,13 +223,16 @@ class AngleWavefunction(WavefunctionBase):
         print('    total:', total)
         remaining = 360 - total
         print('    remaining:', remaining)
-        num_angles = int(remaining / 90)
+        num_required_angles = int(remaining / 90)
         sign = math.copysign(1, remaining)
-        print('    must use:', num_angles, 'of:', Angle(sign * 90))
-        if num_angles == len(uncollapsed_indices):
-            print('    MAKE ALL ANGLES BE:', Angle(sign * 90))
-        elif num_angles == len(uncollapsed_indices) - 1:
-            print('    REMOVE ALL ANGLES OF TYPE:', Angle(-sign * 90))
+
+        required_angle = Angle(sign * 90)
+        opposite_angle = Angle(-sign * 90)
+        print('    must use:', num_required_angles, 'of:', required_angle)
+        if num_required_angles == len(uncollapsed_indices):
+            print('    MAKE ALL ANGLES BE:', required_angle)
+        elif num_required_angles == len(uncollapsed_indices) - 1:
+            print('    REMOVE ALL ANGLES OF TYPE:', opposite_angle)
         print('    num uncollapsed_indices:', len(uncollapsed_indices))
         #print('    num_spare_angles:', num_spare_angles)
 
@@ -237,25 +240,54 @@ class AngleWavefunction(WavefunctionBase):
         # Don't like this logic. Don't undestand it...
         # Yep, all this is wrong...
 
-        propagate = set()
+        required_index = self.tiles.index(required_angle)
+        opposite_index = self.tiles.index(opposite_angle)
 
-        for i in uncollapsed_indices:
-            state = block_state[(slice(None), i)]
-            index = i + start
-            if num_angles == len(uncollapsed_indices):
+        propagate = set()
+        for index in uncollapsed_indices:
+            state = block_state[(slice(None), index)]
+            if self.is_collapsed(state):
+                continue
+
+            # Drop the *opposite* angle in events:
+            #   num_required_angles == len(uncollapsed_indices)
+            #   num_required_angles == len(uncollapsed_indices) + 1
+            # Drop the *straight* angle in events:
+            #   num_required_angles = 0 and len(uncollapsed_indices) == 1
+
+            # Fill in the minimum number of 90 degree angles first.
+            # If there's a spare index remaining, it has to be straight (0)
+
+            # If the number of uncollapsed indices equals the number of required
+            # 90 angles, then we can fill those indices with that angle.
+            # OR remove straight and the opposite angle.
+
+            # If the numer of uncollapsed indices equals the number of required
+            # 90 angles, then we can fill those indices with that angle or straight.
+            # OR the opposite angle.
+
+            #state = block_state[(slice(None), i)]
+            index = index + start
+            if num_required_angles == len(uncollapsed_indices):
+                if state[opposite_index]:
+                    print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                    state[opposite_index] = False
+                    propagate.add(index)
                 if state[straight_index]:
+                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
                     state[straight_index] = False
-                    print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[index], 'of block:', block)
                     propagate.add(index)
-                if state[outside_index]:
-                    state[outside_index] = False
-                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
+            elif num_required_angles == len(uncollapsed_indices) - 1:
+                if state[opposite_index]:
+                    print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                    state[opposite_index] = False
                     propagate.add(index)
-            elif num_angles == len(uncollapsed_indices) - 1:
-                if state[outside_index]:
-                    state[outside_index] = False
-                    print('    Remove:', Angle.OUTSIDE, 'from node:', self.index_to_node[index], 'of block:', block)
-                    propagate.add(index)
+                if num_required_angles == 0:
+                    if state[required_index]:
+                        print('    Remove:', required_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                        state[required_index] = False
+                        propagate.add(index)
+
 
         print('')
         print('AFTER')
@@ -327,6 +359,12 @@ class AngleWavefunction(WavefunctionBase):
             state = self.get_state((index,))
             if self.is_collapsed(state):
                 continue
+
+            # TODO: Replace with for loop.
+            # for angle in list(Angle):
+            #   if maximum < angle:
+            #       angle_index = self.tiles.index(angle)
+            #       state[angle_index] = False
             if maximum <= 180:
                 if state[outside_index]:
                     print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[index])
