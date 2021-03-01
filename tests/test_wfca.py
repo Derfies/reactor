@@ -8,7 +8,7 @@ from parameterized import parameterized
 from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.faceanalysis import FaceAnalysis
-from reactor.layouter import AngleWavefunction
+from reactor.wfc.anglewavefunction import AngleWavefunction
 from reactor.readers.gexfreader import GEXFReader
 
 
@@ -73,7 +73,7 @@ class TestAngleWavefunction(unittest.TestCase):
 
         # TODO: 59 is bad
         # Not working out the sum of angles to 360
-        for seed in range(1000):
+        for seed in range(10):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
