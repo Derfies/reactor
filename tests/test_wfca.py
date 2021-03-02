@@ -67,12 +67,13 @@ class TestAngleWavefunction(unittest.TestCase):
             self.assertEqual(total, 360, f'Seed: {seed}')
 
     @parameterized.expand([
-        ('../data/test2.gexf'),
+        ('../data/test1.gexf'),
+        #('../data/test2.gexf'),
     ])
     def test_angle_wave_function(self, graph_path):
 
         # Not working out the sum of angles to 360
-        for seed in range(10):
+        for seed in range(1):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)

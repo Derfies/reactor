@@ -73,6 +73,40 @@ class AngleWavefunction(WavefunctionBase):
             return ()
 
         print('\nBLOCK START:', block)
+        # n6 impossible.
+        '''
+        AFTER
+        node: N7 True -> [ True False False] Angle.INSIDE
+        node: N8 True -> [ True False False] Angle.INSIDE
+        node: N5 True -> [ True False False] Angle.INSIDE
+        node: N6 True -> [ True False False] Angle.INSIDE
+        node: N3 True -> [False  True False] Angle.OUTSIDE
+        node: N2 True -> [ True False False] Angle.INSIDE
+        
+        CORRECT:
+        index: 2 node: N6 True -> [ True False False] Angle.INSIDE
+        
+        INCORRECT:
+        index: 3 node: N6 True -> [ True False False] Angle.INSIDE
+        
+        Should have evaluated index 3 on per node basis before the adjoining
+        face was resolved.
+        
+        - We fully collapsed upper face
+        - This dirtied indices 8, 10, 6 and 7
+        - Started index 7
+        - Did node 3 (index 7) -> collapsed correctly
+        - This dirtied index 4
+        - Started index 4
+        - Fully collpased the lower face which was wrong
+        - Still some indices in the stack by this point that should have evaled.
+        
+        - So we either:
+        - Change order of stack (prolly not...)
+        - Do nodes first, rather than block
+        - OR do a block, then ALL indices of that block before moving on?
+            Stands to reason... we want to propagate fully before moving on...
+        '''
 
         print('')
         print('BEFORE')
@@ -82,7 +116,7 @@ class AngleWavefunction(WavefunctionBase):
             angle = None
             if self.is_collapsed(state):
                 angle = self.get_tile((index + start,))
-            print('    node:', node, self.is_collapsed(state), '->', state, angle)
+            print('    index:', index + start, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
 
         # Analyse the indices around the face and calculate total and those
@@ -132,6 +166,8 @@ class AngleWavefunction(WavefunctionBase):
             # Drop the *straight* angle in events:
             #   num_required_angles = 0 and len(uncollapsed_indices) == 1
 
+            node = self.index_to_node[index]
+
             index = index + start
             if num_required_angles == len(uncollapsed_indices):
                 if self.constrain((index,), opposite_angle):
@@ -157,7 +193,7 @@ class AngleWavefunction(WavefunctionBase):
             angle = None
             if self.is_collapsed(state):
                 angle = self.get_tile((index + start,))
-            print('    node:', node, self.is_collapsed(state), '->', state, angle)
+            print('    index:', index + start, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
 
         print('BLOCK END')
@@ -166,8 +202,8 @@ class AngleWavefunction(WavefunctionBase):
 
     def propagate_by_node(self, node):
 
-        outside_index = self.tiles.index(Angle.OUTSIDE)
-        straight_index = self.tiles.index(Angle.STRAIGHT)
+        ##outside_index = self.tiles.index(Angle.OUTSIDE)
+        #straight_index = self.tiles.index(Angle.STRAIGHT)
 
         print('\nNODE START:', node)
 
@@ -184,7 +220,7 @@ class AngleWavefunction(WavefunctionBase):
             angle = None
             if self.is_collapsed(state):
                 angle = self.get_tile((index,))
-            print('    node:', node, self.is_collapsed(state), '->', state, angle)
+            print('    index:', index, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
 
 
@@ -255,7 +291,7 @@ class AngleWavefunction(WavefunctionBase):
             angle = None
             if self.is_collapsed(state):
                 angle = self.get_tile((index,))
-            print('    node:', node, self.is_collapsed(state), '->', state, angle)
+            print('    index:', index, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
 
         print('NODE END')
@@ -274,7 +310,7 @@ class AngleWavefunction(WavefunctionBase):
 
             propagate = set()
             cur_coords = stack.pop()
-            print('\nLOOP node:', self.index_to_node[cur_coords[0]], 'block:', self.index_to_block[cur_coords[0]])
+            print('\nLOOP index:', cur_coords[0], 'node:', self.index_to_node[cur_coords[0]], 'block:', self.index_to_block[cur_coords[0]])
 
             block = self.index_to_block[cur_coords[0]]
             next_coords_by_block = self.propagate_by_block(block)
