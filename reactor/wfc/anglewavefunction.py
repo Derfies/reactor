@@ -69,8 +69,8 @@ class AngleWavefunction(WavefunctionBase):
         start, stop = self.block_to_index_range[block]
         block_slice = slice(start, stop)
         block_state = self.get_state((block_slice,))
-        if self.is_collapsed(block_state):
-            return ()
+        # if self.is_collapsed(block_state):
+        #     return ()
 
         print('\nBLOCK START:', block)
         # n6 impossible.
@@ -95,15 +95,15 @@ class AngleWavefunction(WavefunctionBase):
         - We fully collapsed upper face
         - This dirtied indices 8, 10, 6 and 7
         - Started index 7
-        - Did node 3 (index 7) -> collapsed correctly
-        - This dirtied index 4
+        - Did node N3 (index 7) -> collapsed correctly
+        - This dirtied index 4 (N3)
         - Started index 4
         - Fully collpased the lower face which was wrong
         - Still some indices in the stack by this point that should have evaled.
         
         - So we either:
         - Change order of stack (prolly not...)
-        - Do nodes first, rather than block
+        - Do node first, rather than block
         - OR do a block, then ALL indices of that block before moving on?
             Stands to reason... we want to propagate fully before moving on...
         '''
@@ -207,8 +207,6 @@ class AngleWavefunction(WavefunctionBase):
 
         print('\nNODE START:', node)
 
-
-
         indices = set(self.node_to_indices[node])
 
         print('')
@@ -247,13 +245,18 @@ class AngleWavefunction(WavefunctionBase):
         minimum_total = total + num_uncollapsed_indices * Angle.absolute(Angle.INSIDE)
         maximum = 450 - minimum_total
 
+        print('    total:', total)
+        print('    num_uncollapsed_indices:', num_uncollapsed_indices)
+        print('    minimum_total:', minimum_total)
+        print('    maximum:', maximum)
+
         # TODO: Assert minimum_total != 360? That would mean that we know every
         # angle...? Or can assume every angle?
 
         propagate = set()
         for index in indices:
             state = self.get_state((index,))
-            if self.is_collapsed(state):    # Probably don't need this?
+            if self.is_collapsed(state):    # Probably don't need this? - yes i do, to stop collapsing already collapsed shit.
                 continue
 
             # TODO: Replace with for loop.
@@ -284,15 +287,24 @@ class AngleWavefunction(WavefunctionBase):
 
         print('')
         print('AFTER')
-
+        broke = False
         for index in indices:
+
             state = self.get_state((index,))
             node = self.index_to_node[index]
             angle = None
             if self.is_collapsed(state):
-                angle = self.get_tile((index,))
+                try:
+                    angle = self.get_tile((index,))
+                except:
+                    angle = 'CONTRADICTION'
+                    broke = True
             print('    index:', index, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
+
+        if broke:
+            self.debug()
+            raise
 
         print('NODE END')
 
@@ -314,11 +326,12 @@ class AngleWavefunction(WavefunctionBase):
 
             block = self.index_to_block[cur_coords[0]]
             next_coords_by_block = self.propagate_by_block(block)
-            propagate.update(next_coords_by_block)
+            #propagate.update(next_coords_by_block)
 
-            node = self.index_to_node[cur_coords[0]]
-            next_coords_by_node = self.propagate_by_node(node)
-            propagate.update(next_coords_by_node)
+            #node = self.index_to_node[cur_coords[0]]
+            for node in block:
+                next_coords_by_node = self.propagate_by_node(node)
+                propagate.update(next_coords_by_node)
 
             stack.extend((i,) for i in propagate)
 
@@ -369,7 +382,10 @@ class AngleWavefunction(WavefunctionBase):
             state = self.get_state((index,))
             angle = None
             if self.is_collapsed(state):
-                angle = self.get_tile((index,))
+                try:
+                    angle = self.get_tile((index,))
+                except:
+                    angle = 'CONTRADICTION'
             results[(block, node)] = angle, state
 
         for block, node in sorted(results, key=lambda bn: len(bn[0])):
