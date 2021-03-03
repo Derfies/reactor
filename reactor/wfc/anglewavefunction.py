@@ -4,7 +4,7 @@ import sys
 import numpy as np
 
 from reactor.const import Angle
-from reactor.wfc.wavefunctionbase import WavefunctionBase
+from reactor.wfc.wavefunctionbase import WavefunctionBase, Contradiction
 
 
 class AngleWavefunction(WavefunctionBase):
@@ -30,7 +30,7 @@ class AngleWavefunction(WavefunctionBase):
 
         self.index_to_block = []
         self.block_sizes = []
-        self.index_to_block_index_range = []
+        #self.index_to_block_index_range = []
         self.block_to_index_range = {}
 
         num_angles = 0
@@ -46,7 +46,7 @@ class AngleWavefunction(WavefunctionBase):
             self.block_sizes.extend([len(block)] * len(block))
             for i, node in enumerate(block.nodes_forward):
                 self.index_to_node.append(node)
-                self.index_to_block_index_range.append((m, m + len(block)))
+                #self.index_to_block_index_range.append((m, m + len(block)))
                 self.node_to_indices.setdefault(node, set()).add(wave_index)
                 self.block_to_index_range[block] = m, m + len(block)
 
@@ -63,6 +63,26 @@ class AngleWavefunction(WavefunctionBase):
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
+        print('    block sizes:', self.block_sizes)
+
+    def debug_block(self, block_state, start):
+        for index in range(np.size(block_state, axis=1)):
+            state = block_state[(slice(None), index)]
+            node = self.index_to_node[start + index]
+            angle = None
+            if self.is_collapsed(state):
+                angle = self.get_tile((index + start,))
+            print('    index:', index + start, 'node:', node, self.is_collapsed(state), '->', state, angle)
+
+    def debug_node(self, node, indices):
+        for index in indices:
+            state = self.get_state((index,))
+            #node = self.index_to_node[index]
+            angle = None
+            if self.is_collapsed(state):
+                angle = self.get_tile((index,))
+            print('    index:', index, 'node:', node, self.is_collapsed(state), '->', state, angle)
+
     def propagate_by_block(self, block):
 
         # The angles of the block the index belongs to may be guessed...
@@ -73,154 +93,111 @@ class AngleWavefunction(WavefunctionBase):
         #     return ()
 
         print('\nBLOCK START:', block)
-        # n6 impossible.
-        '''
-        AFTER
-        node: N7 True -> [ True False False] Angle.INSIDE
-        node: N8 True -> [ True False False] Angle.INSIDE
-        node: N5 True -> [ True False False] Angle.INSIDE
-        node: N6 True -> [ True False False] Angle.INSIDE
-        node: N3 True -> [False  True False] Angle.OUTSIDE
-        node: N2 True -> [ True False False] Angle.INSIDE
-        
-        CORRECT:
-        index: 2 node: N6 True -> [ True False False] Angle.INSIDE
-        
-        INCORRECT:
-        index: 3 node: N6 True -> [ True False False] Angle.INSIDE
-        
-        Should have evaluated index 3 on per node basis before the adjoining
-        face was resolved.
-        
-        - We fully collapsed upper face
-        - This dirtied indices 8, 10, 6 and 7
-        - Started index 7
-        - Did node N3 (index 7) -> collapsed correctly
-        - This dirtied index 4 (N3)
-        - Started index 4
-        - Fully collpased the lower face which was wrong
-        - Still some indices in the stack by this point that should have evaled.
-        
-        - So we either:
-        - Change order of stack (prolly not...)
-        - Do node first, rather than block
-        - OR do a block, then ALL indices of that block before moving on?
-            Stands to reason... we want to propagate fully before moving on...
-        '''
 
         print('')
         print('BEFORE')
-        for index in range(np.size(block_state, axis=1)):
-            state = block_state[(slice(None), index)]
-            node = self.index_to_node[start + index]
-            angle = None
-            if self.is_collapsed(state):
-                angle = self.get_tile((index + start,))
-            print('    index:', index + start, 'node:', node, self.is_collapsed(state), '->', state, angle)
+        self.debug_block(block_state, start)
         print('')
 
         # Analyse the indices around the face and calculate total and those
         # which are uncollapsed.
         # Note these angles are relative because any number of angles can be
         # used in a face so long as they add to 360.
-        total = 0
-        uncollapsed_indices = []
-        for index in range(np.size(block_state, axis=1)):
-            state = block_state[(slice(None), index)]
-            if self.is_collapsed(state):
-                total += self.get_tile((start + index,))
-            else:
-                uncollapsed_indices.append(index)
-
-        # NOT DOING STRAIGHT ANGLE IN EVENT OF 1 ANGLE REMAINING
-        # Make up 360
-        # If there's a single index remaining it must be straight
-
-        # num_spare_angles is how many additional 90 deg corners we can fit into
-        # the shape to make it add to 360
-        #num_spare_angles = len(uncollapsed_indices) - int((360 - total) / 90)
-        print('    total:', total)
-        remaining = 360 - total
-        print('    remaining:', remaining)
-        num_required_angles = int(remaining / 90)
-        sign = math.copysign(1, remaining)
-
-        required_angle = Angle(sign * 90)
-        opposite_angle = Angle(-sign * 90)
-        print('    must use:', num_required_angles, 'of:', required_angle)
-        if num_required_angles == len(uncollapsed_indices):
-            print('    MAKE ALL ANGLES BE:', required_angle)
-        elif num_required_angles == len(uncollapsed_indices) - 1:
-            print('    REMOVE ALL ANGLES OF TYPE:', opposite_angle)
-        print('    num uncollapsed_indices:', len(uncollapsed_indices))
-
         propagate = set()
-        for index in uncollapsed_indices:
-            state = block_state[(slice(None), index)]
-            if self.is_collapsed(state):  # Probably don't need this?
-                continue
+        changed = True
+        while changed:
+            total = 0
+            uncollapsed_indices = []
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                if self.is_collapsed(state):
+                    total += self.get_tile((start + index,))
+                else:
+                    uncollapsed_indices.append(index)
 
-            # Drop the *opposite* angle in events:
-            #   num_required_angles == len(uncollapsed_indices)
-            #   num_required_angles == len(uncollapsed_indices) + 1
-            # Drop the *straight* angle in events:
-            #   num_required_angles = 0 and len(uncollapsed_indices) == 1
+            # NOT DOING STRAIGHT ANGLE IN EVENT OF 1 ANGLE REMAINING
+            # Make up 360
+            # If there's a single index remaining it must be straight
+            # num_spare_angles is how many additional 90 deg corners we can fit into
+            # the shape to make it add to 360
+            remaining = 360 - total
+            num_required_angles = int(remaining / 90)
+            sign = math.copysign(1, remaining)
 
-            node = self.index_to_node[index]
+            required_angle = Angle(sign * 90)
+            opposite_angle = Angle(-sign * 90)
+            if num_required_angles > len(uncollapsed_indices):
+                #print('More required angles than uncollapsed indices')
+                #sys.exit(1)
+                raise Contradiction('More required angles than uncollapsed indices')
 
-            index = index + start
-            if num_required_angles == len(uncollapsed_indices):
-                if self.constrain((index,), opposite_angle):
-                    print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                    propagate.add(index)
-                if self.constrain((index,), Angle.STRAIGHT):
-                    print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
-                    propagate.add(index)
-            elif num_required_angles == len(uncollapsed_indices) - 1:
-                if self.constrain((index,), opposite_angle):
-                    print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                    propagate.add(index)
-                if num_required_angles == 0:
-                    if self.constrain((index,), required_angle):
-                        print('    Remove:', required_angle, 'from node:', node, 'of block:', self.index_to_block[index])
-                        propagate.add(index)
+            this_propagate = set()
+            for index in uncollapsed_indices:
+                state = block_state[(slice(None), index)]
+                if self.is_collapsed(state):  # Probably don't need this?
+                    continue
 
-        print('')
-        print('AFTER')
-        for index in range(np.size(block_state, axis=1)):
-            state = block_state[(slice(None), index)]
-            node = self.index_to_node[start + index]
-            angle = None
-            if self.is_collapsed(state):
-                angle = self.get_tile((index + start,))
-            print('    index:', index + start, 'node:', node, self.is_collapsed(state), '->', state, angle)
-        print('')
+                # Drop the *opposite* angle in events:
+                #   num_required_angles == len(uncollapsed_indices)
+                #   num_required_angles == len(uncollapsed_indices) + 1
+                # Drop the *straight* angle in events:
+                #   num_required_angles = 0 and len(uncollapsed_indices) == 1
+
+                node = self.index_to_node[index]
+
+                index = index + start
+                if num_required_angles == len(uncollapsed_indices):
+                    if self.constrain((index,), opposite_angle):
+                        print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                        this_propagate.add(index)
+                    if self.constrain((index,), Angle.STRAIGHT):
+                        print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[index])
+                        this_propagate.add(index)
+                elif num_required_angles == len(uncollapsed_indices) - 1:
+                    if self.constrain((index,), opposite_angle):
+                        print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                        this_propagate.add(index)
+                    if num_required_angles == 0:
+                        if self.constrain((index,), required_angle):
+                            print('    Remove:', required_angle, 'from node:', node, 'of block:', self.index_to_block[index])
+                            this_propagate.add(index)
+
+
+            if this_propagate:
+                propagate.update(this_propagate)
+                changed = True
+            else:
+                changed = False
+
+            for index in range(np.size(block_state, axis=1)):
+                state = block_state[(slice(None), index)]
+                nonzero = np.nonzero(state)
+                if not nonzero[0].size:
+                    raise Contradiction()
+                #print('nonzero:', nonzero)
+                #indices = nonzero[0]
+                #assert indices.size == 1, 'Cannot resolve the tile'
+
+
+            print('')
+            print('AFTER')
+            self.debug_block(block_state, start)
+            print('')
 
         print('BLOCK END')
 
-        return propagate
+        return this_propagate
 
-    def propagate_by_node(self, node):
+    def propagate_by_node(self, original_index, node):
 
-        ##outside_index = self.tiles.index(Angle.OUTSIDE)
-        #straight_index = self.tiles.index(Angle.STRAIGHT)
-
-        print('\nNODE START:', node)
+        print('\nNODE START:', node, '[{}]'.format(original_index))
 
         indices = set(self.node_to_indices[node])
 
         print('')
         print('BEFORE')
-
-        for index in indices:
-            state = self.get_state((index,))
-            node = self.index_to_node[index]
-            angle = None
-            if self.is_collapsed(state):
-                angle = self.get_tile((index,))
-            print('    index:', index, 'node:', node, self.is_collapsed(state), '->', state, angle)
+        self.debug_node(node, indices)
         print('')
-
 
         # Analyse the indices around the node and calculate total, total known
         # and num uncollapsed.
@@ -245,10 +222,10 @@ class AngleWavefunction(WavefunctionBase):
         minimum_total = total + num_uncollapsed_indices * Angle.absolute(Angle.INSIDE)
         maximum = 450 - minimum_total
 
-        print('    total:', total)
-        print('    num_uncollapsed_indices:', num_uncollapsed_indices)
-        print('    minimum_total:', minimum_total)
-        print('    maximum:', maximum)
+        # print('    total:', total)
+        # print('    num_uncollapsed_indices:', num_uncollapsed_indices)
+        # print('    minimum_total:', minimum_total)
+        # print('    maximum:', maximum)
 
         # TODO: Assert minimum_total != 360? That would mean that we know every
         # angle...? Or can assume every angle?
@@ -285,6 +262,36 @@ class AngleWavefunction(WavefunctionBase):
                     propagate.add(index)
                     print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.index_to_block[index])
 
+        if len(neighbors) == len(indices) == 2:
+
+            state = self.get_state((original_index,))
+
+            print('    NEW')
+
+            other_indices = list(indices)[:]
+            other_indices.remove(original_index)
+            other_index = other_indices[0]
+            other_state = self.get_state((other_index,))
+
+            # Do explementary collapsing
+            if not state[0] and other_state[1]:
+                other_state[1] = False
+                print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.index_to_block[other_index])
+                propagate.add(other_index)
+            if not state[1] and other_state[0]:
+                other_state[0] = False
+                print('    Remove:', Angle.INSIDE, 'from node:', node, 'of block:', self.index_to_block[other_index])
+                propagate.add(other_index)
+            if not state[2] and other_state[2]:
+                other_state[2] = False
+                print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.index_to_block[other_index])
+                propagate.add(other_index)
+
+        # TODO:
+        # Expand this logic to constrain the reverse of nodes with only two
+        # edges. Eg if an angle cannot be 90, then it's fair to say that the
+        # explementary angle cannot be 270.
+
         print('')
         print('AFTER')
         broke = False
@@ -308,6 +315,10 @@ class AngleWavefunction(WavefunctionBase):
 
         print('NODE END')
 
+        # print('3:')
+        # self.debug()
+        # print('END 3')
+
         return propagate
 
     def get_min_entropy_coords_offset(self):
@@ -328,15 +339,19 @@ class AngleWavefunction(WavefunctionBase):
             next_coords_by_block = self.propagate_by_block(block)
             #propagate.update(next_coords_by_block)
 
-            #node = self.index_to_node[cur_coords[0]]
-            for node in block:
-                next_coords_by_node = self.propagate_by_node(node)
+            start, stop = self.block_to_index_range[block]
+            block_slice = slice(start, stop)
+            block_state = self.get_state((block_slice,))
+            for index in range(np.size(block_state, axis=1)):
+                index = start + index
+                node = self.index_to_node[index]
+                next_coords_by_node = self.propagate_by_node(index, node)
                 propagate.update(next_coords_by_node)
 
             stack.extend((i,) for i in propagate)
 
-            print('\nBLOCK NEXT COORDS:', next_coords_by_block)
-            print('NODE NEXT COORDS:', next_coords_by_node)
+            #print('\nBLOCK NEXT COORDS:', next_coords_by_block)
+            #print('NODE NEXT COORDS:', next_coords_by_node)
             print('STACK:', stack)
 
             # Assert block sum is 360.
@@ -368,7 +383,6 @@ class AngleWavefunction(WavefunctionBase):
 
         print('\n\n\n*****INITIAL PROPAGATE OVER*****\n\n\n')
         self.debug()
-        #sys.exit(0)
 
         # Run default loop.
         super().run()
@@ -386,8 +400,8 @@ class AngleWavefunction(WavefunctionBase):
                     angle = self.get_tile((index,))
                 except:
                     angle = 'CONTRADICTION'
-            results[(block, node)] = angle, state
+            results[(block, node)] = angle, state, index
 
         for block, node in sorted(results, key=lambda bn: len(bn[0])):
-            angle, state = results[block, node]
-            print('    node:', node, 'angle:', angle, 'block:', block, '->', state)
+            angle, state, index = results[block, node]
+            print('    ', 'index:', index, 'node:', node, 'angle:', angle, 'block:', block, '->', state)

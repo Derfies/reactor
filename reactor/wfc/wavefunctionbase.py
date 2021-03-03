@@ -3,6 +3,12 @@ import abc
 import numpy as np
 
 
+class Contradiction(Exception):
+    """Solving could not proceed without backtracking/restarting."""
+
+    pass
+
+
 class WavefunctionBase(metaclass=abc.ABCMeta):
 
     def __init__(self):
@@ -37,8 +43,14 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             num_states + offset,
             np.inf,
         )
+        # print('\nENTROPY:')
+        # for index in range(np.size(self.wave, axis=1)):
+        #     print('    entropy:', entropy[index], 'offset:', offset[index], 'unresolved:', unresolved[index], 'node:', self.index_to_node[index], 'index:', index, 'block:', self.index_to_block[index])
+
         index = np.argmin(entropy)
-        return np.unravel_index(index, entropy.shape)
+        coords = np.unravel_index(index, entropy.shape)
+        #print('    coords:', coords)
+        return coords
 
     def constrain(self, coords, tile):
         """
@@ -57,14 +69,17 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         states[self.tiles.index(tile)] = True
         return states.sum() != last_count
 
-    def collapse(self, coords): # TODO: Collapse to random
+    def collapse(self, coords): # TODO: Rename collapse to random..?
+        """"Assumes wave is valid."""
+        self.debug()
         states = self.get_state(coords)
         weighted_states = self.weights * states
         weighted_states /= weighted_states.sum()
         index = np.random.choice(self.weights.size, p=weighted_states)
         states[:] = False
         states[index] = True
-        print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'angle:', self.get_tile(coords), 'block:', self.index_to_block[coords[0]])
+
+        print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords), 'block:', self.index_to_block[coords[0]])
 
     def propagate(self):
         last_count = self.wave.sum()
@@ -107,6 +122,15 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
     def run(self):
         while not self.is_collapsed(self.wave):
-            coords = self.get_min_entropy_coords()
-            self.collapse(coords)
-            self.propagate(coords)
+            original = self.wave.copy()
+
+            # TODO:
+
+            try:
+                coords = self.get_min_entropy_coords()
+                self.collapse(coords)
+                self.propagate(coords)
+            except Contradiction:
+                self.wave = original
+                print('FOUND CONTRADICTION, RETRYING')
+                #sys.exit(1)
