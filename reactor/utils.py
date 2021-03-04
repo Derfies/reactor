@@ -17,6 +17,11 @@ from reactor.map import Map
 MAP_SIZE = (10, 10)
 
 
+def weighted_shuffle(items, weights):
+    order = sorted(range(len(items)), key=lambda i: random.random() ** (1.0 / weights[i]))
+    return [items[i] for i in order]
+
+
 def get_node_position(g, node):
     return g.nodes[node].get(const.POSITION)
 

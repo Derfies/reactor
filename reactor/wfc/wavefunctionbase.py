@@ -2,6 +2,8 @@ import abc
 
 import numpy as np
 
+from reactor.utils import weighted_shuffle
+
 
 class Contradiction(Exception):
     """Solving could not proceed without backtracking/restarting."""
@@ -67,6 +69,10 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         last_count = states.sum()
         states[:] = False
         states[self.tiles.index(tile)] = True
+
+        print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords),
+              'block:', self.index_to_block[coords[0]])
+
         return states.sum() != last_count
 
     def collapse(self, coords): # TODO: Rename collapse to random..?
@@ -80,6 +86,27 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         states[index] = True
 
         print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords), 'block:', self.index_to_block[coords[0]])
+
+    def get_valid_tiles(self, coords):
+        states = self.get_state(coords)
+        weighted_states = self.weights * states
+        weighted_states /= weighted_states.sum()
+
+        tile_weights = {
+            tile: weighted_states[i]
+            for i, tile in enumerate(self.tiles)
+            if weighted_states[i]
+        }#.items()
+        print('coords:', coords)
+        print('tile weights:', tile_weights)
+        shuffle = weighted_shuffle(list(tile_weights.keys()), list(tile_weights.values()))
+        print('shuffle:', shuffle)
+        # rtn = [
+        #     item for i, item in enumerate(shuffle) if weighted_states[i]
+        # ]
+        # return rtn
+        return shuffle
+
 
     def propagate(self):
         last_count = self.wave.sum()
@@ -120,17 +147,41 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         if (self.wave.sum(axis=0) == 0).any():
             print('\n*********contradiction??')
 
-    def run(self):
-        while not self.is_collapsed(self.wave):
-            original = self.wave.copy()
-
-            # TODO:
-
+    def recurse(self):
+        original = self.wave.copy()
+        coords = self.get_min_entropy_coords()
+        valid_tiles = self.get_valid_tiles(coords)
+        while valid_tiles:
             try:
-                coords = self.get_min_entropy_coords()
-                self.collapse(coords)
+                tile = valid_tiles.pop()
+                self.collapse_to_tile(coords, tile)
                 self.propagate(coords)
+                if not self.is_collapsed(self.wave):
+                    self.recurse()
+                break       # break here..?
             except Contradiction:
+
+                # Something went wrong - set the wave back so we can try a new
+                # permutation.
                 self.wave = original
-                print('FOUND CONTRADICTION, RETRYING')
-                #sys.exit(1)
+                print('FOUND CONTRADICTION, RETRYING:', coords)
+
+        else:
+            raise Contradiction()   # I think..?
+
+
+    def run(self):
+        self.recurse()
+    #     while not self.is_collapsed(self.wave):
+    #         original = self.wave.copy()
+    #
+    #         # TODO:
+    #
+    #         try:
+    #             coords = self.get_min_entropy_coords()
+    #             self.collapse(coords)
+    #             self.propagate(coords)
+    #         except Contradiction:
+    #             self.wave = original
+    #             print('FOUND CONTRADICTION, RETRYING')
+    #             #sys.exit(1)
