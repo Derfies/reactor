@@ -70,8 +70,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         states[:] = False
         states[self.tiles.index(tile)] = True
 
-        print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords),
-              'block:', self.index_to_block[coords[0]])
+        print('\nCOLLAPSE node:', self.coords_to_node[coords], 'coords:', coords, 'angle:', self.get_tile(coords), 'block:', self.coords_to_block[coords])
 
         return states.sum() != last_count
 
