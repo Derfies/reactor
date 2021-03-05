@@ -52,19 +52,23 @@ class TestAngleWavefunction(unittest.TestCase):
     #     return wf.get_state((block_slice,))
     #
     # def assert_blocks_collapsed(self, wf, seed):
-    #
+    #     """
+    #     Assert that each
+    #     """
     #     # Assert each index is collapsed.
     #     for block in wf.block_g:
     #         state = self.get_block_state(wf, block)
     #         self.assertEqual(True, wf.is_collapsed(state), f'Seed: {seed}')
 
-    def assert_face_angle_sum(self, wf, seed):
+    def assert_blocks_angle_sum(self, wf, seed):
+        """
+        Assert that all interior angles of a block add to 360.
 
+        """
         # Assert block sum is 360.
         for block in wf.block_g:
-            total = 0
-            for coords in wf.block_to_coordses[block]:
-                total += wf.get_tile(coords)
+            block_slice = wf.block_to_slice[block]
+            total = np.sum(wf.get_tiles(block_slice))
             self.assertEqual(total, 360, f'Seed: {seed}')
 
     @parameterized.expand([
@@ -74,7 +78,7 @@ class TestAngleWavefunction(unittest.TestCase):
     def test_angle_wave_function(self, graph_path):
 
         # Not working out the sum of angles to 360
-        for seed in range(1):
+        for seed in range(5):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
@@ -82,8 +86,8 @@ class TestAngleWavefunction(unittest.TestCase):
             wf.run()
             wf.debug()
 
-        #self.assert_blocks_collapsed(wf, seed)
-        self.assert_face_angle_sum(wf, seed)
+        self.assertTrue(wf.is_collapsed(wf.wave))
+        self.assert_blocks_angle_sum(wf, seed)
 
 
 if __name__ == '__main__':

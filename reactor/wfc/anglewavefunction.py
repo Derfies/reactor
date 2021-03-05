@@ -2,6 +2,7 @@ import math
 import sys
 
 import numpy as np
+import numpy.ma as ma
 
 from reactor.const import Angle
 from reactor.wfc.wavefunctionbase import WavefunctionBase, Contradiction
@@ -28,53 +29,60 @@ class AngleWavefunction(WavefunctionBase):
         self.g = g
         self.block_g = block_g
 
-        #self.index_to_block = []
+        total_num_angles = 0
+        self.block_to_slice = {}
         self.block_sizes = []
-        #self.index_to_block_index_range = []
-        #self.block_to_index_range = {}
-
-        num_angles = 0
-
-        #self.index_to_node = []
-
-        #self.node_to_indices = {}
         self.node_to_coordses = {}
         self.block_to_coordses = {}
         self.coords_to_node = {}
         self.coords_to_block = {}
-        #m = 0
-        wave_index = 0
-        for block_index, block in enumerate(self.block_g):
-            num_angles += len(block)
-            # self.index_to_block.extend([block] * len(block))
-            self.block_sizes.extend([len(block)] * len(block))
-            self.block_to_coordses[block] = set()
-            for i, node in enumerate(block.nodes_forward):
-                # self.index_to_node.append(node)
-                # self.node_to_indices.setdefault(node, set()).add(wave_index)
-                # self.block_to_index_range[block] = m, m + len(block)
 
-                # New and sexy
-                coords = (wave_index,)
+        i = 0
+        for block_index, block in enumerate(self.block_g):
+            start = total_num_angles
+            num_angles = len(block)
+            total_num_angles += num_angles
+            self.block_sizes.extend([num_angles] * num_angles)
+            end = total_num_angles
+            self.block_to_slice[block] = (slice(start, end),)
+            self.block_to_coordses[block] = set()
+            for node in block.nodes_forward:
+                coords = (i,)
                 self.node_to_coordses.setdefault(node, set()).add(coords)
                 self.block_to_coordses[block].add(coords)
                 self.coords_to_node[coords] = node
                 self.coords_to_block[coords] = block
-
-                wave_index += 1
-            #m += len(block)
+                i += 1
 
         self.tiles = list(Angle)
         print('    tiles:', self.tiles)
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
         # how many angles we have.
-        #print('    num_angles:', num_angles)
-        shape = (num_angles,)
+        shape = (total_num_angles,)
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-        #print('    block sizes:', self.block_sizes)
+        print('total_num_angles:', total_num_angles)
+        # Set up masks.
+        i = 0
+        self.block_to_masked = {}
+        for block_index, block in enumerate(self.block_g):
+            # mask = [False] * total_num_angles
+            # mask[slice(i, i + len(block))] = [True] * len(block)
+            # self.block_to_masked[block] = ma.masked_array(self.wave, colmask=mask)
+            print('1')
+            print(ma.mask_cols(self.wave))
+            print('-' * 35)
+            print('2')
+            print(ma.mask_rows(self.wave))
+            print('-' * 35)
+            i += len(block)
+
+        for block, mask in self.block_to_masked.items():
+            print('block:', block, '->', mask)
+
+        sys.exit()
 
     def debug_coordses(self, coordses):
         for coords in coordses:
@@ -84,24 +92,29 @@ class AngleWavefunction(WavefunctionBase):
             angle = None if not is_collapsed else self.get_tile(coords)
             print('    coords:', coords, 'node:', node, is_collapsed, '->', state, angle)
 
-    def propagate_by_block(self, block):
+    def propagate_by_block(self, cur_coords):
 
+        block = self.coords_to_block[cur_coords]
         print('\nBLOCK START:', block)
 
+        block_slice = self.block_to_slice[block]
+        block_state = self.get_state(block_slice)
         coordses = self.block_to_coordses[block]
+
         print('')
         print('BEFORE')
         self.debug_coordses(coordses)
+        print('BLOCK STATE')
+        print(block_state)
         print('')
 
         # Analyse the indices around the face and calculate total and those
         # which are uncollapsed.
         # Note these angles are relative because any number of angles can be
         # used in a face so long as they add to 360.
+        last_sum = block_state.sum()
         propagate = set()
-        changed = True
-        while changed:
-
+        while True:
             total = 0
             uncollapsed_coordses = []
             for coords in coordses:
@@ -122,66 +135,60 @@ class AngleWavefunction(WavefunctionBase):
             required_angle = Angle(sign * 90)
             opposite_angle = Angle(-sign * 90)
             if num_required_angles > len(uncollapsed_coordses):
-                raise Contradiction('More required angles than uncollapsed indices')
+                raise Contradiction('More angles required than uncollapsed indices')
 
-            this_propagate = set()
             for coords in uncollapsed_coordses:
                 state = self.get_state(coords)
                 if self.is_collapsed(state):  # Probably don't need this?
                     continue
 
-                # Drop the *opposite* angle in events:
-                #   num_required_angles == len(uncollapsed_indices)
-                #   num_required_angles == len(uncollapsed_indices) + 1
-                # Drop the *straight* angle in events:
-                #   num_required_angles = 0 and len(uncollapsed_indices) == 1
-
                 # TODO: Do len(uncollapsed_coordses) - num_required_angles <= 1?
-
                 node = self.coords_to_node[coords]
                 if num_required_angles == len(uncollapsed_coordses):
                     if self.constrain(coords, opposite_angle):
                         print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.coords_to_block[coords])
-                        this_propagate.add(coords)
+                        propagate.add(coords)
                     if self.constrain(coords, Angle.STRAIGHT):
                         print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.coords_to_block[coords])
-                        this_propagate.add(coords)
-                elif num_required_angles == len(uncollapsed_coordses) - 1:
+                        propagate.add(coords)
+                elif num_required_angles == len(uncollapsed_coordses) - 1:  # num_required_angles is one less than num uncollapsed indices
                     if self.constrain(coords, opposite_angle):
                         print('    Remove:', opposite_angle, 'from node:', node, 'of block:', self.coords_to_block[coords])
-                        this_propagate.add(coords)
+                        propagate.add(coords)
                     if num_required_angles == 0:
                         if self.constrain(coords, required_angle):
                             print('    Remove:', required_angle, 'from node:', node, 'of block:', self.coords_to_block[coords])
-                            this_propagate.add(coords)
+                            propagate.add(coords)
 
-            if this_propagate:
-                propagate.update(this_propagate)
-                changed = True
-            else:
-                changed = False
-
-            # Ensure we haven't made a contradiction.
-            for coords in coordses:
-                state = self.get_state(coords)
-                nonzero = np.nonzero(state)
-                if not nonzero[0].size:
-                    raise Contradiction()
+            if block_state.sum() == last_sum:
+                break
+            last_sum = block_state.sum()
 
             print('')
             print('AFTER')
             self.debug_coordses(coordses)
             print('')
 
+        # Ensure that all states on the block are non-zero.
+        if not np.all(np.count_nonzero(block_state, axis=0)):
+            raise Contradiction()
+
         print('BLOCK END')
 
-        return this_propagate
+        # Iterate over each angle of the block and propagate it.
+        for coords in coordses:
+            propagate.update(self.propagate_by_node(coords))
 
-    def propagate_by_node(self, original_coords):
+        return propagate
 
-        node = self.coords_to_node[original_coords]
+    def propagate_by_node(self, cur_coords):
 
-        print('\nNODE START:', node, '[{}]'.format(original_coords))
+        cur_state = self.get_state(cur_coords)
+        last_cur_state_sum = cur_state.sum()
+
+        node = self.coords_to_node[cur_coords]
+
+        print('\nNODE START:', node, '[{}]'.format(cur_coords))
 
         coordses = self.node_to_coordses[node]
         print('')
@@ -253,13 +260,9 @@ class AngleWavefunction(WavefunctionBase):
                     print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.coords_to_block[coords])
 
         if len(neighbors) == len(coords) == 2:
-
-            state = self.get_state(original_coords)
-
-            print('    NEW')
-
+            state = self.get_state(cur_coords)
             other_coordses = list(coordses)[:]
-            other_coordses.remove(original_coords)
+            other_coordses.remove(cur_coords)
             other_coords = other_coordses[0]
             other_state = self.get_state(other_coords)
 
@@ -315,29 +318,18 @@ class AngleWavefunction(WavefunctionBase):
 
         stack = [coords]
         while stack:
-
-            propagate = set()
             cur_coords = stack.pop()
             print('\nLOOP coords:', cur_coords, 'node:', self.coords_to_node[cur_coords], 'block:', self.coords_to_block[cur_coords])
-
-            block = self.coords_to_block[cur_coords]
-            self.propagate_by_block(block)
-            for block_coords in self.block_to_coordses[block]:
-                propagate.update(self.propagate_by_node(block_coords))
-
-            stack.extend(propagate)
+            stack.extend(self.propagate_by_block(cur_coords))
             print('STACK:', stack)
 
             # Assert block sum is 360.
+            # TODO: Put asserts in central location..?
             for block in self.block_g:
-                total = 0
-                for block_coords in self.block_to_coordses[block]:
-                    state = self.get_state(block_coords)
-                    if self.is_collapsed(state):
-                        total += self.get_tile(block_coords)
-                    else:
-                        break
-                else:
+                block_slice = self.block_to_slice[block]
+                block_state = self.get_state(block_slice)
+                if self.is_collapsed(block_state):
+                    total = np.sum(self.get_tiles(block_slice))
                     if total != 360:
                         print('\nblock:' + str(block) + ' does not add to 360')
                         self.debug()

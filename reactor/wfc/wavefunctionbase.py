@@ -13,6 +13,11 @@ class Contradiction(Exception):
 
 class WavefunctionBase(metaclass=abc.ABCMeta):
 
+    @staticmethod
+    def is_collapsed(array):
+        unresolved = np.count_nonzero(array, axis=0) > 1
+        return not np.any(unresolved)
+
     def __init__(self):
         weights = [1, 1, 1]
 
@@ -28,10 +33,33 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         assert indices.size == 1, 'Cannot resolve the tile'
         return self.tiles[indices[0]]
 
-    def is_collapsed(self, wave):
-        num_states = np.count_nonzero(wave, axis=0)
-        unresolved = num_states > 1
-        return not np.any(unresolved)
+    def get_tiles(self, coords):
+        states = self.get_state(coords)
+        assert self.is_collapsed(states), 'Cannot resolve tiles'
+        nonzero = np.nonzero(states)
+
+        #print('nonzero')
+        #print(nonzero)
+        # print(np.argsort(nonzero))
+        # print(np.argsort(nonzero, axis=1))
+        # print(np.argsort(nonzero[1]))
+        # indices = np.take()
+
+        # So this is clearly only for 2D... maybe it doesn't even makes sense
+        # to do this for higher dimensions. If you were to ask "what are the
+        # tiles in this 3D area?" what order would you expect them to come back
+        # in?
+        indices = nonzero[0][np.argsort(nonzero[1])]
+        return np.take(self.tiles, indices)
+
+        #tiles = np.take(self.tiles, nonzero[0])
+        # print('nonzero:', nonzero)
+        # nonzero = np.sort(nonzero, axis=1)
+        # print('nonzero:', nonzero)
+        #return nonzero#np.sort(nonzero, axis=1)
+        #indices = nonzero[0]
+        #assert indices.size == 1, 'Cannot resolve the tile'
+        #return self.tiles[indices[0]]
 
     def get_min_entropy_coords_offset(self):
         return np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
@@ -45,14 +73,8 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             num_states + offset,
             np.inf,
         )
-        # print('\nENTROPY:')
-        # for index in range(np.size(self.wave, axis=1)):
-        #     print('    entropy:', entropy[index], 'offset:', offset[index], 'unresolved:', unresolved[index], 'node:', self.index_to_node[index], 'index:', index, 'block:', self.index_to_block[index])
-
         index = np.argmin(entropy)
-        coords = np.unravel_index(index, entropy.shape)
-        #print('    coords:', coords)
-        return coords
+        return np.unravel_index(index, entropy.shape)
 
     def constrain(self, coords, tile):
         """
@@ -95,11 +117,11 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             tile: weighted_states[i]
             for i, tile in enumerate(self.tiles)
             if weighted_states[i]
-        }#.items()
-        print('coords:', coords)
-        print('tile weights:', tile_weights)
+        }
+        # print('coords:', coords)
+        # print('tile weights:', tile_weights)
         shuffle = weighted_shuffle(list(tile_weights.keys()), list(tile_weights.values()))
-        print('shuffle:', shuffle)
+        # print('shuffle:', shuffle)
         # rtn = [
         #     item for i, item in enumerate(shuffle) if weighted_states[i]
         # ]
@@ -168,19 +190,5 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         else:
             raise Contradiction()   # I think..?
 
-
     def run(self):
         self.recurse()
-    #     while not self.is_collapsed(self.wave):
-    #         original = self.wave.copy()
-    #
-    #         # TODO:
-    #
-    #         try:
-    #             coords = self.get_min_entropy_coords()
-    #             self.collapse(coords)
-    #             self.propagate(coords)
-    #         except Contradiction:
-    #             self.wave = original
-    #             print('FOUND CONTRADICTION, RETRYING')
-    #             #sys.exit(1)
