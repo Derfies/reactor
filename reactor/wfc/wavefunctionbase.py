@@ -184,11 +184,14 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
                 # Something went wrong - set the wave back so we can try a new
                 # permutation.
-                self.wave = original
-                print('FOUND CONTRADICTION, RETRYING:', coords)
+                self.on_backtrack(coords, original)
 
         else:
             raise Contradiction()   # I think..?
 
     def run(self):
         self.recurse()
+
+    def on_backtrack(self, coords, original):
+        self.wave = original
+        print('FOUND CONTRADICTION, RETRYING:', coords)

@@ -23,6 +23,26 @@ class AngleWavefunction(WavefunctionBase):
     """
 
     def __init__(self, g, block_g):
+
+
+
+        # x = np.array([1,2,3])
+        # print(x)
+        # mx = ma.masked_array(x, mask=True)
+        # # print(mx)
+        # # print(mx.mask)
+        # # mx.mask = True
+        # # print(mx.mask)
+        # print(mx)
+        # print(mx.mask)
+        # mx.mask[slice(0, 1)] = False
+        #
+        # print(mx)
+        # print(mx.mask)
+        #
+        #
+        # sys.exit()
+
         print('\nINIT:')
         super().__init__()
 
@@ -55,6 +75,8 @@ class AngleWavefunction(WavefunctionBase):
                 i += 1
 
         self.tiles = list(Angle)
+
+        self.absolute_angles = list(map(Angle.absolute, self.tiles))
         print('    tiles:', self.tiles)
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
@@ -63,26 +85,49 @@ class AngleWavefunction(WavefunctionBase):
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-        print('total_num_angles:', total_num_angles)
+
         # Set up masks.
         i = 0
-        self.block_to_masked = {}
-        for block_index, block in enumerate(self.block_g):
+        node_to_masked = {}
+        self.block_coords_to_masked = {}
+        self.node_coords_to_masked = {}
+        for block in self.block_g:
+            block_masked = ma.masked_array(self.wave, mask=True)
+            block_masked.mask[(slice(None), slice(i, i + len(block)))] = False
+            for node in block.nodes_forward:
+                node_masked = node_to_masked.get(node)
+                if node_masked is None:
+                    node_to_masked[node] = ma.masked_array(self.wave, mask=True)
+                    node_masked = node_to_masked[node]
+                node_masked.mask[(slice(None), i)] = False
+                self.block_coords_to_masked[(i,)] = block_masked
+                self.node_coords_to_masked[(i,)] = node_masked
+                i += 1
+
             # mask = [False] * total_num_angles
             # mask[slice(i, i + len(block))] = [True] * len(block)
             # self.block_to_masked[block] = ma.masked_array(self.wave, colmask=mask)
-            print('1')
-            print(ma.mask_cols(self.wave))
-            print('-' * 35)
-            print('2')
-            print(ma.mask_rows(self.wave))
-            print('-' * 35)
-            i += len(block)
+            # print('1')
+            # print(ma.mask_cols(self.wave))
+            # print('-' * 35)
+            # print('2')
+            # print(ma.mask_rows(self.wave))
+            # print('-' * 35)
+            #i += len(block)
 
-        for block, mask in self.block_to_masked.items():
-            print('block:', block, '->', mask)
+        for block, mask in self.block_coords_to_masked.items():
+            print('block:', block)
+            print('mask:')
+            print(mask)
 
-        sys.exit()
+        for node, mask in self.node_coords_to_masked.items():
+            print('node:', node)
+            print('mask:')
+            print(mask)
+
+
+
+        #sys.exit()
 
     def debug_coordses(self, coordses):
         for coords in coordses:
@@ -99,6 +144,7 @@ class AngleWavefunction(WavefunctionBase):
 
         block_slice = self.block_to_slice[block]
         block_state = self.get_state(block_slice)
+        #print(block_state)
         coordses = self.block_to_coordses[block]
 
         print('')
@@ -117,12 +163,19 @@ class AngleWavefunction(WavefunctionBase):
         while True:
             total = 0
             uncollapsed_coordses = []
+
+
             for coords in coordses:
                 state = self.get_state(coords)
                 if self.is_collapsed(state):
                     total += self.get_tile(coords)
                 else:
                     uncollapsed_coordses.append(coords)
+
+            # ATTEMPT NEW SCHOOL BLOCK INDICES TRICK HERE
+            block_mask = self.block_coords_to_masked[cur_coords]
+            # print('block_mask:')
+            # print(block_mask)
 
             # NOT DOING STRAIGHT ANGLE IN EVENT OF 1 ANGLE REMAINING
             # Make up 360
@@ -190,11 +243,15 @@ class AngleWavefunction(WavefunctionBase):
 
         print('\nNODE START:', node, '[{}]'.format(cur_coords))
 
+        #print(self.wave)
+
         coordses = self.node_to_coordses[node]
         print('')
         print('BEFORE')
         self.debug_coordses(coordses)
         print('')
+
+        #print('DEBUG STATE 1:', self.get_state(cur_coords))
 
         # Analyse the indices around the node and calculate total, total known
         # and num uncollapsed.
@@ -208,6 +265,8 @@ class AngleWavefunction(WavefunctionBase):
                 total += Angle.absolute(self.get_tile(coords))
             else:
                 num_uncollapsed_coordses += 1
+
+        #print('DEBUG STATE 2:', self.get_state(cur_coords))
 
         # Add another 90 if there's a missing face. This difference should only
         # ever be 0 or 1.
@@ -227,26 +286,97 @@ class AngleWavefunction(WavefunctionBase):
         # TODO: Assert minimum_total != 360? That would mean that we know every
         # angle...? Or can assume every angle?
 
+
+        # ATTEMPT NEW SCHOOL NODE INDICES TRICK HERE
+        node_mask = self.node_coords_to_masked[cur_coords]
+        print('collapsed:', self.is_collapsed(node_mask))
+        print('node_mask:')
+        print(node_mask)
+
+        non_zero = np.count_nonzero(node_mask, axis=0)
+        resolved = non_zero == 1
+        unresolved = non_zero > 1
+        print('resolved:')
+        print(resolved)
+
+        # For those which are resolved, each column must be resolved into an
+        # index for use with np.take().
+        # np.take(self.tiles, indices)
+        #print('-->', np.argmax(node_mask[slice(None), resolved]))
+        #print('-->', [np.nonzero(col) for col in node_mask[slice(None), resolved]])
+        resolved_values = node_mask[(slice(None), resolved)]
+        #print('1:', resolved_values)
+        #print('2:', np.nonzero(resolved_values))
+        resolved_indices = np.nonzero(resolved_values)[0]
+        angles = np.take(self.absolute_angles, resolved_indices)
+        print('angles:', angles)
+        #print('-->', np.nonzero(states))
+        resolved_degrees = np.sum(angles)
+
+        assert resolved_degrees == total, f'{resolved_degrees} -> {total}'
+        print('resolved_degrees:', resolved_degrees)
+        print('unresolved:')
+        print(unresolved)
+        # print('count:', np.count_nonzero(unresolved))
+        # print('test:', node_mask[not np.any(node_mask)])
+        #
+        # print('unresolved.mask:', unresolved.mask)
+        # resolved = ma.masked_array(np.logical_not(unresolved.data), mask=unresolved.mask)
+        # #resolved.mask = unresolved.mask
+        # print('resolved:')
+        # print(resolved)
+        # print('count:', np.count_nonzero(resolved))
+
+
+        num_uncollapsed = np.count_nonzero(unresolved)
+        print('num_uncollapsed:', num_uncollapsed)
+        num_uncollapsed += len(neighbors) - len(coordses)
+        print('num_uncollapsed:', num_uncollapsed)
+        print('num_uncollapsed_coordses:', num_uncollapsed_coordses)
+        assert num_uncollapsed == num_uncollapsed_coordses, f'{num_uncollapsed} -> {num_uncollapsed_coordses}'
+
+        propagate2 = set()
+
+        if maximum <= 180:
+            outside_index = self.tiles.index(Angle.OUTSIDE)
+            outside = node_mask[outside_index]
+            outside_to_constrain = outside & unresolved
+            outside_to_constrain_indices = np.nonzero(outside_to_constrain)
+            print('outside_to_constrain:')
+            print(outside_to_constrain)
+            print(outside_to_constrain_indices)
+            print(list(zip(*outside_to_constrain_indices)))
+            propagate2.update(list(zip(*outside_to_constrain_indices)))
+
+        if maximum <= 90:
+            straight_index = self.tiles.index(Angle.STRAIGHT)
+            straight = node_mask[straight_index]
+            straight_to_constrain = straight & unresolved
+            straight_to_constrain_indices = np.nonzero(straight_to_constrain)
+            print('straight_to_constrain:')
+            print(straight_to_constrain)
+            print(straight_to_constrain_indices)
+            print(list(zip(*straight_to_constrain_indices)))
+            propagate2.update(list(zip(*straight_to_constrain_indices)))
+
+
+
+        propagate3 = set()
         propagate = set()
         for coords in coordses:
             state = self.get_state(coords)
             if self.is_collapsed(state):
                 continue
-
-            # TODO: Replace with for loop.
-            # for angle in list(Angle):
-            #   if maximum < angle:
-            #       angle_index = self.tiles.index(angle)
-            #       state[angle_index] = False
-
             if maximum <= 180:
                 if self.constrain(coords, Angle.OUTSIDE):
                     print('    Remove:', Angle.OUTSIDE, 'from node:', node, 'of block:', self.coords_to_block[coords])
                     propagate.add(coords)
+                    propagate3.add(coords)
             if maximum <= 90:
                 if self.constrain(coords, Angle.STRAIGHT):
                     print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.coords_to_block[coords])
                     propagate.add(coords)
+                    propagate3.add(coords)
 
             # If there's a single uncollapsed index then we can assume its
             # value.
@@ -259,6 +389,12 @@ class AngleWavefunction(WavefunctionBase):
                     propagate.add(coords)
                     print('    Collapsed to:', tile, 'for node:', node, 'of block:', self.coords_to_block[coords])
 
+        print('COMPARE:', propagate2, propagate3)
+        assert propagate2 == propagate3
+
+        # Expand this logic to constrain the reverse of nodes with only two
+        # edges. Eg if an angle cannot be 90, then it's fair to say that the
+        # explementary angle cannot be 270.
         if len(neighbors) == len(coords) == 2:
             state = self.get_state(cur_coords)
             other_coordses = list(coordses)[:]
@@ -280,10 +416,6 @@ class AngleWavefunction(WavefunctionBase):
                 print('    Remove:', Angle.STRAIGHT, 'from node:', node, 'of block:', self.coords_to_block[other_coords])
                 propagate.add(other_coords)
 
-        # TODO:
-        # Expand this logic to constrain the reverse of nodes with only two
-        # edges. Eg if an angle cannot be 90, then it's fair to say that the
-        # explementary angle cannot be 270.
 
         print('')
         print('AFTER')
@@ -300,6 +432,8 @@ class AngleWavefunction(WavefunctionBase):
                     broke = True
             print('    coords:', coords, 'node:', node, self.is_collapsed(state), '->', state, angle)
         print('')
+
+        #print('AFTER -->', node_mask[(slice(None), unresolved)])
 
         if broke:
             self.debug()
@@ -368,3 +502,13 @@ class AngleWavefunction(WavefunctionBase):
         for block, node in sorted(results, key=lambda bn: len(bn[0])):
             angle, state, coords = results[block, node]
             print('    ', 'coords:', coords, 'node:', node, 'angle:', angle, 'block:', block, '->', state)
+
+    def on_backtrack(self, coords, original):
+        super().on_backtrack(coords, original)
+
+        # Ugly. We need to set the original data in all the masked arrays.
+        # There must be an easier way to do this...
+        for key, value in self.block_coords_to_masked.items():
+            self.block_coords_to_masked[key] = ma.masked_array(original, mask=value.mask)
+        for key, value in self.node_coords_to_masked.items():
+            self.node_coords_to_masked[key] = ma.masked_array(original, mask=value.mask)
