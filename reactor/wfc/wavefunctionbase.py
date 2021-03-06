@@ -180,7 +180,9 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
                 if not self.is_collapsed(self.wave):
                     self.recurse()
                 break       # break here..?
-            except Contradiction:
+            except Contradiction as e:
+                print('FOUND CONTRADICTION, RETRYING:', coords)
+                print(e)
 
                 # Something went wrong - set the wave back so we can try a new
                 # permutation.
@@ -194,4 +196,4 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
     def on_backtrack(self, coords, original):
         self.wave = original
-        print('FOUND CONTRADICTION, RETRYING:', coords)
+
