@@ -69,7 +69,6 @@ class AngleWavefunction(WavefunctionBase):
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-
         # Set up masks.
         i = 0
         node_to_masked = {}
@@ -88,28 +87,6 @@ class AngleWavefunction(WavefunctionBase):
                 self.node_coords_to_masked[(i,)] = node_masked
                 i += 1
 
-        for block, mask in self.block_coords_to_masked.items():
-            print('block:', block)
-            print('mask:')
-            print(mask)
-
-        for node, mask in self.node_coords_to_masked.items():
-            print('node:', node)
-            print('mask:')
-            print(mask)
-
-
-
-        #sys.exit()
-
-    # def debug_coordses(self, coordses):
-    #     for coords in coordses:
-    #         node = self.coords_to_node[coords]
-    #         state = self.get_state(coords)
-    #         is_collapsed = self.is_collapsed(state)
-    #         angle = None if not is_collapsed else self.get_tile(coords)
-    #         print('    coords:', coords, 'node:', node, is_collapsed, '->', state, angle)
-
     def propagate_by_block(self, cur_coords):
 
         block_mask = self.block_coords_to_masked[cur_coords]
@@ -118,22 +95,16 @@ class AngleWavefunction(WavefunctionBase):
         if not np.any(unresolved):
             return set()
 
-
         block = self.coords_to_block[cur_coords]
         print('\nBLOCK START:', cur_coords, block)
 
         block_slice = self.block_to_slice[block]
         block_state = self.get_state(block_slice)
-        #print(block_state)
         coordses = self.block_to_coordses[block]
 
         print('')
         print('BEFORE')
-        # self.debug_coordses(coordses)
-        # print('BLOCK STATE')
-        # print(block_state)
         print(tabulate(block_mask, headers=self.nodes))
-        #print(block_mask)
         print('')
 
         # Analyse the indices around the face and calculate total and those
@@ -145,8 +116,6 @@ class AngleWavefunction(WavefunctionBase):
         while True:
             total = 0
             uncollapsed_coordses = []
-
-
             for coords in coordses:
                 state = self.get_state(coords)
                 if self.is_collapsed(state):
@@ -156,8 +125,6 @@ class AngleWavefunction(WavefunctionBase):
 
             # ATTEMPT NEW SCHOOL BLOCK INDICES TRICK HERE
             block_mask = self.block_coords_to_masked[cur_coords]
-            # print('block_mask:')
-            # print(block_mask)
 
             # NOT DOING STRAIGHT ANGLE IN EVENT OF 1 ANGLE REMAINING
             # Make up 360
@@ -201,7 +168,6 @@ class AngleWavefunction(WavefunctionBase):
 
             print('')
             print('AFTER')
-            # self.debug_coordses(coordses)
             print(tabulate(block_mask, headers=self.nodes))
             print('')
 
@@ -295,28 +261,14 @@ class AngleWavefunction(WavefunctionBase):
         return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def propagate(self, coords):
-
         print('\nPROPAGATE:', coords)
-
         stack = [coords]
         while stack:
             cur_coords = stack.pop()
-            print('\nLOOP START:', cur_coords)#, 'node:', self.coords_to_node[cur_coords], 'block:', self.coords_to_block[cur_coords])
+            print('\nLOOP START:', cur_coords)
             print(tabulate(self.wave, headers=self.nodes))
             stack.extend(self.propagate_by_block(cur_coords))
             print('STACK:', stack)
-
-            # # Assert block sum is 360.
-            # # TODO: Put asserts in central location..?
-            # for block in self.block_g:
-            #     block_slice = self.block_to_slice[block]
-            #     block_state = self.get_state(block_slice)
-            #     if self.is_collapsed(block_state):
-            #         total = np.sum(self.get_tiles(block_slice))
-            #         if total != 360:
-            #             print('\nblock:' + str(block) + ' does not add to 360')
-            #             self.debug()
-            #             sys.exit(1)
 
     def run(self):
 
@@ -327,30 +279,9 @@ class AngleWavefunction(WavefunctionBase):
             self.propagate((index,))
 
         print('\n\n\n*****INITIAL PROPAGATE OVER*****\n\n\n')
-        #self.debug()
 
         # Run default loop.
         super().run()
-
-    # def debug(self):
-    #     print('\nDEBUG:')
-    #     results = {}
-    #     for index in range(np.size(self.wave, axis=1)):
-    #         coords = (index,)
-    #         node = self.coords_to_node[coords]
-    #         block = self.coords_to_block[coords]
-    #         state = self.get_state(coords)
-    #         angle = None
-    #         if self.is_collapsed(state):
-    #             try:
-    #                 angle = self.get_tile(coords)
-    #             except:
-    #                 angle = 'CONTRADICTION'
-    #         results[(block, node)] = angle, state, coords
-    #
-    #     for block, node in sorted(results, key=lambda bn: len(bn[0])):
-    #         angle, state, coords = results[block, node]
-    #         print('    ', 'coords:', coords, 'node:', node, 'angle:', angle, 'block:', block, '->', state)
 
     def on_backtrack(self, coords, original):
         super().on_backtrack(coords, original)
