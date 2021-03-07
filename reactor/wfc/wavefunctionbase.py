@@ -33,33 +33,33 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         assert indices.size == 1, 'Cannot resolve the tile'
         return self.tiles[indices[0]]
 
-    def get_tiles(self, coords):
-        states = self.get_state(coords)
-        assert self.is_collapsed(states), 'Cannot resolve tiles'
-        nonzero = np.nonzero(states)
-
-        #print('nonzero')
-        #print(nonzero)
-        # print(np.argsort(nonzero))
-        # print(np.argsort(nonzero, axis=1))
-        # print(np.argsort(nonzero[1]))
-        # indices = np.take()
-
-        # So this is clearly only for 2D... maybe it doesn't even makes sense
-        # to do this for higher dimensions. If you were to ask "what are the
-        # tiles in this 3D area?" what order would you expect them to come back
-        # in?
-        indices = nonzero[0][np.argsort(nonzero[1])]
-        return np.take(self.tiles, indices)
-
-        #tiles = np.take(self.tiles, nonzero[0])
-        # print('nonzero:', nonzero)
-        # nonzero = np.sort(nonzero, axis=1)
-        # print('nonzero:', nonzero)
-        #return nonzero#np.sort(nonzero, axis=1)
-        #indices = nonzero[0]
-        #assert indices.size == 1, 'Cannot resolve the tile'
-        #return self.tiles[indices[0]]
+    # def get_tiles(self, coords):
+    #     states = self.get_state(coords)
+    #     assert self.is_collapsed(states), 'Cannot resolve tiles'
+    #     nonzero = np.nonzero(states)
+    #
+    #     #print('nonzero')
+    #     #print(nonzero)
+    #     # print(np.argsort(nonzero))
+    #     # print(np.argsort(nonzero, axis=1))
+    #     # print(np.argsort(nonzero[1]))
+    #     # indices = np.take()
+    #
+    #     # So this is clearly only for 2D... maybe it doesn't even makes sense
+    #     # to do this for higher dimensions. If you were to ask "what are the
+    #     # tiles in this 3D area?" what order would you expect them to come back
+    #     # in?
+    #     indices = nonzero[0][np.argsort(nonzero[1])]
+    #     return np.take(self.tiles, indices)
+    #
+    #     #tiles = np.take(self.tiles, nonzero[0])
+    #     # print('nonzero:', nonzero)
+    #     # nonzero = np.sort(nonzero, axis=1)
+    #     # print('nonzero:', nonzero)
+    #     #return nonzero#np.sort(nonzero, axis=1)
+    #     #indices = nonzero[0]
+    #     #assert indices.size == 1, 'Cannot resolve the tile'
+    #     #return self.tiles[indices[0]]
 
     def get_min_entropy_coords_offset(self):
         return np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
@@ -76,15 +76,15 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         index = np.argmin(entropy)
         return np.unravel_index(index, entropy.shape)
 
-    def constrain(self, coords, tile):
-        """
-        Remove the given tile from the list of potential tiles at index.
-
-        """
-        states = self.get_state(coords)
-        last_count = states.sum()
-        states[self.tiles.index(tile)] = False
-        return states.sum() != last_count
+    # def constrain(self, coords, tile):
+    #     """
+    #     Remove the given tile from the list of potential tiles at index.
+    #
+    #     """
+    #     states = self.get_state(coords)
+    #     last_count = states.sum()
+    #     states[self.tiles.index(tile)] = False
+    #     return states.sum() != last_count
 
     def collapse_to_tile(self, coords, tile):
         states = self.get_state(coords)
@@ -96,17 +96,17 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
         return states.sum() != last_count
 
-    def collapse(self, coords): # TODO: Rename collapse to random..?
-        """"Assumes wave is valid."""
-        self.debug()
-        states = self.get_state(coords)
-        weighted_states = self.weights * states
-        weighted_states /= weighted_states.sum()
-        index = np.random.choice(self.weights.size, p=weighted_states)
-        states[:] = False
-        states[index] = True
-
-        print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords), 'block:', self.index_to_block[coords[0]])
+    # def collapse(self, coords): # TODO: Rename collapse to random..?
+    #     """"Assumes wave is valid."""
+    #     self.debug()
+    #     states = self.get_state(coords)
+    #     weighted_states = self.weights * states
+    #     weighted_states /= weighted_states.sum()
+    #     index = np.random.choice(self.weights.size, p=weighted_states)
+    #     states[:] = False
+    #     states[index] = True
+    #
+    #     print('\nCOLLAPSE node:', self.index_to_node[coords[0]], 'index:', coords[0], 'angle:', self.get_tile(coords), 'block:', self.index_to_block[coords[0]])
 
     def get_valid_tiles(self, coords):
         states = self.get_state(coords)

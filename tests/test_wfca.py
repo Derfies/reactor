@@ -51,15 +51,21 @@ class TestAngleWavefunction(unittest.TestCase):
 
         """
         for block_mask in wf.block_coords_to_masked.values():
-            values = block_mask[(slice(None))]
-            indices = np.nonzero(values)[0]
-            angles = np.take(wf.tiles, indices)
-            sum_angles = np.sum(angles)
+            # values = block_mask[(slice(None))]
+            # indices = np.nonzero(values)[0]
+            # angles = np.take(wf.tiles, indices)
+            # sum_angles = np.sum(angles)
+            sum_angles = wf.get_sum_resolved_angles(block_mask)
             self.assertEqual(sum_angles, 360, f'Seed: {seed}')
 
     @parameterized.expand([
-        ('../data/test1.gexf'),
-        #('../data/test2.gexf'),
+        ('../data/quadrilateral.gexf'),
+        ('../data/pentagon.gexf'),
+        ('../data/hexagon.gexf'),
+        ('../data/grid2.gexf'),
+        ('../data/test10.gexf'),
+        # ('../data/test1.gexf'),
+        ('../data/test2.gexf'),
     ])
     def test_angle_wave_function(self, graph_path):
 
@@ -71,12 +77,11 @@ class TestAngleWavefunction(unittest.TestCase):
             bg = self.create_block_graph(g)
             wf = AngleWavefunction(g, bg)
             wf.run()
-            print('')
-            print('FINAL:')
-            print(tabulate(wf.wave, headers=wf.nodes))
+            wf.debug(wf.wave, title='FINAL:')
 
         self.assertTrue(wf.is_collapsed(wf.wave))
         self.assert_blocks_angle_sum(wf, seed)
+        # TODO: Assert single node on two edges adds to 360
 
 
 if __name__ == '__main__':
