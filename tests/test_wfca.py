@@ -45,13 +45,15 @@ class TestAngleWavefunction(unittest.TestCase):
         bg.add_edges_from(edges)
         return bg
 
-    def assert_sum_block_angle(self, wf, block_mask, seed):
+    def assert_sum_block_angle(self, wf, block_coords, seed):
         """
         Assert that all interior angles of a block add to 360.
 
         """
+        block_mask = wf.block_coords_to_masked[block_coords]
         sum_angles = wf.get_sum_resolved_angles(block_mask)
-        self.assertEqual(sum_angles, 360, f'Seed: {seed}')
+        block = wf.coords_to_block[block_coords]
+        self.assertEqual(sum_angles, 360, f'Block is not closed. Seed: {seed} [{block}]')
 
     def assert_sum_node_angle(self, wf, node, seed):
         """
@@ -60,23 +62,16 @@ class TestAngleWavefunction(unittest.TestCase):
         up to exactly 360 degrees.
 
         """
-        #node = wf.coords_to_node[node_coord]
         num_neighbors = len(list(wf.g.neighbors(node)))
         node_coords = wf.node_to_coordses[node]
-       # print(node_coords, type(node_coords))
         node_coord = next(iter(node_coords))
         node_mask = wf.node_coords_to_masked[node_coord]
-        #index = np.nonzero(node_mask)[1][0]
-
         sum_angles = wf.get_sum_resolved_angles(node_mask, absolute=True)
         self.assertTrue(sum_angles <= 360, f'Seed: {seed}')
 
         num_nonzero = np.count_nonzero(node_mask, axis=0)
         num_indices = num_nonzero.count()
         if num_neighbors == num_indices:
-            # print('node:', node)
-            # print('num_neighbors:', num_neighbors)
-            # print('num_indices:', num_indices)
             self.assertEqual(sum_angles, 360, f'Seed: {seed}')
 
     @parameterized.expand([
@@ -92,17 +87,17 @@ class TestAngleWavefunction(unittest.TestCase):
 
         # Not working out the sum of angles to 360
         #for seed in range(57, 61):
-        for seed in [0]:
+        for seed in range(10):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
             wf = AngleWavefunction(g, bg)
             wf.run()
-            wf.debug(wf.wave, title='FINAL:')
+            wf.debug(wf.wave, title=f'FINAL [{seed}]:')
 
         self.assertTrue(wf.is_collapsed(wf.wave))
-        for block_mask in wf.block_coords_to_masked.values():
-            self.assert_sum_block_angle(wf, block_mask, seed)
+        for block_coords in wf.block_coords_to_masked:
+            self.assert_sum_block_angle(wf, block_coords, seed)
         for node in wf.g:
             self.assert_sum_node_angle(wf, node, seed)
 

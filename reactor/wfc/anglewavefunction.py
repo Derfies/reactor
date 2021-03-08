@@ -61,6 +61,7 @@ class AngleWavefunction(WavefunctionBase):
         self.wave = np.ones(final_shape, dtype=bool)
 
         # Set up masks.
+        # TODO: Create dict that maps indices directly to masks..?
         i = 0
         node_to_masked = {}
         self.block_coords_to_masked = {}
@@ -77,6 +78,17 @@ class AngleWavefunction(WavefunctionBase):
                 self.block_coords_to_masked[(i,)] = block_masked
                 self.node_coords_to_masked[(i,)] = node_masked
                 i += 1
+
+
+        # HAXXOR
+        # TODO: Put this in a sensible place.
+        # Can't evaluate randomness whenever we like as the selection of the
+        # next block, even though supposed to be "random" in the context of a
+        # run, can't be random any time the function evaluates or else
+        # backtracking will break.
+
+        # UPDATE: This may not actually fix the problem...
+        self.random = np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
 
     def constrain(self, array, angle):
         unresolved = np.count_nonzero(array, axis=0) > 1
@@ -97,16 +109,16 @@ class AngleWavefunction(WavefunctionBase):
 
         block_mask = self.block_coords_to_masked[cur_coords]
         block = self.coords_to_block[cur_coords]
-        print('\nBLOCK START:', cur_coords, block)
-        self.debug(block_mask, title='BEFORE')
+        #print('\nBLOCK START:', cur_coords, block)
+        #self.debug(block_mask, title='BEFORE')
 
         propagate = set()
         last_sum = block_mask.sum()
         while True:
 
             # Find those indices which are unresolved.
-            num_nonzero = np.count_nonzero(block_mask, axis=0)
-            unresolved = num_nonzero > 1
+            #num_nonzero = np.count_nonzero(block_mask, axis=0)
+            unresolved = np.count_nonzero(block_mask, axis=0) > 1
             unresolved_indices = list(zip(*np.nonzero(unresolved)))
 
             # Find the sum of the resolved interior angles of the block.
@@ -124,7 +136,7 @@ class AngleWavefunction(WavefunctionBase):
             remaining = 360 - sum_angles
             num_required_angles = int(remaining / 90)
             if num_required_angles > len(unresolved_indices):
-                raise Contradiction('More angles required than uncollapsed indices')
+                raise Contradiction(f'More angles required than uncollapsed indices [{block}]')
 
             # If the number of required angles is equal to or one less than the
             # the number of unresolved indices we can remove some possibilities.
@@ -136,31 +148,31 @@ class AngleWavefunction(WavefunctionBase):
                 opposite_angle = Angle(-angle_sign * 90)
 
                 constraint_indices = self.constrain(block_mask, opposite_angle)
-                for constraint_index in list(constraint_indices):
-                    print('    Remove:', opposite_angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                #for constraint_index in list(constraint_indices):
+                    #print('    Remove:', opposite_angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
                 propagate.update(constraint_indices)
 
                 if num_required_angles == len(unresolved_indices):
                     constraint_indices = self.constrain(block_mask, Angle.STRAIGHT)
-                    for constraint_index in list(constraint_indices):
-                        print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                    #for constraint_index in list(constraint_indices):
+                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
                     propagate.update(constraint_indices)
                 elif num_required_angles == 0:
                     required_angle = Angle(angle_sign * 90)
                     constraint_indices = self.constrain(block_mask, required_angle)
-                    for constraint_index in list(constraint_indices):
-                        print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                    #for constraint_index in list(constraint_indices):
+                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
                     propagate.update(constraint_indices)
 
             if block_mask.sum() == last_sum:
                 break
             last_sum = block_mask.sum()
 
-        self.debug(block_mask, title='AFTER')
+        #self.debug(block_mask, title='AFTER')
 
-        # Ensure there's at least one tile for any index.
-        if not num_nonzero.all():
-            raise Contradiction('block contradiction')
+        # # Ensure there's at least one tile for any index.
+        # if not num_nonzero.all():
+        #     raise Contradiction('block contradiction')
 
         return propagate
 
@@ -178,8 +190,8 @@ class AngleWavefunction(WavefunctionBase):
         num_indices = num_nonzero.count()   # TODO: Double check.
         num_unresolved = np.count_nonzero(unresolved) + num_neighbors - num_indices
 
-        print('\nNODE START:', cur_coords, f'[{self.coords_to_node[cur_coords]}]')
-        self.debug(node_mask, title='BEFORE')
+        #print('\nNODE START:', cur_coords, f'[{self.coords_to_node[cur_coords]}]')
+        #self.debug(node_mask, title='BEFORE')
 
         # Find the sum of the resolved angles around the node.
         # resolved = num_nonzero == 1
@@ -201,11 +213,11 @@ class AngleWavefunction(WavefunctionBase):
             if Angle.absolute(angle) <= maximum:
                 continue
             constraint_indices = self.constrain(node_mask, angle)
-            for constraint_index in list(constraint_indices):
-                print('    Remove:', angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+            #for constraint_index in list(constraint_indices):
+                #print('    Remove:', angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
             propagate.update(constraint_indices)
 
-        # TODO:
+        # TODO: THIS IS NOW BREAKING!
         # If there's a single unresolved index we can infer its value, ie 360 -
         # sum_angles.
         # If the angles remaining equals 90 * num unresolved indices, all
@@ -228,15 +240,15 @@ class AngleWavefunction(WavefunctionBase):
                 propagate.add(other_coords)
 
                 # DEBUG
-                for index, i in enumerate(xor):
-                    if i[0]:
-                        print('    Remove:', self.tiles[index], 'from node:', self.coords_to_node[other_coords], 'of block:', self.coords_to_block[other_coords])
+                # for index, i in enumerate(xor):
+                #     if i[0]:
+                        #print('    Remove:', self.tiles[index], 'from node:', self.coords_to_node[other_coords], 'of block:', self.coords_to_block[other_coords])
 
-        self.debug(node_mask, title='AFTER')
+        #self.debug(node_mask, title='AFTER')
 
         # Ensure there's at least one tile for any index.
-        if not num_nonzero.all():
-            raise Contradiction('block contradiction')
+        # if not num_nonzero.all():
+        #     raise Contradiction('block contradiction')
 
         return propagate
 
@@ -247,7 +259,7 @@ class AngleWavefunction(WavefunctionBase):
         stack = [coords]
         while stack:
             cur_coords = stack.pop()
-            self.debug(self.wave, title=f'PROPAGATE: {cur_coords}')
+            #self.debug(self.wave, title=f'PROPAGATE: {cur_coords}')
 
             # Attempt to collapse the block if it's still unresolved.
             block_mask = self.block_coords_to_masked[cur_coords]
@@ -255,14 +267,31 @@ class AngleWavefunction(WavefunctionBase):
                 stack.extend(self.propagate_by_block(cur_coords))
 
             # Iterate over each angle of the block and propagate it.
-            # TODO: Move to main propagate loop?
+            # TODO: Only iterate over indices that changed during the block
+            # propagation step.
             block = self.coords_to_block[cur_coords]
             for node_coords in self.block_to_coordses[block]:
                 node_mask = self.node_coords_to_masked[node_coords]
                 if not self.is_collapsed(node_mask):
                     stack.extend(self.propagate_by_node(node_coords))
 
-            print('STACK:', stack)
+                    # Ensure there's at least one tile for any index.
+                    num_nonzero = np.count_nonzero(node_mask, axis=0)
+                    if not num_nonzero.all():
+                        raise Contradiction('node contradiction')
+
+            # Ensure there's at least one tile for any index.
+            num_nonzero = np.count_nonzero(block_mask, axis=0)
+            if not num_nonzero.all():
+                raise Contradiction('block contradiction')
+
+            # Ensure the block's internal angles add to 360.
+            if self.is_collapsed(block_mask):
+                sum_angles = self.get_sum_resolved_angles(block_mask)
+                if sum_angles != 360:
+                    raise Contradiction('block does not add to 360')
+
+            #print('STACK:', stack)
 
     def run(self):
 
@@ -272,7 +301,7 @@ class AngleWavefunction(WavefunctionBase):
         for index in range(np.size(self.wave, axis=1)):
             self.propagate((index,))
 
-        self.debug(self.wave, title='*****INITIAL PROPAGATE OVER*****')
+        #self.debug(self.wave, title='*****INITIAL PROPAGATE OVER*****')
 
         # Run default loop.
         if not self.is_collapsed(self.wave):
