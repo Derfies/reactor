@@ -45,17 +45,38 @@ class TestAngleWavefunction(unittest.TestCase):
         bg.add_edges_from(edges)
         return bg
 
-    def assert_blocks_angle_sum(self, wf, seed):
+    def assert_sum_block_angle(self, wf, block_mask, seed):
         """
         Assert that all interior angles of a block add to 360.
 
         """
-        for block_mask in wf.block_coords_to_masked.values():
-            # values = block_mask[(slice(None))]
-            # indices = np.nonzero(values)[0]
-            # angles = np.take(wf.tiles, indices)
-            # sum_angles = np.sum(angles)
-            sum_angles = wf.get_sum_resolved_angles(block_mask)
+        sum_angles = wf.get_sum_resolved_angles(block_mask)
+        self.assertEqual(sum_angles, 360, f'Seed: {seed}')
+
+    def assert_sum_node_angle(self, wf, node, seed):
+        """
+        Assert that the angles around a node are no greater than 360, and in the
+        case of number of neighbours equalling the number of indices, they add
+        up to exactly 360 degrees.
+
+        """
+        #node = wf.coords_to_node[node_coord]
+        num_neighbors = len(list(wf.g.neighbors(node)))
+        node_coords = wf.node_to_coordses[node]
+       # print(node_coords, type(node_coords))
+        node_coord = next(iter(node_coords))
+        node_mask = wf.node_coords_to_masked[node_coord]
+        #index = np.nonzero(node_mask)[1][0]
+
+        sum_angles = wf.get_sum_resolved_angles(node_mask, absolute=True)
+        self.assertTrue(sum_angles <= 360, f'Seed: {seed}')
+
+        num_nonzero = np.count_nonzero(node_mask, axis=0)
+        num_indices = num_nonzero.count()
+        if num_neighbors == num_indices:
+            # print('node:', node)
+            # print('num_neighbors:', num_neighbors)
+            # print('num_indices:', num_indices)
             self.assertEqual(sum_angles, 360, f'Seed: {seed}')
 
     @parameterized.expand([
@@ -64,7 +85,7 @@ class TestAngleWavefunction(unittest.TestCase):
         ('../data/hexagon.gexf'),
         ('../data/grid2.gexf'),
         ('../data/test10.gexf'),
-        # ('../data/test1.gexf'),
+        ('../data/test1.gexf'),
         ('../data/test2.gexf'),
     ])
     def test_angle_wave_function(self, graph_path):
@@ -80,8 +101,10 @@ class TestAngleWavefunction(unittest.TestCase):
             wf.debug(wf.wave, title='FINAL:')
 
         self.assertTrue(wf.is_collapsed(wf.wave))
-        self.assert_blocks_angle_sum(wf, seed)
-        # TODO: Assert single node on two edges adds to 360
+        for block_mask in wf.block_coords_to_masked.values():
+            self.assert_sum_block_angle(wf, block_mask, seed)
+        for node in wf.g:
+            self.assert_sum_node_angle(wf, node, seed)
 
 
 if __name__ == '__main__':

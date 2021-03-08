@@ -1,5 +1,4 @@
 import math
-import sys
 
 import numpy as np
 import numpy.ma as ma
@@ -24,15 +23,12 @@ class AngleWavefunction(WavefunctionBase):
     """
 
     def __init__(self, g, block_g):
-
-        #print('\nINIT:')
         super().__init__()
 
         self.g = g
         self.block_g = block_g
 
         total_num_angles = 0
-        self.block_to_slice = {}
         self.block_sizes = []
         self.node_to_coordses = {}
         self.block_to_coordses = {}
@@ -42,12 +38,9 @@ class AngleWavefunction(WavefunctionBase):
         i = 0
         self.nodes = []
         for block_index, block in enumerate(self.block_g):
-            start = total_num_angles
             num_angles = len(block)
             total_num_angles += num_angles
             self.block_sizes.extend([num_angles] * num_angles)
-            end = total_num_angles
-            self.block_to_slice[block] = (slice(start, end),)
             self.block_to_coordses[block] = set()
             for node in block.nodes_forward:
                 coords = (i,)
@@ -59,9 +52,7 @@ class AngleWavefunction(WavefunctionBase):
                 i += 1
 
         self.tiles = list(Angle)
-
         self.absolute_angles = list(map(Angle.absolute, self.tiles))
-        #print('    tiles:', self.tiles)
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
         # how many angles we have.
