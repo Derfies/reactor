@@ -250,7 +250,7 @@ class AngleWavefunction(WavefunctionBase):
             #self.debug(self.wave, title=f'PROPAGATE: {cur_index}')
 
             # Attempt to resolve the block array. The node array must be checked
-            # for any index returned hercheck_sum_node_anglee.
+            # for any index returned here.
             dirty_block_indices = set()
             block_array = self.index_to_block_array[cur_index]
             if not self.is_collapsed(block_array):
