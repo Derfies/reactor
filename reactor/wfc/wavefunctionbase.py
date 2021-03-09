@@ -46,7 +46,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         last_count = states.sum()
         states[:] = False
         states[self.tiles.index(tile)] = True
-        print(f'\n{self.depth * INDENT * " "}COLLAPSE:', coords, f'[{self.coords_to_node[coords]}]', tile, f'DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}')    #f'[{self.coords_to_block[coords]}]
+        print(f'\n{self.depth * INDENT * " "}COLLAPSE:', coords, f'[{self.index_to_node[coords]}]', tile, f'DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}')    #f'[{self.coords_to_block[coords]}]
         return states.sum() != last_count
 
     def get_valid_tiles(self, coords):
@@ -108,7 +108,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             tile = valid_tiles.pop()
             self.collapse_to_tile(coords, tile, valid_tiles)
             self.depth += 1
-            self.path.append(f'{coords} [{self.coords_to_node[coords]}] {tile.name}')
+            self.path.append(f'{coords} [{self.index_to_node[coords]}] {tile.name}')
             try:
                 self.propagate(coords)
                 if not self.is_collapsed(self.wave):
@@ -119,8 +119,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
                 # Something went wrong - set the wave back so we can try a new
                 # permutation.
                 self.on_backtrack(coords, original)
-                self.debug(self.wave,
-                           title=f'{self.depth * INDENT * " "}CONTRADICTION: {coords} {e} DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}') #[{self.coords_to_node[coords]}]
+                self.debug(self.wave, title=f'{self.depth * INDENT * " "}CONTRADICTION: {coords} {e} DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}') #[{self.index_to_node[coords]}]
                 self.depth -= 1
                 self.path.pop()
         else:

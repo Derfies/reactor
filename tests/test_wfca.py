@@ -52,7 +52,7 @@ class TestAngleWavefunction(unittest.TestCase):
         """
         block_array = wf.index_to_block_array[block_index]
         sum_angles = wf.get_sum_resolved_angles(block_array)
-        block = wf.coords_to_block[block_index]
+        block = wf.index_to_block[block_index]
         self.assertEqual(sum_angles, 360, f'Block is not closed. Seed: {seed} [{block}]')
 
     def assert_sum_node_angle(self, wf, node, seed):
@@ -63,10 +63,9 @@ class TestAngleWavefunction(unittest.TestCase):
 
         """
         num_neighbors = len(list(wf.g.neighbors(node)))
-        node_coords = wf.node_to_coordses[node]
-        node_coord = next(iter(node_coords))
-        print('node_coord:', node_coord)
-        node_array = wf.index_to_node_array[node_coord]
+        node_indices = wf.node_to_indices[node]
+        node_index = next(iter(node_indices))
+        node_array = wf.index_to_node_array[node_index]
         sum_angles = wf.get_sum_resolved_angles(node_array, absolute=True)
         self.assertTrue(sum_angles <= 360, f'Seed: {seed}')
 
@@ -76,19 +75,19 @@ class TestAngleWavefunction(unittest.TestCase):
             self.assertEqual(sum_angles, 360, f'Seed: {seed}')
 
     @parameterized.expand([
-        # ('../data/quadrilateral.gexf'),
-        # ('../data/pentagon.gexf'),
-        # ('../data/hexagon.gexf'),
-        # ('../data/grid2.gexf'),
-        # ('../data/test10.gexf'),
+        ('../data/quadrilateral.gexf'),
+        ('../data/pentagon.gexf'),
+        ('../data/hexagon.gexf'),
+        ('../data/grid2.gexf'),
+        ('../data/test10.gexf'),
         ('../data/test1.gexf'),
-        # ('../data/test2.gexf'),
+        ('../data/test2.gexf'),
     ])
     def test_angle_wave_function(self, graph_path):
 
         # Not working out the sum of angles to 360
         #for seed in range(57, 61):
-        for seed in [0]:
+        for seed in range(100):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
@@ -97,8 +96,8 @@ class TestAngleWavefunction(unittest.TestCase):
             wf.debug(wf.wave, title=f'FINAL [{seed}]:')
 
             self.assertTrue(wf.is_collapsed(wf.wave))
-            for block_coords in wf.index_to_block_array:
-                self.assert_sum_block_angle(wf, block_coords, seed)
+            for block_index in wf.index_to_block_array:
+                self.assert_sum_block_angle(wf, block_index, seed)
             for node in wf.g:
                 self.assert_sum_node_angle(wf, node, seed)
 

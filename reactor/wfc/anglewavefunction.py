@@ -5,22 +5,10 @@ import numpy.ma as ma
 from tabulate import tabulate
 
 from reactor.const import Angle
-from reactor.wfc.wavefunctionbase import WavefunctionBase, Contradiction
+from reactor.wfc.wavefunctionbase import Contradiction, WavefunctionBase
 
 
 class AngleWavefunction(WavefunctionBase):
-
-    """
-    Use this to replace the current cyclic layouter, however it doesn't so
-    edge lengths.
-
-    Do we care? What does that mean?
-
-    Improvements:
-    - Use masking instead of slice to get block states?
-    - Use node num incident edges to adjust entropy?
-
-    """
 
     def __init__(self, g, block_g):
         super().__init__()
@@ -30,10 +18,9 @@ class AngleWavefunction(WavefunctionBase):
 
         total_num_angles = 0
         self.block_sizes = []
-        self.node_to_coordses = {}
-        #self.block_to_coordses = {}
-        self.coords_to_node = {}
-        self.coords_to_block = {}
+        self.node_to_indices = {}
+        self.index_to_node = {}
+        self.index_to_block = {}
         self.indices_to_block_indices = {}
 
         i = 0
@@ -42,22 +29,16 @@ class AngleWavefunction(WavefunctionBase):
             num_angles = len(block)
             total_num_angles += num_angles
             self.block_sizes.extend([num_angles] * num_angles)
-            #self.block_to_coordses[block] = set()
             block_indices = set()
             for node in block.nodes_forward:
-                coords = (i,)
-                block_indices.add(coords)
-                self.indices_to_block_indices[coords] = block_indices
-                self.node_to_coordses.setdefault(node, set()).add(coords)
-                #self.block_to_coordses[block].add(coords)
-                self.coords_to_node[coords] = node
-                self.coords_to_block[coords] = block
+                index = (i,)
+                block_indices.add(index)
+                self.indices_to_block_indices[index] = block_indices
+                self.node_to_indices.setdefault(node, set()).add(index)
+                self.index_to_node[index] = node
+                self.index_to_block[index] = block
                 self.nodes.append(node + f'\n[{block_index}]')
                 i += 1
-
-        # for foo in self.indices_to_block_indices:
-        #     print(foo, '->', self.indices_to_block_indices[foo])
-        # raise
 
         self.tiles = list(Angle)
         self.absolute_angles = list(map(Angle.absolute, self.tiles))
@@ -116,24 +97,25 @@ class AngleWavefunction(WavefunctionBase):
         ):
             raise Contradiction()
 
-    def check_sum_node_angle(self, array):
-        num_neighbors = len(list(self.g.neighbors(node)))
-        node_coords = self.node_to_coordses[node]
-        node_coord = next(iter(node_coords))
-        node_mask = self.node_coords_to_masked[node_coord]
-        sum_angles = self.get_sum_resolved_angles(node_mask, absolute=True)
-        self.assertTrue(sum_angles <= 360, f'Seed: {seed}')
+    # def check_sum_node_angle(self, array):
+    #     num_neighbors = len(list(self.g.neighbors(node)))
+    #     node_indices = self.node_to_indices[node]
+    #     node_index = next(iter(node_indices))
+    #     node_array = self.index_to_node_array[node_index]
+    #     sum_angles = self.get_sum_resolved_angles(node_array, absolute=True)
+    #     if sum_angles > 360:
+    #         raise Contradiction()
+    #
+    #     num_nonzero = np.count_nonzero(node_array, axis=0)
+    #     num_indices = num_nonzero.count()
+    #     if num_neighbors == num_indices and sum_angles != 360:
+    #         raise Contradiction()
 
-        num_nonzero = np.count_nonzero(node_mask, axis=0)
-        num_indices = num_nonzero.count()
-        if num_neighbors == num_indices:
-            self.assertEqual(sum_angles, 360, f'Seed: {seed}')
+    def resolve_block(self, cur_index):
 
-    def resolve_block(self, cur_coords):
-
-        block_mask = self.index_to_block_array[cur_coords]
-        block = self.coords_to_block[cur_coords]
-        #print('\nBLOCK START:', cur_coords, block)
+        block_mask = self.index_to_block_array[cur_index]
+        block = self.index_to_block[cur_index]
+        #print('\nBLOCK START:', cur_index, block)
         #self.debug(block_mask, title='BEFORE')
 
         propagate = set()
@@ -166,19 +148,19 @@ class AngleWavefunction(WavefunctionBase):
 
                 constraint_indices = self.constrain(block_mask, opposite_angle)
                 #for constraint_index in list(constraint_indices):
-                    #print('    Remove:', opposite_angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                    #print('    Remove:', opposite_angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
                 propagate.update(constraint_indices)
 
                 if num_required_angles == len(unresolved_indices):
                     constraint_indices = self.constrain(block_mask, Angle.STRAIGHT)
                     #for constraint_index in list(constraint_indices):
-                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
                     propagate.update(constraint_indices)
                 elif num_required_angles == 0:
                     required_angle = Angle(angle_sign * 90)
                     constraint_indices = self.constrain(block_mask, required_angle)
                     #for constraint_index in list(constraint_indices):
-                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
                     propagate.update(constraint_indices)
 
             if block_mask.sum() == last_sum:
@@ -187,28 +169,27 @@ class AngleWavefunction(WavefunctionBase):
 
         return propagate
 
-    def resolve_node(self, cur_coords):
+    def resolve_node(self, cur_index):
 
-        node_mask = self.index_to_node_array[cur_coords]
+        node_mask = self.index_to_node_array[cur_index]
         num_nonzero = np.count_nonzero(node_mask, axis=0)
         unresolved = num_nonzero > 1
 
-        # If the number of neighbours is greater than the number of coordinates
-        # then the node lies on the exterior face which needs to be accounted
-        # for.
-        node = self.coords_to_node[cur_coords]
+        # If the number of neighbours is greater than the number of indices then
+        # the node lies on the exterior face which needs to be accounted for.
+        node = self.index_to_node[cur_index]
         num_neighbors = len(list(self.g.neighbors(node)))
         num_indices = num_nonzero.count()   # TODO: Double check.
         num_unresolved = np.count_nonzero(unresolved) + num_neighbors - num_indices
 
-        #print('\nNODE START:', cur_coords, f'[{self.coords_to_node[cur_coords]}]')
+        #print('\nNODE START:', cur_index, f'[{self.index_to_node[cur_index]}]')
         #self.debug(node_mask, title='BEFORE')
 
         # Find the sum of the resolved angles around the node.
         sum_angles = self.get_sum_resolved_angles(node_mask, absolute=True)
 
         # Calculate the minimum number of degrees accounted for, this being the
-        # sum of the known angles plus at least 90 for each unresolved coord.
+        # sum of the known angles plus at least 90 for each unresolved index.
         minimum_angles = sum_angles + num_unresolved * Angle.absolute(Angle.INSIDE)
         maximum = 450 - minimum_angles
 
@@ -219,30 +200,30 @@ class AngleWavefunction(WavefunctionBase):
             if Angle.absolute(angle) <= maximum:
                 continue
             constraint_indices = self.constrain(node_mask, angle)
-            #for constraint_index in list(constraint_indices):
-                #print('    Remove:', angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
+            # for constraint_index in list(constraint_indices):
+            #     print('    Remove:', angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
             propagate.update(constraint_indices)
 
         # Assumptions can be made for the index that lies opposite the current
         # index as it's an explementary angle.
         if num_neighbors == num_indices == 2:
             nonzero_indices = list(zip(*np.nonzero(num_nonzero)))
-            nonzero_indices.remove(cur_coords)
-            other_coords = nonzero_indices[0]
-            this = node_mask[slice(None), cur_coords]
-            that = node_mask[slice(None), other_coords]
+            nonzero_indices.remove(cur_index)
+            other_index = nonzero_indices[0]
+            this = node_mask[slice(None), cur_index]
+            that = node_mask[slice(None), other_index]
             this_flipped = np.array([this[1], this[0], this[2]])
             result = this_flipped & that
             xor = np.logical_xor(that, result)
             changed = np.any(xor)
-            if changed: # TODO: Make this look like coords from constraint_indices etc
-                node_mask[slice(None), other_coords] = result
-                propagate.add(other_coords)
+            if changed: # TODO: Make this look like indices from constraint_indices etc
+                node_mask[slice(None), other_index] = result
+                propagate.add(other_index)
 
                 # DEBUG
                 # for index, i in enumerate(xor):
                 #     if i[0]:
-                        #print('    Remove:', self.tiles[index], 'from node:', self.coords_to_node[other_coords], 'of block:', self.coords_to_block[other_coords])
+                #         print('    Remove:', self.tiles[index], 'from node:', self.index_to_node[other_index], 'of block:', self.index_to_block[other_index])
 
         # TODO: THIS IS NOW BREAKING!
         # If there's a single unresolved index we can infer its value, ie 360 -
@@ -281,7 +262,7 @@ class AngleWavefunction(WavefunctionBase):
             # Attempt to resolve the node array. Note that this may further
             # collapse the block array.
             dirty_node_indices = set()
-            for block_index in dirty_block_indices:
+            for block_index in dirty_block_indices | set([cur_index]):  # TODO: Clean up?
                 node_array = self.index_to_node_array[block_index]
                 if not self.is_collapsed(node_array):
                     dirty_node_indices.update(self.resolve_node(block_index))
@@ -309,8 +290,8 @@ class AngleWavefunction(WavefunctionBase):
         if not self.is_collapsed(self.wave):
             super().run()
 
-    def on_backtrack(self, coords, original):
-        super().on_backtrack(coords, original)
+    def on_backtrack(self, index, original):
+        super().on_backtrack(index, original)
 
         # Ugly. We need to set the original data in all the masked arrays.
         # There must be an easier way to do this...
@@ -333,14 +314,14 @@ class AngleWavefunction(WavefunctionBase):
                 if mask_index:
                     angles[i] = '~~~~~'
         indices = list(zip(*np.nonzero(mask & resolved)))
-        for coord in indices:
-            angle_str = str(self.tiles[coord[0]].value)
-            angles[coord[1]] = angle_str.rjust(5)
+        for index in indices:
+            angle_str = str(self.tiles[index[0]].value)
+            angles[index[1]] = angle_str.rjust(5)
 
         contra = np.count_nonzero(mask, axis=0) == 0
         indices = list(zip(*np.nonzero(contra)))
-        for coord in indices:
-            angles[coord[0]] = '~~nan'
+        for index in indices:
+            angles[index[0]] = '~~nan'
 
         print(tabulate(mask, headers=self.nodes))
         print(tabulate([angles]).replace('~', ' '))
