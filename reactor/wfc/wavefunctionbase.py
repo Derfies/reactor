@@ -101,8 +101,6 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             print('\n*********contradiction??')
 
     def recurse(self):
-
-        #original = self.wave.copy()
         coords = self.get_min_entropy_coords()
         valid_tiles = self.get_valid_tiles(coords)
         while valid_tiles:
