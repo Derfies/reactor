@@ -118,7 +118,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
                 # Something went wrong - set the wave back so we can try a new
                 # permutation.
-                self.on_backtrack(coords, original)
+                self.backtrack(coords, original)
                 self.debug(self.wave, title=f'{self.depth * INDENT * " "}CONTRADICTION: {coords} {e} DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}') #[{self.index_to_node[coords]}]
                 self.depth -= 1
                 self.path.pop()
@@ -128,5 +128,5 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
     def run(self):
         self.recurse()
 
-    def on_backtrack(self, coords, original):
+    def backtrack(self, coords, original):
         self.wave = original

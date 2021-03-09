@@ -26,7 +26,6 @@ class MapGenerator(object):
         map_ = Map()
         layouter = Layouter(g, map_)
         layouter.run()
-        return
         room_placer = RoomPlacer(g, map_)
         room_placer.run()
         return map_

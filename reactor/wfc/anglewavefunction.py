@@ -222,12 +222,8 @@ class AngleWavefunction(WavefunctionBase):
                 #     if i[0]:
                 #         print('    Remove:', self.tiles[index], 'from node:', self.index_to_node[other_index], 'of block:', self.index_to_block[other_index])
 
-        # TODO: THIS IS NOW BREAKING!
         # If there's a single unresolved index we can infer its value, ie 360 -
         # sum_angles.
-        # If the angles remaining equals 90 * num unresolved indices, all
-        # remaining must be 90. I think is is handled above...
-        # TODO: Put all this into a loop...?
         unresolved = np.count_nonzero(node_array, axis=0) > 1
         if num_neighbors == num_indices and np.count_nonzero(unresolved) == 1:
             sum_angles = self.get_sum_resolved_angles(node_array, absolute=True)
@@ -289,8 +285,8 @@ class AngleWavefunction(WavefunctionBase):
         if not self.is_collapsed(self.wave):
             super().run()
 
-    def on_backtrack(self, index, original):
-        super().on_backtrack(index, original)
+    def backtrack(self, index, original):
+        super().backtrack(index, original)
 
         # Ugly. We need to set the original data in all the masked arrays.
         # There must be an easier way to do this...
