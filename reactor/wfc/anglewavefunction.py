@@ -114,7 +114,7 @@ class AngleWavefunction(WavefunctionBase):
 
         propagate = set()
         last_sum = block_mask.sum()
-        while True:
+        while True: # TODO: Put block outside during propagate
 
             # Find those indices which are unresolved.
             #num_nonzero = np.count_nonzero(block_mask, axis=0)
@@ -168,12 +168,6 @@ class AngleWavefunction(WavefunctionBase):
                 break
             last_sum = block_mask.sum()
 
-        #self.debug(block_mask, title='AFTER')
-
-        # # Ensure there's at least one tile for any index.
-        # if not num_nonzero.all():
-        #     raise Contradiction('block contradiction')
-
         return propagate
 
     def propagate_by_node(self, cur_coords):
@@ -217,12 +211,6 @@ class AngleWavefunction(WavefunctionBase):
                 #print('    Remove:', angle, 'from node:', self.coords_to_node[constraint_index], 'of block:', self.coords_to_block[constraint_index])
             propagate.update(constraint_indices)
 
-        # TODO: THIS IS NOW BREAKING!
-        # If there's a single unresolved index we can infer its value, ie 360 -
-        # sum_angles.
-        # If the angles remaining equals 90 * num unresolved indices, all
-        # remaining must be 90. I think is is handled above...
-
         # Assumptions can be made for the index that lies opposite the current
         # index as it's an explementary angle.
         if num_neighbors == num_indices == 2:
@@ -244,11 +232,34 @@ class AngleWavefunction(WavefunctionBase):
                 #     if i[0]:
                         #print('    Remove:', self.tiles[index], 'from node:', self.coords_to_node[other_coords], 'of block:', self.coords_to_block[other_coords])
 
-        #self.debug(node_mask, title='AFTER')
+        # TODO: THIS IS NOW BREAKING!
+        # If there's a single unresolved index we can infer its value, ie 360 -
+        # sum_angles.
+        # If the angles remaining equals 90 * num unresolved indices, all
+        # remaining must be 90. I think is is handled above...
+        # TODO: Put all this into a loop...?
+        unresolved = np.count_nonzero(node_mask, axis=0) > 1
+        if num_neighbors == num_indices and np.count_nonzero(unresolved) == 1:
+            sum_angles = self.get_sum_resolved_angles(node_mask, absolute=True)
+            remaining = 360 - sum_angles
+            unresolved_index = list(zip(*np.nonzero(unresolved)))[0]
 
-        # Ensure there's at least one tile for any index.
-        # if not num_nonzero.all():
-        #     raise Contradiction('block contradiction')
+            #print('unresolved_index:', unresolved_index, self.coords_to_node[unresolved_index])
+            #print('remaining:', remaining)
+            result = np.array([[False], [False], [False]])
+            tile = Angle(180 - remaining)  # Should hopefully break if known_remainder is 360
+            result[self.tiles.index(tile)] = [True]
+            #print('result:', result)
+
+            node_mask[slice(None), unresolved_index] = result
+
+            # known_remainder = 360 - total
+            # tile = Angle(
+            #     180 - known_remainder)  # Should hopefully break if known_remainder is 360
+            # if self.collapse_to_tile(coords, tile):
+            #     propagate.add(coords)
+            #     print('    Collapsed to:', tile, 'for node:', node, 'of block:',
+            #           self.coords_to_block[coords])
 
         return propagate
 
