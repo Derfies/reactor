@@ -87,7 +87,7 @@ class TestAngleWavefunction(unittest.TestCase):
 
         # Not working out the sum of angles to 360
         #for seed in range(57, 61):
-        for seed in range(10):
+        for seed in range(100):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
