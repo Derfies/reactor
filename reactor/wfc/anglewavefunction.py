@@ -122,18 +122,14 @@ class AngleWavefunction(WavefunctionBase):
         last_sum = block_mask.sum()
         while True:
 
-            # Find those indices which are unresolved.
-            unresolved = np.count_nonzero(block_mask, axis=0) > 1
-            unresolved_indices = list(zip(*np.nonzero(unresolved)))
-
-            # Find the sum of the resolved interior angles of the block.
-            sum_angles = self.get_sum_resolved_angles(block_mask)
-
             # Calculate the number of 90 degree turns required to close the
-            # shape. If the number of angles required is larger than the number
-            # of unresolved indices the shape can never be closed.
+            # face. If the number of angles required is larger than the number
+            # of unresolved indices the face can never be closed.
+            sum_angles = self.get_sum_resolved_angles(block_mask)
             remaining = 360 - sum_angles
             num_required_angles = int(remaining / 90)
+            unresolved = np.count_nonzero(block_mask, axis=0) > 1
+            unresolved_indices = list(zip(*np.nonzero(unresolved)))
             if num_required_angles > len(unresolved_indices):
                 raise Contradiction(f'More angles required than uncollapsed indices [{block}]')
 
@@ -262,7 +258,7 @@ class AngleWavefunction(WavefunctionBase):
             # Attempt to resolve the node array. Note that this may further
             # collapse the block array.
             dirty_node_indices = set()
-            for block_index in dirty_block_indices | set([cur_index]):  # TODO: Clean up?
+            for block_index in dirty_block_indices.union({cur_index}):
                 node_array = self.index_to_node_array[block_index]
                 if not self.is_collapsed(node_array):
                     dirty_node_indices.update(self.resolve_node(block_index))
