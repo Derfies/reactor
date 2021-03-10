@@ -25,6 +25,7 @@ class AngleWavefunction(WavefunctionBase):
 
         i = 0
         self.nodes = []
+        self.indices = []
         for block_index, block in enumerate(self.block_g):
             num_angles = len(block)
             total_num_angles += num_angles
@@ -38,6 +39,7 @@ class AngleWavefunction(WavefunctionBase):
                 self.index_to_node[index] = node
                 self.index_to_block[index] = block
                 self.nodes.append(node + f'\n[{block_index}]')
+                self.indices.append(index)
                 i += 1
 
         self.tiles = list(Angle)
@@ -67,6 +69,9 @@ class AngleWavefunction(WavefunctionBase):
                 self.index_to_block_array[(i,)] = block_masked
                 self.index_to_node_array[(i,)] = node_masked
                 i += 1
+
+    def get_min_entropy_coords_offset(self):
+        return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def constrain(self, array, angle):
         unresolved = np.count_nonzero(array, axis=0) > 1
@@ -113,12 +118,7 @@ class AngleWavefunction(WavefunctionBase):
             raise Contradiction()
 
     def resolve_block(self, cur_index):
-
         block_array = self.index_to_block_array[cur_index]
-        block = self.index_to_block[cur_index]
-        #print('\nBLOCK START:', cur_index, block)
-        #self.debug(block_array, title='BEFORE')
-
         propagate = set()
         last_sum = block_array.sum()
         while True:
@@ -130,35 +130,27 @@ class AngleWavefunction(WavefunctionBase):
             remaining = 360 - sum_angles
             num_required_angles = int(remaining / 90)
             unresolved = np.count_nonzero(block_array, axis=0) > 1
-            unresolved_indices = list(zip(*np.nonzero(unresolved)))
-            if num_required_angles > len(unresolved_indices):
-                raise Contradiction(f'More angles required than uncollapsed indices [{block}]')
+            num_unresolved = np.count_nonzero(unresolved)
+            if num_required_angles > num_unresolved:
+                raise Contradiction(f'More angles required than uncollapsed indices [{self.index_to_block[cur_index]}]')
 
             # If the number of required angles is equal to or one less than the
             # the number of unresolved indices we can remove some possibilities.
-            if len(unresolved_indices) - num_required_angles < 2:
+            if num_unresolved - num_required_angles <= 1:
 
-                # Work out which angle is required to close the shape and which
+                # Work out which angle is required to close the face and which
                 # is the opposite angle.
                 angle_sign = math.copysign(1, remaining)
+                required_angle = Angle(angle_sign * 90)
                 opposite_angle = Angle(-angle_sign * 90)
 
-                constraint_indices = self.constrain(block_array, opposite_angle)
-                #for constraint_index in list(constraint_indices):
-                    #print('    Remove:', opposite_angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
-                propagate.update(constraint_indices)
-
-                if num_required_angles == len(unresolved_indices):
-                    constraint_indices = self.constrain(block_array, Angle.STRAIGHT)
-                    #for constraint_index in list(constraint_indices):
-                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
-                    propagate.update(constraint_indices)
+                # If there are no angles required then the angle *must* be
+                # straight.
+                propagate.update(self.constrain(block_array, opposite_angle))
+                if num_required_angles == num_unresolved:
+                    propagate.update(self.constrain(block_array, Angle.STRAIGHT))
                 elif num_required_angles == 0:
-                    required_angle = Angle(angle_sign * 90)
-                    constraint_indices = self.constrain(block_array, required_angle)
-                    #for constraint_index in list(constraint_indices):
-                        #print('    Remove:', Angle.STRAIGHT, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
-                    propagate.update(constraint_indices)
+                    propagate.update(self.constrain(block_array, required_angle))
 
             if block_array.sum() == last_sum:
                 break
@@ -167,83 +159,71 @@ class AngleWavefunction(WavefunctionBase):
         return propagate
 
     def resolve_node(self, cur_index):
-
         node_array = self.index_to_node_array[cur_index]
-        num_nonzero = np.count_nonzero(node_array, axis=0)
-        unresolved = num_nonzero > 1
-
-        # If the number of neighbours is greater than the number of indices then
-        # the node lies on the exterior face which needs to be accounted for.
         node = self.index_to_node[cur_index]
         num_neighbors = len(list(self.g.neighbors(node)))
-        num_indices = num_nonzero.count()   # TODO: Double check.
-        num_unresolved = np.count_nonzero(unresolved) + num_neighbors - num_indices
-
-        #print('\nNODE START:', cur_index, f'[{self.index_to_node[cur_index]}]')
-        #self.debug(node_array, title='BEFORE')
-
-        # Find the sum of the resolved angles around the node.
-        sum_angles = self.get_sum_resolved_angles(node_array, absolute=True)
-
-        # Calculate the minimum number of degrees accounted for, this being the
-        # sum of the known angles plus at least 90 for each unresolved index.
-        minimum_angles = sum_angles + num_unresolved * Angle.absolute(Angle.INSIDE)
-        maximum = 450 - minimum_angles
-
-        # If an angle is less than the maximum remove it as a possibility.
-        # TODO: Convert to numpy also? ;)
         propagate = set()
-        for angle in (Angle.OUTSIDE, Angle.STRAIGHT):
-            if Angle.absolute(angle) <= maximum:
-                continue
-            constraint_indices = self.constrain(node_array, angle)
-            # for constraint_index in list(constraint_indices):
-            #     print('    Remove:', angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
-            propagate.update(constraint_indices)
+        last_sum = node_array.sum()
+        while True:
+            num_nonzero = np.count_nonzero(node_array, axis=0)
+            unresolved = num_nonzero > 1
 
-        # Assumptions can be made for the index that lies opposite the current
-        # index as it's an explementary angle.
-        if num_neighbors == num_indices == 2:
-            nonzero_indices = list(zip(*np.nonzero(num_nonzero)))
-            nonzero_indices.remove(cur_index)
-            other_index = nonzero_indices[0]
-            this = node_array[slice(None), cur_index]
-            that = node_array[slice(None), other_index]
-            this_flipped = np.array([this[1], this[0], this[2]])
-            result = this_flipped & that
-            xor = np.logical_xor(that, result)
-            changed = np.any(xor)
-            if changed: # TODO: Make this look like indices from constraint_indices etc
-                node_array[slice(None), other_index] = result
-                propagate.add(other_index)
+            # If the number of neighbours is greater than the number of indices
+            # then the node lies on the exterior face which needs to be
+            # accounted for.
+            num_indices = num_nonzero.count()   # TODO: Double check.
+            num_unresolved = np.count_nonzero(unresolved) + num_neighbors - num_indices
 
-                # DEBUG
-                # for index, i in enumerate(xor):
-                #     if i[0]:
-                #         print('    Remove:', self.tiles[index], 'from node:', self.index_to_node[other_index], 'of block:', self.index_to_block[other_index])
-
-        # If there's a single unresolved index we can infer its value, ie 360 -
-        # sum_angles.
-        unresolved = np.count_nonzero(node_array, axis=0) > 1
-        if num_neighbors == num_indices and np.count_nonzero(unresolved) == 1:
+            # Find the sum of the resolved angles around the node.
             sum_angles = self.get_sum_resolved_angles(node_array, absolute=True)
-            remaining = 360 - sum_angles
-            unresolved_index = list(zip(*np.nonzero(unresolved)))[0]
-            result = np.array([[False], [False], [False]])
-            tile = Angle(180 - remaining)  # Should hopefully break if known_remainder is 360
-            result[self.tiles.index(tile)] = [True]
-            node_array[slice(None), unresolved_index] = result
+
+            # Calculate the minimum number of degrees accounted for, this being
+            # the sum of the known angles plus at least 90 for each unresolved
+            # index.
+            minimum_angles = sum_angles + num_unresolved * Angle.absolute(Angle.INSIDE)
+            maximum = 450 - minimum_angles
+
+            # If an angle is less than the maximum remove it as a possibility.
+            # TODO: Convert to numpy also? ;)
+            for angle in (Angle.OUTSIDE, Angle.STRAIGHT):
+                if Angle.absolute(angle) <= maximum:
+                    continue
+                constraint_indices = self.constrain(node_array, angle)
+                propagate.update(constraint_indices)
+
+            # Assumptions can be made for the index that lies opposite the current
+            # index as it's an explementary angle.
+            if num_neighbors == num_indices == 2:
+                nonzero_indices = list(zip(*np.nonzero(num_nonzero)))
+                nonzero_indices.remove(cur_index)
+                other_index = nonzero_indices[0]
+                this = node_array[slice(None), cur_index]
+                that = node_array[slice(None), other_index]
+                this_flipped = np.array([this[1], this[0], this[2]])
+                result = this_flipped & that
+                xor = np.logical_xor(that, result)
+                if np.any(xor): # TODO: Make this look like indices from constraint_indices etc
+                    # If result is Truthy then we can use .constrain...?
+                    node_array[slice(None), other_index] = result
+                    propagate.add(other_index)
+
+            # If there's a single unresolved index we can infer its value, ie
+            # 360 - sum_angles.
+            if num_neighbors == num_indices and num_unresolved == 1:
+                remaining = 360 - sum_angles
+                unresolved_index = list(zip(*np.nonzero(unresolved)))[0]
+                self.collapse_to_tile(unresolved_index, Angle(180 - remaining), None)
+
+            if node_array.sum() == last_sum:
+                break
+            last_sum = node_array.sum()
 
         return propagate
-
-    def get_min_entropy_coords_offset(self):
-        return self.block_sizes + super().get_min_entropy_coords_offset()
 
     def propagate(self, index):
         stack = [index]
         while stack:
             cur_index = stack.pop()
-            #self.debug(self.wave, title=f'PROPAGATE: {cur_index}')
 
             # Attempt to resolve the block array. The node array must be checked
             # for any index returned here.
@@ -274,12 +254,10 @@ class AngleWavefunction(WavefunctionBase):
     def run(self):
 
         # There's a number of indices we can collapse straight off the bat, so
-        # run each index through the propragation function before we start the
+        # run each index through the propagation function before we start the
         # default loop.
-        for index in range(np.size(self.wave, axis=1)):
-            self.propagate((index,))
-
-        #self.debug(self.wave, title='*****INITIAL PROPAGATE OVER*****')
+        for index in self.indices:
+            self.propagate(index)
 
         # Run default loop.
         if not self.is_collapsed(self.wave):
@@ -321,3 +299,8 @@ class AngleWavefunction(WavefunctionBase):
         print(tabulate(mask, headers=self.nodes))
         print(tabulate([angles]).replace('~', ' '))
         print('')
+
+    def foo(self):
+        for constraint_index in list(constraint_indices):
+            print('    Remove:', opposite_angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
+        pass
