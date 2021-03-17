@@ -4,13 +4,6 @@
 
 #const num_nodes=0.
 
-% castle
-type_range(entrance, 1, 1).
-type_range(courtyard, 0, 1).
-type_range(chamber, 1, num_nodes / 3).
-type_range(main_chamber, 1, 1).
-type_range(hallway, 0, num_nodes).
-
 type(T) :- type_range(T, _, _).
 
 1 { node_type(N, T) : type(T) } 1 :- node(N).
@@ -21,5 +14,4 @@ type_num(T, Num) :- Num = #count{ N : node_type(N, T)}, type(T).
 :- type_num(Type, Num), type_range(Type, Min, Max), Num < Min.
 
 #show node_type/2.
-%#show type_range/3.
 #show type_num/2.
