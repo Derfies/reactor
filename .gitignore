@@ -127,3 +127,6 @@ dmypy.json
 
 # Output image dir
 /output
+
+# Any JS
+/js
