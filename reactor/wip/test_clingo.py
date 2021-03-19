@@ -44,11 +44,17 @@ class AspLevelTheme(metaclass=abc.ABCMeta):
         """"""
 
     @property
+    @abc.abstractmethod
+    def adjacency_facts(self):
+        """"""
+
+    @property
     def facts(self):
         facts = []
         facts.extend(self.node_facts)
         facts.extend(self.edge_facts)
         facts.extend(self.zone_facts)
+        facts.extend(self.adjacency_facts)
         return facts
 
     def get_clingo_kwargs(self):
@@ -71,7 +77,26 @@ class CastleTheme(AspLevelTheme):
             self.format_fact('type_range', 'chamber', 1, int(self.num_nodes / 3)),
             self.format_fact('type_range', 'main_chamber', 1, 1),
             self.format_fact('type_range', 'hallway', 0, 15),
-            self.format_fact('type_range', 'room', 0, 15),
+            #self.format_fact('type_range', 'room', 0, 15),
+        ]
+
+    @property
+    def adjacency_facts(self):
+        return [
+            self.format_fact('adjacency', 'entrance', 'hallway'),
+            self.format_fact('adjacency', 'entrance', 'courtyard'),
+            self.format_fact('adjacency', 'entrance', 'chamber'),
+
+            self.format_fact('adjacency', 'cellar', 'hallway'),
+            self.format_fact('adjacency', 'cellar', 'courtyard'),
+            self.format_fact('adjacency', 'cellar', 'chamber'),
+
+            self.format_fact('adjacency', 'chamber', 'chamber'),
+            self.format_fact('adjacency', 'chamber', 'hallway'),
+
+            self.format_fact('adjacency', 'main_chamber', 'hallway'),
+            self.format_fact('adjacency', 'main_chamber', 'chamber'),
+
         ]
 
 
@@ -86,24 +111,28 @@ clyngor.CLINGO_BIN_PATH = '../../bin/clingo-5.4.0-win64/clingo.exe'
 answers = solve(
     '../../data/clingo/theme.lp',
     use_clingo_module=False,
-    nb_model=1,
+    nb_model=0,
     options=f'--rand-freq=1 --seed={seed}',
     delete_tempfile=False,
     **theme.get_clingo_kwargs()
 )
-
-print(answers.command)
-
+#print(len(list(answers)))
+#raise
 answers = list(answers)
+rand_index = random.randint(0, len(answers))
+answer = answers[rand_index]
+#print(answers.command)
+
+#answers = list(answers)
 print('num answers:', len(answers))
 
 print('Facts:')
 for f in theme.facts:
     print('    ->', f)
 
-for a in answers:
-    print('-' * 25)
-    for node_type in sorted(a):
-        print('->', node_type)
-if not len(answers):
-    print('no answers')
+#for a in answers:
+print('-' * 25)
+for node_type in sorted(answer):
+    print('->', node_type)
+# if not len(answers):
+#     print('no answers')
