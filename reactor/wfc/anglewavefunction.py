@@ -76,9 +76,30 @@ class AngleWavefunction(WavefunctionBase):
     def constrain(self, array, angle):
         unresolved = np.count_nonzero(array, axis=0) > 1
         angle_index = self.tiles.index(angle)
+
+        # Not so much to stop contradiction, but more to stop
+        # indices being returned.
         constrain_indices = array[angle_index] & unresolved
         array[angle_index][constrain_indices] = False
         return zip(*np.nonzero(constrain_indices))
+
+    def constrain2(self, array, indices):
+        """
+        Return an index if at least one element is to be constrained
+        during the operation.
+
+        Only constrain those value that haven't been fully collapsed.
+        It's perfectly fine for this to be called and just ignore
+        indices that are already collapsed.
+
+        Only return those indices that changed.
+        """
+        unresolved = np.count_nonzero(array, axis=0) > 1
+        mesh = np.ix_(indices, unresolved)
+        changed_mesh_indices = np.count_nonzero(array[mesh], axis=0) > 0
+        unresolved_indices = np.nonzero(unresolved)[0]
+        array[mesh] = False
+        return zip(unresolved_indices[changed_mesh_indices])
 
     def get_sum_resolved_angles(self, array, absolute=False):
         resolved = np.count_nonzero(array, axis=0) == 1
@@ -184,12 +205,8 @@ class AngleWavefunction(WavefunctionBase):
             maximum = 450 - minimum_angles
 
             # If an angle is less than the maximum remove it as a possibility.
-            # TODO: Convert to numpy also? ;)
-            for angle in (Angle.OUTSIDE, Angle.STRAIGHT):
-                if Angle.absolute(angle) <= maximum:
-                    continue
-                constraint_indices = self.constrain(node_array, angle)
-                propagate.update(constraint_indices)
+            constrain_indices = np.nonzero(self.absolute_angles > maximum)[0]
+            propagate.update(self.constrain2(node_array, constrain_indices))
 
             # Assumptions can be made for the index that lies opposite the current
             # index as it's an explementary angle.
@@ -210,6 +227,9 @@ class AngleWavefunction(WavefunctionBase):
             # If there's a single unresolved index we can infer its value, ie
             # 360 - sum_angles.
             if num_neighbors == num_indices and num_unresolved == 1:
+
+                # TODO: rejig collapse to tile - might be able to remove "unresolved
+                # index" since the num of unresolved is 1 anyway.
                 remaining = 360 - sum_angles
                 unresolved_index = list(zip(*np.nonzero(unresolved)))[0]
                 self.collapse_to_tile(unresolved_index, Angle(180 - remaining), None)
@@ -299,8 +319,3 @@ class AngleWavefunction(WavefunctionBase):
         print(tabulate(mask, headers=self.nodes))
         print(tabulate([angles]).replace('~', ' '))
         print('')
-
-    def foo(self):
-        for constraint_index in list(constraint_indices):
-            print('    Remove:', opposite_angle, 'from node:', self.index_to_node[constraint_index], 'of block:', self.index_to_block[constraint_index])
-        pass
