@@ -12,6 +12,8 @@ simple-settings = "==1.0.0"
 pyglet = "==1.5.8"
 parameterized = "==0.8.1"
 tabulate = "==0.8.9"
+colorama = "==0.4.4"
+numpy = "==1.19.3"
 
 [requires]
 python_version = "3.8"
