@@ -1,6 +1,5 @@
 import itertools as it
 import random
-import sys
 
 import networkx as nx
 
@@ -9,8 +8,6 @@ from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.blocks.rootblock import RootBlock
 from reactor.faceanalysis import FaceAnalysis
-from reactor.const import Angle
-from reactor.wfc.anglewavefunction import AngleWavefunction
 
 
 class Layouter(object):
@@ -55,8 +52,7 @@ class Layouter(object):
         g = nx.Graph()
 
         # Build nodes.
-        biconns = list(nx.biconnected_components(self.g))
-        for biconn in biconns:
+        for biconn in nx.biconnected_components(self.g):
             sg = self.g.subgraph(biconn)
             if len(biconn) < 3:
                 g.add_node(EdgeBlock(sg))
@@ -68,307 +64,6 @@ class Layouter(object):
         # Build edges.
         edges = filter(lambda x: x[0].is_adjacent(x[1]), it.combinations(g, 2))
         g.add_edges_from(edges)
-
-        # print('num_blocks:', len(g))
-        # for n in g:
-        #     print('block:', n)
-
-        # Find path from N1 to N13.
-        #print(list(self.g))
-        #paths = nx.all_shortest_paths(self.g, 'N1', 'N13')
-        my_path = [
-            'N2',
-            'N1',
-            'N5',
-            'N4',
-            'N6',
-            'N39',
-            'N41',
-            'N33',
-            'N34',
-            'N29',
-            'N30',
-            'N7',
-            'N14',
-            'N12',
-            'N19',
-            'N21',
-            'N23',
-            'N24',
-            'N43',
-            'N44',
-            'N47',
-            'N48',
-            'N50',
-            'N51'
-        ]
-        for path in (my_path,):
-
-            #print('\npath:', path)
-
-            # Find the components that lie on this path.
-            # for block in g:
-            #     #print('biconn:', biconn)
-            #     if set(block) & set(path):
-            #         print('    overlap:', type(block), list(block))
-
-            # NEED TO ORIENT THE PATH SO THE RELATIVITY OF THE ANGLES MAKES
-            # SENSE.
-
-            # ORIENT THE GRAPH...? Would that make things easier?
-
-            # Find the possible angle of every node on the path. Remember that
-            # these angles are relative to each other - not the world, eg STRAIGHT
-            # means continue along the vector of the previous edge. The first
-            # and last node angles can be anything until we figure out what
-            # these nodes connect to.
-            #
-            # If an edge incident to a node forms the border between two faces
-            # that also share edges with the path then we know the angle of the
-            # node must be straight or outside.
-            #
-            # If a node has four incident edges, we check if the path belongs
-            # to the same face. If the path falls on the same face then the
-            # angle is either inside or outside, depending on the path direction.
-            # If the path falls on different faces then the angle is straight.
-            wf = AngleWavefunction(self.g, g)
-            #print(wf.wave.shape)
-
-
-
-            wf.run()
-
-            # DEBUG
-            wf.debug()
-
-            sys.exit(0)
-
-            #raise
-            #prev_node = path[0]
-            #for i, node in enumerate(path[:-1]):
-            path = nx.path_graph(path, create_using=nx.DiGraph)#nx.DiGraph(self.g.subgraph(path))
-            print('path:', list(path))
-            for node in path:
-                #next_node = path[i + 1]
-                print('\n    node:', node)
-
-                # Get incident edges and reorder.
-                # incidents = self.g.in_edges(node) + self.g_out_edges(node)
-                # for i, incident in enumerate(incidents):
-                #     if incident not in path:
-                #         incidents[i] = tuple(reversed(list(incident)))
-
-
-                #num_incidents = len(incidents)
-                #state = None
-                #if num_incidents == 4:
-                #    state = NodeState.KNOWN
-
-                # Len or 1 or 2.
-                # incident_edges_on_path = [
-                #     incident
-                #     for incident in incidents
-                #     if set(path).issuperset(set(incident))
-                # ]
-                # from itertools import tee
-                # def pairwise(iterable):
-                #     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-                #     a, b = tee(iterable)
-                #     next(b, None)
-                #     return zip(a, b)
-
-
-                # *************************
-
-                # If num incident face blocks is 1, then the node is on an edge
-                # with the external face and can have angles of 90, 0, -90
-                # degrees (providing the adjoining face has the number of verts
-                # to allow this).
-
-                # If the num incident face blocks is 2, then the node is on an
-                # edge between two interior faces and can have angles of 90, 0,
-                # -90 degrees (providing the adjoining face has the number of
-                # verts to allow this).
-
-                # If the num incident face blocks is 3, then the node is on an
-                # edge between three interior faces and can have angles of 90,
-                # 0 or -90 and 0. If the path is along two edges of the same
-                # face then there are two possible angles (the sign coming from
-                # turning left or right which is divined from the winding order
-                # of the adjoining face). Look to the number of verts of each
-                # adjoining face to see what angles they will allow.
-
-                # If the num incident face blocks is 4, then we should be able
-                # to divine exactly which angle the node must be. If the path
-                # is contained on the same face then the angle is either 90 or
-                # -90 depending on the winding order. If the path is along
-                # different faces then the angle is 0.
-
-
-                # TODO: If in_edge or out_edge is None then the angle could be
-                # anything, potentially even a hair-pin reflex angle.
-                in_edge = next(iter(path.in_edges(node)), None)
-                out_edge = next(iter(path.out_edges(node)), None)
-                print('        in_edge:', in_edge)
-                print('        out_edge:', out_edge)
-
-                # Find the cycle that lies on the path if there is one.
-                node_blocks = [block for block in g if node in block]
-                for block in node_blocks:
-
-                    # Can divine which angles we need by whether the face is on
-                    # the left or right side of the path.
-                    edges_forward = set(block.edges_forward)
-                    edges_reverse = set(block.edges_reverse)
-                    if edges_forward.issuperset({in_edge, out_edge}):
-                        angles = [Angle.OUTSIDE, Angle.STRAIGHT, Angle.INSIDE]
-                        break
-                    elif edges_reverse.issuperset({in_edge, out_edge}):
-                        angles = [Angle.INSIDE, Angle.STRAIGHT, Angle.OUTSIDE]
-                        break
-
-                else:
-
-                    # The only reason we wouldn't have a block on the path is
-                    # when there are 4 incident edges and the path goes through
-                    # the middle.
-                    angles = [Angle.STRAIGHT]
-                    block = None
-
-                num_incident_edges = len(self.g.edges(node))
-                max_num_angles = 5 - num_incident_edges
-                if block is not None:
-
-                    if len(block) == 4:
-                        max_num_angles = min(max_num_angles, 1)
-                        #print(f'    reduced max_num_angles to: {max_num_angles} because of 4 sided')
-                    elif len(block) == 5:
-                        max_num_angles = min(max_num_angles, 2)
-                        #print(f'    reduced max_num_angles to: {max_num_angles} because of 5 sided')
-
-
-
-                        # Get the block(s) on the other side.
-                        # If one of the blocks on the other side is 4, then it can't
-                        # be an "inward" angle.
-                        other_blocks = set(node_blocks) - set([block])
-                        #for o_block in other_blocks:
-                            #print('    o_block:', len(o_block))
-
-                        if other_blocks:
-                            lens = [len(b) for b in other_blocks]
-                            min_len = min(lens)
-                            #print('    min len:', min_len)
-                            if min_len == 4 or min_len == 5:
-                                angles.pop(0)
-                                max_num_angles = -1
-
-
-                #print('    max num angles:', max_num_angles)
-
-                # Trim off the number of possible angles by how many incident
-                # edges there are.
-                angles = angles[:max_num_angles]
-                #print('    angles:', angles)
-
-
-
-
-
-
-
-
-                # New impl.
-
-                # Split blocks into those on the left of the line and those on
-                # the right of the line.
-                lefts, rights, orphans = [], [], []
-                for block in node_blocks:
-                    if set(block.edges_forward) & {in_edge, out_edge}:
-                        lefts.append(block)
-                    elif set(block.edges_reverse) & {in_edge, out_edge}:
-                        rights.append(block)
-                    else:
-                        orphans.append(block)
-
-                assert not set(lefts) & set(rights), 'cant be on both sides, buddy'
-                assert len(orphans) < 2, 'Should be max 1 orphan'
-                if orphans:
-                    assert len(lefts) != len(rights), 'Shouldnt have an orphan plus equal lefts and rights'
-
-                # If there are any blocks unaccounted for, these are added to
-                # the side with more blocks (ie a corner)
-                if orphans:
-                    (lefts if len(lefts) > len(rights) else rights).extend(orphans)
-                    #print('   #### added orphan')
-
-                print('    left', len(lefts), [str(b) for b in lefts])
-                print('    right', len(rights), [str(b) for b in rights])
-                # print('    orphans', len(orphans), [str(b) for b in orphans])
-
-                # If there's more than one block on the left side, we can't turn
-                # outwards.
-                angles = set(list(Angle))
-                if len(rights) > 1:
-                    angles.discard(Angle.INSIDE)
-                    if len(rights) == 2 and max([len(right) for right in rights]) == 4:
-                        angles.discard(Angle.OUTSIDE)
-                if len(lefts) > 1:
-                    angles.discard(Angle.OUTSIDE)
-                    if len(lefts) == 2 and max([len(left) for left in lefts]) == 4:
-                        angles.discard(Angle.INSIDE)
-
-                # If there are more than two blocks on the left or the right,
-                # we can't go straight.
-                if len(lefts) > 2 or len(rights) > 2:
-                    angles.discard(Angle.STRAIGHT)
-
-                # If there is a single block on the right and it's a square,
-                # we HAVE to turn right.
-                if len(lefts) == 1:
-                    left_block = lefts[0]
-                    is_on_path = set(left_block.edges_forward).issuperset({in_edge, out_edge})
-                    if is_on_path:
-                        print('    is_on_path:', is_on_path)
-                        if len(left_block) < 6:
-                            angles.discard(Angle.INSIDE)
-                        if len(left_block) < 5:
-                            angles.discard(Angle.STRAIGHT)
-
-                # If there is a single block on the right and it's a square,
-                # we HAVE to turn right.
-                if len(rights) == 1:
-                    right_block = rights[0]
-                    is_on_path = set(right_block.edges_reverse).issuperset({in_edge, out_edge})
-                    if is_on_path:
-                        print('    is_on_path:', is_on_path)
-                        if len(right_block) < 6:
-                            angles.discard(Angle.OUTSIDE)
-                        if len(right_block) < 5:
-                            angles.discard(Angle.STRAIGHT)
-
-                # REMAINING:
-                # Abstract the above.
-                # Fix issue when we have 4 incident edges but only 3 blocks
-                # See if the N44 issue is systemic
-                # Test non-cyclic blocks
-
-                # Both 4 and 5 sided quads can only ever be laid out as a square
-                # Squares decrease this thing I'm going to call "flexibility"
-
-                print('    ANGLES:', angles)
-
-                assert angles, 'Need at least one angle'
-
-
-
-
-                continue
-
-
-
-        return
-
 
         # Find root node.
         sorted_nodes = self._sort_nodes(g)
@@ -459,7 +154,6 @@ class Layouter(object):
 
     def run(self):
         bg = self.get_block_graph()
-        return
         self.bfs(bg)
         print('complete:', len(self.g) == len(self._map.layout))
         print('remainging:', set(self.g) - set(self._map.layout))
