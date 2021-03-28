@@ -3,6 +3,7 @@ import itertools as it
 import numpy as np
 from scipy import sparse
 import colorama
+from tabulate import tabulate
 
 
 TILE_COLOURS = {
@@ -149,6 +150,10 @@ class Wavefunction:
 
     def __init__(self, shape, weights, compatibilities):
 
+        print('shape:', shape)
+        print('weights:', weights)
+        print('compatibilities:', compatibilities)
+
         tiles, weights = zip(*weights.items())
         self.tiles = tiles
         print('tiles:', self.tiles)
@@ -157,17 +162,23 @@ class Wavefunction:
         final_shape = (len(self.tiles),) + shape
         self.wave = np.ones(final_shape, dtype=bool)
 
-        self.adj_matrices = self.to_adjacency_matrix(self.tiles, compatibilities)
+        print('final_shape:', final_shape)
+        print('wave:', self.wave)
 
+        self.adj_matrices = self.to_adjacency_matrix(self.tiles, compatibilities)
+        for m 
+        self.print_adjacencies(self.adj_matrices)
+
+        raise
         # HAXXOR
         # self.wave[0][:][0][0] = False
         # self.wave[1][:][0][0] = False
 
-        #print(self.wave)
+        print(self.wave)
 
     @staticmethod
     def to_adjacency_matrix(tiles, compatibilities):
-        #print('indices:', list(enumerate(tiles)))
+        print('indices:', list(enumerate(tiles)))
         num_tiles = len(tiles)
         adj_matrices = {}
         for d, rules in compatibilities.items():
@@ -205,6 +216,12 @@ class Wavefunction:
             for rule in rules:
                 print('    rule:', rule)
         return cls(size, weights, compatibilities)
+
+    def print_adjacencies(self, array):
+        tabulated = []
+        for i, r in enumerate(array):
+            tabulated.append([self.tiles[i]] + list(r))
+        print(tabulate(tabulated))
 
     def is_collapsed(self):
         num_states = np.count_nonzero(self.wave, axis=0)
@@ -259,10 +276,23 @@ class Wavefunction:
                     index.append(slice(a, b))
 
                 shifted = padded[tuple(index)]
-                supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
+                supports[d] = (
+                    self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)        # Reshapes the 3D array into 2D..?
+                ).reshape(shifted.shape) > 0
 
             for d in supports:
+                print('d:', d)
+                print(type(supports[d]), supports[d].shape)
+                print(supports[d])
+                foo = supports[d].reshape((supports[d].shape[0], -1))
+                print(tabulate(foo, headers=self.tiles, tablefmt='fancy_grid'))
                 self.wave *= supports[d]
+            print('WAVE')
+            tabulated_wave = []
+            for i, r in enumerate(self.wave.reshape(self.wave.shape[0], -1)):
+                 tabulated_wave.append([self.tiles[i]] + list(r))
+
+            print(tabulate(tabulated_wave, headers=self.tiles, tablefmt='fancy_grid'))
             if self.wave.sum() == last_count:
                 break
             last_count = self.wave.sum()
@@ -271,16 +301,24 @@ class Wavefunction:
             print('\n*********contradiction??')
 
     def run(self):
+        print('\n\nrun', self.is_collapsed())
         while not self.is_collapsed():
             coords = self.get_min_entropy_coords()
+            print('    coords:', coords)
             self.collapse(coords)
             self.propagate()
 
 
 if __name__ == '__main__':
+    np.random.seed(0)
 
     # Set up a wave and collapse it.
-    wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX3, (2, 3, 5))
+    shape = (1, 2)
+    weights = {'L': 1, 'S': 1}
+    compatibilities = {
+        (0, 1): {('L', 'S')}
+    }
+    wf = Wavefunction(shape, weights, compatibilities)#.create_from_input_matrix(INPUT_MATRIX3, (2, 3, 5))
     wf.run()
 
     # Draw output.
