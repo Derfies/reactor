@@ -6,9 +6,6 @@ from tabulate import tabulate
 from reactor.utils import weighted_shuffle
 
 
-INDENT = 4
-
-
 class Contradiction(Exception):
     """Solving could not proceed without backtracking/restarting."""
 
@@ -24,21 +21,12 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
 
     def __init__(self):
         self.weights = np.array([1, 1, 1], dtype=np.float64)
-        # self.depth = 0
-        # self.path = []
-
         self.i = 0
 
     def get_min_entropy_coords_offset(self):
         return np.random.random(self.wave.shape[1:]) * 0.1  # TODO: make const?
 
     def get_min_entropy_coords(self):
-        # self.i += 1
-        # if self.i == 1:
-        #     ##print('return origin!')
-        #     ##print(self.wave.shape[1], self.wave.shape[2])
-        #     return self.wave.shape[1] - 1, self.wave.shape[2] - 1
-
         num_states = np.count_nonzero(self.wave, axis=0)
         unresolved = num_states > 1
         offset = self.get_min_entropy_coords_offset()
@@ -48,7 +36,6 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             np.inf,
         )
         index = np.argmin(entropy)
-        ##print(np.unravel_index(index, entropy.shape))
         return np.unravel_index(index, entropy.shape)
 
     def collapse_to_tile(self, coords, tile):
@@ -56,7 +43,6 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         last_count = states.sum()
         states[:] = False
         states[self.tiles.index(tile)] = True
-        ###print(f'\n{self.depth * INDENT * " "}COLLAPSE:', coords, f'[{self.index_to_node[coords]}]', tile, f'DEPTH: {self.depth} PATH: {self.path} VALID: {valid_tiles}')    #f'[{self.coords_to_block[coords]}]
         return states.sum() != last_count
 
     def get_valid_tiles(self, coords):
@@ -68,8 +54,10 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             for i, tile in enumerate(self.tiles)
             if weighted_states[i]
         }
-        shuffle = weighted_shuffle(list(tile_weights.keys()), list(tile_weights.values()))
-        return shuffle
+        return weighted_shuffle(
+            list(tile_weights.keys()),
+            list(tile_weights.values()),
+        )
 
     def print_array(self, d, s):
         print(d)
@@ -80,69 +68,58 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         print(tabulate(tabulated, headers=list(range(len(foo)))))
         print('-' * 35)
 
+    def print_adjacency(self, d, adj):
+        #for d, adj in adjs.items():
+        print(f'adjacencies: {d}')
+        tabulated = []
+        for i, r in enumerate(adj):#.toarray()):
+            tabulated.append([self.tiles[i]] + list(r))
+        print(tabulate(tabulated, headers=self.tiles))
+        print('-' * 35)
+
     def propagate(self, index):
-        print('propagate')
+        #print('propagate')
         last_count = self.wave.sum()
 
         # could be const
-        pad_shape = ((0, 0),) + ((1, 1),) * (len(self.wave.shape) - 1)
+        len_wave_shape = len(self.wave.shape) - 1
+        pad_shape = ((0, 0),) + ((1, 1),) * len_wave_shape
         i = 0
-        self.print_array('wave:', self.wave)
+        #self.print_array('wave:', self.wave)
 
         while True:
-            ##print('\n\n\n')
-            print('i:', i)
-            # padded = np.pad(
-            #     self.wave,
-            #     pad_shape,
-            #     mode='constant',
-            #     constant_values=True
-            # )
-            padded = np.pad(
-                self.wave, ((0, 0), (1, 1), (1, 1)), mode="constant",
-                constant_values=True
-            )
-
-
-
-            #print(padded)
+            #print('i:', i)
             supports = {}
-            # for d in self.adj_matrices:
-            #
-            #     firsts = [1 + e for e in d]
-            #     dim = self.wave.shape[1:]
-            #     seconds = [
-            #         dim[i] + firsts[i]
-            #         for i in range(len(dim))
-            #     ]
-            #
-            #     index = [slice(None)]
-            #     for a, b in zip(firsts, seconds):
-            #         index.append(slice(a, b))
-            #
-            #     shifted = padded[tuple(index)]
-            #     supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape) > 0
-
             for d in self.adj_matrices:
-                dx, dy = d
-                shifted = padded[:, 1 + dx: 1 + self.wave.shape[1] + dx, 1 + dy: 1 + self.wave.shape[2] + dy]
-                self.print_array(f'wave shifted by direction: {d}', shifted)
-                ##print('shifted:', d)
-                ##print(shifted)
-                # #print(f"shifted: {shifted.shape} | adj[d]: {adj[d].shape} | d: {d}")
-                # raise StopEarly
-                # supports[d] = numpy.einsum('pwh,pq->qwh', shifted, adj[d]) > 0
-                #self.print_array(f'shifted: {d}', shifted)
-                self.print_adjacencies(self.adj_matrices)
 
-                supports[d] = (self.adj_matrices[d] @ shifted.reshape(shifted.shape[0], -1)).reshape(shifted.shape)# > 0
-                ##print('supports:')
-                ##print(supports[d])
+                shaped = self.wave.reshape(self.wave.shape[0], -1)
+                adj = self.adj_matrices[d] @ shaped
+                unshaped = adj.reshape(self.wave.shape)
+
+                padded = np.pad(
+                    unshaped,
+                    pad_shape,
+                    mode='constant',
+                    constant_values=True
+                )
+
+                firsts = [1 + e for e in d]
+                dim = self.wave.shape[1:]
+                seconds = [
+                    dim[i] + firsts[i]
+                    for i in range(len(dim))
+                ]
+
+                index = [slice(None)]
+                for a, b in zip(firsts, seconds):
+                    index.append(slice(a, b))
+                supports[d] = padded[tuple(index)]
+
+                #self.print_adjacency(d, self.adj_matrices[d])
+                #self.print_array('result:', self.wave * (supports[d] > 0))
 
             for d, s in supports.items():
-                self.print_array(f'supports: {d}', s)
-                self.wave *= (supports[d] > 0)
-                self.print_array('result:', self.wave)
+                self.wave *= (s > 0)
 
             if self.wave.sum() == last_count:
                 break
@@ -163,9 +140,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
             tile = valid_tiles.pop()
 
             self.collapse_to_tile(coords, tile)
-            #print('collapse_to_tile:')
-            #flat_coords = np.unravel_index(coords, self.wave.size)
-            print('collapse:', coords, '->', tile)
+            #print('collapse:', coords, '->', tile)
 
             try:
                 self.propagate(coords)
@@ -177,16 +152,16 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
                 # Something went wrong - set the wave back so we can try a new
                 # permutation.
                 self.backtrack(coords, original)
-                print('backtrack\n')
+                #print('backtrack\n')
 
         else:
             #raise Contradiction('Ran out of valid tiles')   # I think..?
-            print('EXIT')
+            #print('EXIT')
             import sys
             sys.exit(1)
 
     def run(self):
-        print('\n\nRUN\n\n')
+        #print('\n\nRUN\n\n')
         self.recurse()
 
     def backtrack(self, coords, original):
