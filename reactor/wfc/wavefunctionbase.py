@@ -12,7 +12,7 @@ class Contradiction(Exception):
     pass
 
 
-class WavefunctionBase(metaclass=abc.ABCMeta):
+class WaveFunctionBase(metaclass=abc.ABCMeta):
 
     def __init__(self, shape, tile_weights):
         tiles, weights = zip(*tile_weights.items())
@@ -44,20 +44,14 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
         num_states = np.count_nonzero(self.wave, axis=0)
         unresolved = num_states > 1
         offset = self.get_min_entropy_coords_offset()
-        entropy = np.where(
-            unresolved,
-            num_states + offset,
-            np.inf,
-        )
+        entropy = np.where(unresolved, num_states + offset, np.inf)
         index = np.argmin(entropy)
         return np.unravel_index(index, entropy.shape)
 
     def collapse_to_tile(self, coords, tile):
         states = self.wave[(slice(None), *coords)]
-        last_count = states.sum()
         states[:] = False
         states[self.tiles.index(tile)] = True
-        return states.sum() != last_count
 
     def get_valid_tiles(self, coords):
         states = self.wave[(slice(None), *coords)]
@@ -83,7 +77,7 @@ class WavefunctionBase(metaclass=abc.ABCMeta):
     def recurse(self):
 
         # TODO: Might be able to further abstract this into some
-        #  "bruteforcesovler" class.
+        # "bruteforcesovler" class.
         coords = self.get_min_entropy_coords()
         valid_tiles = self.get_valid_tiles(coords)
         while valid_tiles:

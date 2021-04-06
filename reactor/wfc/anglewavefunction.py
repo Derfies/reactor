@@ -5,10 +5,10 @@ import numpy.ma as ma
 from tabulate import tabulate
 
 from reactor.const import Angle
-from reactor.wfc.wavefunctionbase import Contradiction, WavefunctionBase
+from reactor.wfc.wavefunctionbase import Contradiction, WaveFunctionBase
 
 
-class AngleWavefunction(WavefunctionBase):
+class AngleWaveFunction(WaveFunctionBase):
 
     def __init__(self, g, block_g):
 

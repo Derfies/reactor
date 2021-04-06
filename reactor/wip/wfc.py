@@ -2,6 +2,7 @@ import colorama
 import numpy as np
 
 from reactor.wfc.adjacencywavefunction import AdjacencyWaveFunction
+from reactor.wfc.utils import get_colour_output
 
 
 TILE_COLOURS = {
@@ -42,36 +43,7 @@ def valid_dirs(coord, matrix_size):
     return dirs
 
 
-def render_colors(wave, colors, tiles):
-
-    # Hack so that numpy doesn't wrap lines.
-    np.set_printoptions(edgeitems=30, linewidth=100000)
-
-    # Convert collapsed states to symbols.
-    reshaped = wave.reshape(wave.shape[0], -1)
-    chars = []
-    for index in range(reshaped.shape[1]):
-        states = reshaped[(slice(None), index)]
-        tile = tiles[np.argmax(states)]
-        chars.append(tile)
-    shaped = np.array(chars).reshape(*wave.shape[1:])
-
-    # Convert symbols to coloured ascii characters. Converting the array to a
-    # string means numpy to working out each 2d slice of the nd array for us
-    # automatically.
-    lines = []
-    for line in str(shaped).split('\n'):
-        for bad_char in ('[', ']', '\''):
-            line = line.replace(bad_char, '').strip()
-        new_line = ''
-        for char in line.split():
-            color = colors[char]
-            new_line += color + char + colorama.Style.RESET_ALL
-        lines.append(new_line)
-    return '\n'.join(lines)
-
-
-class Wavefunction(AdjacencyWaveFunction):
+class WaveFunction(AdjacencyWaveFunction):
         
     @classmethod
     def create_from_input_matrix(cls, matrix, shape):
@@ -130,9 +102,9 @@ if __name__ == '__main__':
             ('X', 'X'),
         },
     }
-    #wf = Wavefunction(compatibilities, shape, weights)
-    wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
+    #wf = WaveFunction(compatibilities, shape, weights)
+    wf = WaveFunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
     wf.run()
 
     # Draw output.
-    print(render_colors(wf.wave, TILE_COLOURS, wf.tiles))
+    print(get_colour_output(wf.wave, TILE_COLOURS, wf.tiles))

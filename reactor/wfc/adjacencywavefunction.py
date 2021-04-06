@@ -1,9 +1,9 @@
 import numpy as np
 
-from reactor.wfc.wavefunctionbase import Contradiction, WavefunctionBase
+from reactor.wfc.wavefunctionbase import Contradiction, WaveFunctionBase
 
 
-class AdjacencyWaveFunction(WavefunctionBase):
+class AdjacencyWaveFunction(WaveFunctionBase):
 
     def __init__(self, compatibilities, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -15,6 +15,7 @@ class AdjacencyWaveFunction(WavefunctionBase):
         self.pad_args = {}
         self.slice_args = {}
         for d in self.directions:
+
             pad_args, slice_args = [], []
             for i in range(len(self.wave.shape)):
                 pad_args.append([0, 0])

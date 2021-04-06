@@ -5,19 +5,18 @@ import unittest
 import networkx as nx
 import numpy as np
 from parameterized import parameterized
-from tabulate import tabulate
 
 from reactor.blocks.edgeblock import EdgeBlock
 from reactor.blocks.faceblock import FaceBlock
 from reactor.faceanalysis import FaceAnalysis
-from reactor.wfc.anglewavefunction import AngleWavefunction
+from reactor.wfc.anglewavefunction import AngleWaveFunction
 from reactor.readers.gexfreader import GEXFReader
 
 
 random.seed(1)
 
 
-class TestAngleWavefunction(unittest.TestCase):
+class TestAngleWaveFunction(unittest.TestCase):
 
     def load_graph(self, path):
         return GEXFReader()(path).to_undirected()
@@ -62,7 +61,7 @@ class TestAngleWavefunction(unittest.TestCase):
             np.random.seed(seed)
             g = self.load_graph(graph_path)
             bg = self.create_block_graph(g)
-            wf = AngleWavefunction(g, bg)
+            wf = AngleWaveFunction(g, bg)
             wf.run()
             wf.debug(wf.wave, title=f'FINAL [{seed}]:')
 
