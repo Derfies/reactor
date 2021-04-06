@@ -11,21 +11,20 @@ from reactor.wfc.wavefunctionbase import Contradiction, WavefunctionBase
 class AngleWavefunction(WavefunctionBase):
 
     def __init__(self, g, block_g):
-        super().__init__()
-
-        self.g = g
-        self.block_g = block_g
-        self.tiles = list(Angle)
-        self.absolute_angles = list(map(Angle.absolute, self.tiles))
 
         # Wave shape is 2D - dim 1 is the number of angle variants and dim 2 is
         # how many angles we have.
-        total_num_angles = sum([len(b) for b in self.block_g])
+        total_num_angles = sum([len(b) for b in block_g])
         shape = (total_num_angles,)
-        final_shape = (len(self.tiles),) + shape
-        self.wave = np.ones(final_shape, dtype=bool)
 
-        # Set up masks. `
+        # Tiles are each angle. Stub out ones for each weight.
+        tile_weights = {angle: 1 for angle in list(Angle)}
+        super().__init__(shape, tile_weights)
+
+        self.block_g = block_g  # TODO: only need this for debug.. remove?
+        self.absolute_angles = list(map(Angle.absolute, self.tiles))
+
+        # Set up masks.
         i = 0
         self.nodes = []
         self.indices = []
@@ -50,11 +49,11 @@ class AngleWavefunction(WavefunctionBase):
                 self.indices.append(index)
                 self.index_to_node_array[index] = node_masked
                 self.index_to_block_array[index] = block_masked
-                self.index_to_num_neighbors[index] = len(list(self.g.neighbors(node)))
+                self.index_to_num_neighbors[index] = len(list(g.neighbors(node)))
                 i += 1
 
     def get_min_entropy_coords_offset(self):
-        return self.block_sizes + super().get_min_entropy_coords_offset()
+        return super().get_min_entropy_coords_offset() + self.block_sizes
 
     def constrain(self, array, indices):
         """
@@ -172,6 +171,10 @@ class AngleWavefunction(WavefunctionBase):
                 other_index = nonzero_indices[0]
                 this = node_array[slice(None), cur_index]
                 that = node_array[slice(None), other_index]
+
+                # TODO: Might be able to use matmult here. This sets the other
+                # index to the complemet of this one, which may mask some
+                # contradictions.
                 this_flipped = np.array([this[1], this[0], this[2]])
                 result = this_flipped & that
                 xor = np.logical_xor(that, result)
@@ -223,6 +226,16 @@ class AngleWavefunction(WavefunctionBase):
             stack.extend(dirty_block_indices)
             stack.extend(dirty_node_indices)
 
+    def backtrack(self, index, original):
+        super().backtrack(index, original)
+
+        # Ugly. We need to set the original data in all the masked arrays.
+        # There must be an easier way to do this...
+        for key, value in self.index_to_block_array.items():
+            self.index_to_block_array[key] = ma.masked_array(original, mask=value.mask)
+        for key, value in self.index_to_node_array.items():
+            self.index_to_node_array[key] = ma.masked_array(original, mask=value.mask)
+
     def run(self):
 
         # There's a number of indices we can collapse straight off the bat, so
@@ -234,16 +247,6 @@ class AngleWavefunction(WavefunctionBase):
         # Run default loop.
         if not self.is_collapsed(self.wave):
             super().run()
-
-    def backtrack(self, index, original):
-        super().backtrack(index, original)
-
-        # Ugly. We need to set the original data in all the masked arrays.
-        # There must be an easier way to do this...
-        for key, value in self.index_to_block_array.items():
-            self.index_to_block_array[key] = ma.masked_array(original, mask=value.mask)
-        for key, value in self.index_to_node_array.items():
-            self.index_to_node_array[key] = ma.masked_array(original, mask=value.mask)
 
     def debug(self, mask, title=None):
         print('')

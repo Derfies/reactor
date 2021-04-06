@@ -1,8 +1,7 @@
-import numpy as np
-from scipy import sparse
 import colorama
+import numpy as np
 
-from reactor.wfc.wavefunctionbase import WavefunctionBase
+from reactor.wfc.adjacencywavefunction import AdjacencyWaveFunction
 
 
 TILE_COLOURS = {
@@ -25,17 +24,6 @@ INPUT_MATRIX = [
     ['S', 'S', 'S', 'S'],
     ['S', 'S', 'S', 'S'],
 ]
-
-
-def get_directions(wave):
-    directions = []
-    len_wave_shape = len(wave.shape) - 1
-    for i in range(len_wave_shape):
-        for sign in (-1, 1):
-            direction = [0] * len_wave_shape
-            direction[i] = sign
-            directions.append(tuple(direction))
-    return directions
 
 
 def valid_dirs(coord, matrix_size):
@@ -71,10 +59,8 @@ def render_colors(wave, colors, tiles):
     # Convert symbols to coloured ascii characters. Converting the array to a
     # string means numpy to working out each 2d slice of the nd array for us
     # automatically.
-    print(str(shaped))
     lines = []
     for line in str(shaped).split('\n'):
-        print(line)
         for bad_char in ('[', ']', '\''):
             line = line.replace(bad_char, '').strip()
         new_line = ''
@@ -82,39 +68,13 @@ def render_colors(wave, colors, tiles):
             color = colors[char]
             new_line += color + char + colorama.Style.RESET_ALL
         lines.append(new_line)
-
     return '\n'.join(lines)
 
 
-class Wavefunction(WavefunctionBase):
-
-    def __init__(self, shape, weights, compatibilities):
-
-        tiles, weights = zip(*weights.items())
-        self.tiles = tiles
-        self.weights = np.array(weights, dtype=np.float64)
-
-        final_shape = (len(self.tiles),) + shape
-        self.wave = np.ones(final_shape, dtype=bool)
-
-        self.adj_matrices = self.to_adjacency_matrix(self.tiles, compatibilities)
-
-    def to_adjacency_matrix(self, tiles, compatibilities):
-        # TODO: Use sparse.csr_matrix(m)
-        num_tiles = len(tiles)
-        adj_matrices = {
-            direction: np.zeros((num_tiles, num_tiles), dtype=bool)
-            for direction in get_directions(self.wave)
-        }
-        for d, rules in compatibilities.items():
-            for rule in rules:
-                tile, other_tile = rule
-                index, other_index = tiles.index(tile), tiles.index(other_tile)
-                adj_matrices[d][index, other_index] = 1
-        return adj_matrices
+class Wavefunction(AdjacencyWaveFunction):
         
     @classmethod
-    def create_from_input_matrix(cls, matrix, size):
+    def create_from_input_matrix(cls, matrix, shape):
         matrix = np.array(matrix)
         weights = {}
         compatibilities = {}
@@ -127,7 +87,7 @@ class Wavefunction(WavefunctionBase):
                     other_coords.append(coords[i] + d[i])
                 other_tile = matrix[tuple(other_coords)]
                 compatibilities.setdefault(d, set()).add((tile, other_tile))
-        return cls(size, weights, compatibilities)
+        return cls(compatibilities, shape, weights)
 
 
 if __name__ == '__main__':
@@ -136,7 +96,7 @@ if __name__ == '__main__':
     random.seed(0)
 
     # Set up a wave and collapse it.
-    shape = (5, 5, 5)
+    shape = (5, 6, 7)
     weights = {'L': 1, 'S': 1, 'X': 1}
 
     # (0, 1) - Appears to be one column to the right
@@ -170,7 +130,7 @@ if __name__ == '__main__':
             ('X', 'X'),
         },
     }
-    #wf = Wavefunction(shape, weights, compatibilities)
+    #wf = Wavefunction(compatibilities, shape, weights)
     wf = Wavefunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
     wf.run()
 
