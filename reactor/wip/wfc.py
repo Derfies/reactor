@@ -26,40 +26,40 @@ INPUT_MATRIX = [
     ['S', 'S', 'S', 'S'],
 ]
 
-
-def valid_dirs(coord, matrix_size):
-
-    # Merge with get_directions above?
-    dirs = []
-    for i in range(len(coord)):
-        if coord[i] > 0:
-            d = [0] * len(coord)
-            d[i] = -1
-            dirs.append(tuple(d))
-        if coord[i] < matrix_size[i] - 1:
-            d = [0] * len(coord)
-            d[i] = 1
-            dirs.append(tuple(d))
-    return dirs
-
-
-class WaveFunction(AdjacencyWaveFunction):
-        
-    @classmethod
-    def create_from_input_matrix(cls, matrix, shape):
-        matrix = np.array(matrix)
-        weights = {}
-        compatibilities = {}
-        for coords, tile in np.ndenumerate(matrix):
-            weights.setdefault(tile, 0)
-            weights[tile] += 1
-            for d in valid_dirs(coords, matrix.shape):
-                other_coords = []
-                for i, el in enumerate(coords):
-                    other_coords.append(coords[i] + d[i])
-                other_tile = matrix[tuple(other_coords)]
-                compatibilities.setdefault(d, set()).add((tile, other_tile))
-        return cls(compatibilities, shape, weights)
+#
+# def valid_dirs(coord, matrix_size):
+#
+#     # Merge with get_directions above?
+#     dirs = []
+#     for i in range(len(coord)):
+#         if coord[i] > 0:
+#             d = [0] * len(coord)
+#             d[i] = -1
+#             dirs.append(tuple(d))
+#         if coord[i] < matrix_size[i] - 1:
+#             d = [0] * len(coord)
+#             d[i] = 1
+#             dirs.append(tuple(d))
+#     return dirs
+#
+#
+# class WaveFunction(AdjacencyWaveFunction):
+#
+#     @classmethod
+#     def create_from_input_matrix(cls, matrix, shape):
+#         matrix = np.array(matrix)
+#         weights = {}
+#         compatibilities = {}
+#         for coords, tile in np.ndenumerate(matrix):
+#             weights.setdefault(tile, 0)
+#             weights[tile] += 1
+#             for d in valid_dirs(coords, matrix.shape):
+#                 other_coords = []
+#                 for i, el in enumerate(coords):
+#                     other_coords.append(coords[i] + d[i])
+#                 other_tile = matrix[tuple(other_coords)]
+#                 compatibilities.setdefault(d, set()).add((tile, other_tile))
+#         return cls(compatibilities, shape, weights)
 
 
 if __name__ == '__main__':
@@ -102,8 +102,8 @@ if __name__ == '__main__':
             ('X', 'X'),
         },
     }
-    #wf = WaveFunction(compatibilities, shape, weights)
-    wf = WaveFunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
+    #wf = AdjacencyWaveFunction(compatibilities, shape, weights)
+    wf = AdjacencyWaveFunction.create_from_input_matrix(INPUT_MATRIX, (10, 50))
     wf.run()
 
     # Draw output.

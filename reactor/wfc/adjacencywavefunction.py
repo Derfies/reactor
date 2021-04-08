@@ -28,6 +28,38 @@ class AdjacencyWaveFunction(WaveFunctionBase):
             self.pad_args[d] = pad_args
             self.slice_args[d] = tuple(slice_args)
 
+    @staticmethod
+    def valid_dirs(coord, matrix_size):
+
+        # Merge with get_directions above?
+        dirs = []
+        for i in range(len(coord)):
+            if coord[i] > 0:
+                d = [0] * len(coord)
+                d[i] = -1
+                dirs.append(tuple(d))
+            if coord[i] < matrix_size[i] - 1:
+                d = [0] * len(coord)
+                d[i] = 1
+                dirs.append(tuple(d))
+        return dirs
+
+    @classmethod
+    def create_from_input_matrix(cls, matrix, shape):
+        matrix = np.array(matrix)
+        weights = {}
+        compatibilities = {}
+        for coords, tile in np.ndenumerate(matrix):
+            weights.setdefault(tile, 0)
+            weights[tile] += 1
+            for d in cls.valid_dirs(coords, matrix.shape):
+                other_coords = []
+                for i, el in enumerate(coords):
+                    other_coords.append(coords[i] + d[i])
+                other_tile = matrix[tuple(other_coords)]
+                compatibilities.setdefault(d, set()).add((tile, other_tile))
+        return cls(compatibilities, shape, weights)
+
     def _calculate_adjacency_matrix(self, compatibilities):
         # TODO: Use sparse.csr_matrix(m)
         num_tiles = len(self.tiles)
