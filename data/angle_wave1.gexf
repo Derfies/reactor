@@ -1,0 +1,217 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+<gexf xmlns = "http://www.gexf.net/1.2draft" version = "1.2"
+    xmlns:viz = "http://www.gexf.net/1.2draft/viz"
+    xmlns:xsi = "http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
+    <meta lastmodifieddate = "2021-02-03">
+        <creator>Qt Visual Graph Editor 0.6.1 (64bit)</creator>
+        <description></description>
+    </meta>
+    <graph mode="static" defaultedgetype="directed">
+    <attributes class="" mode="static">
+        <attribute id="comment" title="comment" type="string">
+            <default></default>
+        </attribute>
+        <attribute id="creator" title="creator" type="string">
+            <default>Qt Visual Graph Editor 0.6.1</default>
+        </attribute>
+        <attribute id="labels.policy" title="labels.policy" type="integer">
+            <default>0</default>
+        </attribute>
+    </attributes>
+    <attributes class="node" mode="static">
+        <attribute id="_vis_" title="_vis_" type="liststring">
+            <default>label</default>
+        </attribute>
+        <attribute id="color" title="color" type="string">
+            <default>#ff00ff</default>
+        </attribute>
+        <attribute id="shape" title="shape" type="string">
+            <default>disc</default>
+        </attribute>
+        <attribute id="size" title="size" type="float">
+            <default>11</default>
+        </attribute>
+        <attribute id="stroke.color" title="stroke.color" type="string">
+            <default>#000000</default>
+        </attribute>
+        <attribute id="stroke.size" title="stroke.size" type="double">
+            <default>1</default>
+        </attribute>
+        <attribute id="stroke.style" title="stroke.style" type="string">
+            <default>solid</default>
+        </attribute>
+        <attribute id="x" title="x" type="float">
+        </attribute>
+        <attribute id="y" title="y" type="float">
+        </attribute>
+    </attributes>
+    <attributes class="edge" mode="static">
+        <attribute id="_vis_" title="_vis_" type="liststring">
+            <default>label</default>
+        </attribute>
+        <attribute id="color" title="color" type="string">
+            <default>#a0a0a4</default>
+        </attribute>
+        <attribute id="direction" title="direction" type="string">
+            <default>directed</default>
+        </attribute>
+        <attribute id="points" title="points" type="string">
+        </attribute>
+        <attribute id="style" title="style" type="string">
+            <default>solid</default>
+        </attribute>
+        <attribute id="weight" title="weight" type="double">
+            <default>1</default>
+        </attribute>
+    </attributes>
+    <nodes>
+        <node id="N21" label="">
+            <viz:position x="-175" y="175"/>
+        </node>
+        <node id="N22" label="">
+            <viz:position x="-175" y="100"/>
+        </node>
+        <node id="N6" label="">
+            <viz:position x="-175" y="-125"/>
+        </node>
+        <node id="N17" label="">
+            <viz:position x="50" y="175"/>
+        </node>
+        <node id="N10" label="">
+            <viz:position x="-25" y="-50"/>
+        </node>
+        <node id="N19" label="">
+            <viz:position x="-100" y="175"/>
+        </node>
+        <node id="N9" label="">
+            <viz:position x="-25" y="-125"/>
+        </node>
+        <node id="N7" label="">
+            <viz:position x="-100" y="-125"/>
+        </node>
+        <node id="N8" label="">
+            <viz:position x="-100" y="-50"/>
+        </node>
+        <node id="N18" label="">
+            <viz:position x="-25" y="175"/>
+        </node>
+        <node id="N12" label="">
+            <viz:position x="50" y="-50"/>
+        </node>
+        <node id="N11" label="">
+            <viz:position x="50" y="-125"/>
+        </node>
+        <node id="N14" label="">
+            <viz:position x="-25" y="25"/>
+        </node>
+        <node id="N16" label="">
+            <viz:position x="-25" y="100"/>
+        </node>
+        <node id="N13" label="">
+            <viz:position x="50" y="25"/>
+        </node>
+        <node id="N20" label="">
+            <viz:position x="-100" y="100"/>
+        </node>
+        <node id="N15" label="">
+            <viz:position x="50" y="100"/>
+        </node>
+        <node id="N5" label="">
+            <viz:position x="-250" y="-125"/>
+        </node>
+        <node id="N4" label="">
+            <viz:position x="-250" y="25"/>
+        </node>
+        <node id="N1" label="">
+            <viz:position x="-250" y="-50"/>
+        </node>
+        <node id="N2" label="">
+            <viz:position x="-175" y="-50"/>
+        </node>
+        <node id="N3" label="">
+            <viz:position x="-175" y="25"/>
+        </node>
+        <node id="N24" label="">
+            <viz:position x="-250" y="100"/>
+        </node>
+        <node id="N23" label="">
+            <viz:position x="-250" y="175"/>
+        </node>
+    </nodes>
+    <edges>
+        <edge id="E24" label="" source="N17" target="N18">
+        </edge>
+        <edge id="E27" label="" source="N19" target="N20">
+        </edge>
+        <edge id="E28" label="" source="N20" target="N16">
+        </edge>
+        <edge id="E32" label="" source="N21" target="N23">
+        </edge>
+        <edge id="E33" label="" source="N23" target="N24">
+        </edge>
+        <edge id="E30" label="" source="N21" target="N22">
+        </edge>
+        <edge id="E36" label="" source="N3" target="N22">
+        </edge>
+        <edge id="E31" label="" source="N22" target="N20">
+        </edge>
+        <edge id="E34" label="" source="N24" target="N22">
+        </edge>
+        <edge id="E35" label="" source="N24" target="N4">
+        </edge>
+        <edge id="E23" label="" source="N15" target="N17">
+        </edge>
+        <edge id="E10" label="" source="N8" target="N2">
+        </edge>
+        <edge id="E12" label="" source="N9" target="N10">
+        </edge>
+        <edge id="E13" label="" source="N10" target="N8">
+        </edge>
+        <edge id="E15" label="" source="N11" target="N12">
+        </edge>
+        <edge id="E17" label="" source="N12" target="N13">
+        </edge>
+        <edge id="E11" label="" source="N7" target="N9">
+        </edge>
+        <edge id="E14" label="" source="N9" target="N11">
+        </edge>
+        <edge id="E16" label="" source="N12" target="N10">
+        </edge>
+        <edge id="E8" label="" source="N6" target="N7">
+        </edge>
+        <edge id="E2" label="" source="N2" target="N3">
+        </edge>
+        <edge id="E19" label="" source="N14" target="N10">
+        </edge>
+        <edge id="E18" label="" source="N13" target="N14">
+        </edge>
+        <edge id="E1" label="" source="N1" target="N2">
+        </edge>
+        <edge id="E20" label="" source="N13" target="N15">
+        </edge>
+        <edge id="E22" label="" source="N16" target="N14">
+        </edge>
+        <edge id="E5" label="" source="N1" target="N5">
+        </edge>
+        <edge id="E3" label="" source="N3" target="N4">
+        </edge>
+        <edge id="E6" label="" source="N5" target="N6">
+        </edge>
+        <edge id="E7" label="" source="N6" target="N2">
+        </edge>
+        <edge id="E4" label="" source="N4" target="N1">
+        </edge>
+        <edge id="E9" label="" source="N7" target="N8">
+        </edge>
+        <edge id="E21" label="" source="N15" target="N16">
+        </edge>
+        <edge id="E25" label="" source="N18" target="N16">
+        </edge>
+        <edge id="E26" label="" source="N18" target="N19">
+        </edge>
+        <edge id="E29" label="" source="N19" target="N21">
+        </edge>
+    </edges>
+    </graph>
+</gexf>
